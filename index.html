@@ -276,11 +276,12 @@
     islemListesi.filter(i => i.cariId === cariId).forEach(i => {
         let d = i.tarih ? new Date(i.tarih.seconds * 1000) : new Date();
         hareketler.push({
-            id: i.id, tipKodu: 'islem', bankaId: i.bankaId,
+            id: i.id, tipKodu: 'islem', bankaId: i.bankaId, orijinalTur: i.tur, // Orijinal Tür eklendi
             tarih: d.toISOString().split('T')[0], 
             tip: i.tur === 'Tahsilat' ? 'Tahsilat (Giriş)' : 'Ödeme (Çıkış)', 
             aciklama: i.aciklama || 'Banka/Kasa İşlemi', 
             tutar: i.tur === 'Tahsilat' ? -i.tutar : i.tutar,
+            mutlakTutar: i.tutar, // Her zaman pozitif tutar
             hamTarih: d.getTime()
         });
     });
@@ -306,8 +307,8 @@
         hareketler.forEach(h => {
             let renk = h.tutar > 0 ? 'text-success' : 'text-danger';
             let silButon = h.tipKodu === 'islem' ? 
-                `<button class="btn btn-sm btn-outline-danger py-0" onclick="islemSil('${h.id}', '${cariId}', '${h.bankaId}', ${h.tutar})" title="Banka işlemini sil"><i class="fas fa-trash"></i></button>` : 
-                `<span class="badge bg-light text-muted">Fatura sekmesinden silin</span>`;
+                `<button class="btn btn-sm btn-outline-danger py-0" onclick="islemSil('${h.id}', '${cariId}', '${h.bankaId}', '${h.orijinalTur}', ${h.mutlakTutar})" title="Banka işlemini sil"><i class="fas fa-trash"></i></button>` : 
+                `<span class="badge bg-light text-muted">Faturalardan silin</span>`;
                 
             html += `<tr>
                 <td>${h.tarih}</td><td>${h.tip}</td><td>${h.aciklama}</td>
@@ -323,17 +324,25 @@
 };
 
 // YENİ EKLENEN: Ekstreden Banka İşlemi Silme (Bakiye düzeltmeli)
-window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
-    if(!confirm("Bu banka hareketini silmek istediğinize emin misiniz? Cari ve Banka bakiyeleri otomatik geri alınacaktır.")) return;
-    try {
-        await deleteDoc(doc(db, "hesapHareketleri", islemId));
-        // İşlem tutarı ekstreden gelir (Tahsilat ise negatif, ödeme ise pozitiftir)
-        // Tersini yaparak bakiyeleri geri alıyoruz.
-        await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(-islemTutari) });
-        await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(islemTutari) });
-        cariEkstreAc(cariId); // Ekranı yenile
-    } catch(e) { alert("Hata: " + e.message); }
-};
+window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
+      if(!confirm("Bu banka hareketini silmek istediğinize emin misiniz? Cari ve Banka bakiyeleri otomatik olarak iade edilecektir.")) return;
+      try {
+          // Tutarı her ihtimale karşı mutlak (pozitif) değere çeviriyoruz
+          let tutar = Math.abs(parseFloat(islemTutari)); 
+          await deleteDoc(doc(db, "hesapHareketleri", islemId));
+
+          // Tahsilat silinince: Bankadan para çıkar (-), Cari borcu artar (+)
+          // Ödeme silinince: Bankaya para girer (+), Cari borcu azalır (-)
+          const bankaFarki = tur === 'Tahsilat' ? -tutar : tutar;
+          const cariFarki = tur === 'Tahsilat' ? tutar : -tutar;
+
+          await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(cariFarki) });
+          await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(bankaFarki) });
+
+          // Açık olan ekranı kapatıp listeyi yenile
+          document.getElementById('main-content').innerHTML = '<div class="alert alert-success mt-4">İşlem başarıyla silindi ve bakiyeler güncellendi. Sol menüden listeye dönebilirsiniz.</div>';
+      } catch(e) { alert("Hata: " + e.message); }
+  };
 
   window.cariDuzenleAc = function(id) {
       const c = cariListesi.find(x => x.id === id);
@@ -419,9 +428,11 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
   window.faturaSil = async function(faturaId, cariId, tur, toplamTutar) {
       if(!confirm("Bu faturayı silmek istediğinize emin misiniz? Cari bakiye otomatik olarak geri alınacaktır.")) return;
       try {
+          let tutar = Math.abs(parseFloat(toplamTutar)); // Kesinlikle pozitif sayıya çevir
           await deleteDoc(doc(db, "faturalar", faturaId));
-          // Cari bakiyeyi tersine çevir
-          const bakiyeDegisimi = tur === 'Satis' ? -toplamTutar : toplamTutar;
+          // Satis faturası silindiğinde cari borcu azalır (-)
+          // Alim faturası silindiğinde cari borcu (alacağımız) artar (+)
+          const bakiyeDegisimi = tur === 'Satis' ? -tutar : tutar;
           await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(bakiyeDegisimi) });
       } catch(e) { alert("Hata: " + e.message); }
   };
@@ -452,67 +463,56 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
 
   // Faturayı Veritabanına Kaydet ve Cari Bakiyeyi Güncelle
   window.faturaKaydet = async function() {
+      const id = document.getElementById('f_id').value; // Gizli ID
       const cariId = document.getElementById('f_cariId').value;
       const faturaNo = document.getElementById('f_faturaNo').value;
       const tarih = document.getElementById('f_tarih').value;
       const tur = document.getElementById('f_tur').value;
+      const paraBirimi = document.getElementById('f_paraBirimi').value;
       const tutar = parseFloat(document.getElementById('f_tutar').value) || 0;
+      const kdvOran = parseFloat(document.getElementById('f_kdvOran').value) || 0;
       const kdvTutar = parseFloat(document.getElementById('f_kdvTutar').value) || 0;
       const toplamTutar = parseFloat(document.getElementById('f_toplam').value) || 0;
 
       if(cariId === "" || faturaNo.trim() === "" || tarih === "" || tutar <= 0) {
-          alert("Lütfen Cari, Fatura No, Tarih ve Tutar alanlarını eksiksiz giriniz.");
-          return;
+          alert("Lütfen Cari, Fatura No, Tarih ve Tutar alanlarını eksiksiz giriniz."); return;
       }
 
       const kaydetBtn = document.querySelector("#yeniFaturaModal .btn-primary");
-      kaydetBtn.innerHTML = "İşleniyor..."; 
-      kaydetBtn.disabled = true;
+      kaydetBtn.innerHTML = "İşleniyor..."; kaydetBtn.disabled = true;
 
       try {
-          // 1. Seçilen carinin bilgilerini bul
           const secilenCari = cariListesi.find(c => c.id === cariId);
-          
-          // 2. Faturayı Firebase'e kaydet
-          await addDoc(collection(db, "faturalar"), {
-              cariId: cariId,
-              cariUnvan: secilenCari.unvan,
-              faturaNo: faturaNo,
-              tarih: tarih,
-              tur: tur,
-              tutar: tutar,
-              kdvOran: parseFloat(document.getElementById('f_kdvOran').value),
-              kdvTutar: kdvTutar,
-              toplamTutar: toplamTutar,
-              durum: 'Bekliyor', // Ödendi / Bekliyor
-              islemTarihi: serverTimestamp()
-          });
+          const yeniBakiyeDegisimi = tur === 'Satis' ? toplamTutar : -toplamTutar; // Müşteri borçlanır (+), Biz borçlanırız (-)
 
-          // 3. CARİ BAKİYESİNİ GÜNCELLEME İŞLEMİ
-          let eskiBakiye = secilenCari.bakiye || 0;
-          let yeniBakiye = eskiBakiye;
+          if (id) {
+              // DÜZENLEME İŞLEMİ (Önce eski bakiye etkisini geri alıyoruz)
+              const eskiFatura = faturaListesi.find(f => f.id === id);
+              if(eskiFatura) {
+                  const eskiBakiyeIadesi = eskiFatura.tur === 'Satis' ? -eskiFatura.toplamTutar : eskiFatura.toplamTutar;
+                  await updateDoc(doc(db, "cariler", eskiFatura.cariId), { bakiye: increment(eskiBakiyeIadesi) });
+              }
+              // Faturayı yeni verilerle güncelle
+              await updateDoc(doc(db, "faturalar", id), {
+                  cariId: cariId, cariUnvan: secilenCari.unvan, faturaNo: faturaNo, tarih: tarih, tur: tur, paraBirimi: paraBirimi, tutar: tutar, kdvOran: kdvOran, kdvTutar: kdvTutar, toplamTutar: toplamTutar
+              });
+              // Yeni tutarı cariye yansıt
+              await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(yeniBakiyeDegisimi) });
 
-          if (tur === 'Satis') {
-              yeniBakiye = eskiBakiye + toplamTutar; // Müşteri borçlanır, bakiye artar
-          } else if (tur === 'Alim') {
-              yeniBakiye = eskiBakiye - toplamTutar; // Biz borçlanırız, bakiye eksiye gider
+          } else {
+              // SIFIRDAN YENİ FATURA EKLEME İŞLEMİ
+              await addDoc(collection(db, "faturalar"), {
+                  cariId: cariId, cariUnvan: secilenCari.unvan, faturaNo: faturaNo, tarih: tarih, tur: tur, paraBirimi: paraBirimi, tutar: tutar, kdvOran: kdvOran, kdvTutar: kdvTutar, toplamTutar: toplamTutar, durum: 'Bekliyor', islemTarihi: serverTimestamp()
+              });
+              // Tutarı cariye yansıt
+              await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(yeniBakiyeDegisimi) });
           }
-
-          // İlgili Cari kartın veritabanındaki referansını al ve güncelle
-          const cariRef = doc(db, "cariler", cariId);
-          await updateDoc(cariRef, {
-              bakiye: yeniBakiye
-          });
 
           bootstrap.Modal.getInstance(document.getElementById('yeniFaturaModal')).hide();
           document.getElementById('yeniFaturaForm').reset();
-
-      } catch (error) {
-          alert("Kayıt sırasında hata oluştu: " + error.message);
-      } finally {
-          kaydetBtn.innerHTML = "Kaydet"; 
-          kaydetBtn.disabled = false;
-      }
+          document.getElementById('f_id').value = '';
+      } catch (error) { alert("Kayıt sırasında hata oluştu: " + error.message); } 
+      finally { kaydetBtn.innerHTML = "Faturayı İşle"; kaydetBtn.disabled = false; }
   };
 
 // ---------------- BANKA VE KASA İŞLEMLERİ ----------------
