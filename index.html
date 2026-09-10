@@ -18,6 +18,14 @@
         
         #login-container { min-height: 100vh; background-color: #2c3e50; }
         .login-card { border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+        @media print {
+    body * { visibility: hidden; }
+    .sidebar, .btn, .modal-footer, .nav { display: none !important; }
+    #yazdirilacak-alan, #yazdirilacak-alan * { visibility: visible; }
+    #yazdirilacak-alan { position: absolute; left: 0; top: 0; width: 100%; }
+}
+
     </style>
 </head>
 <body>
@@ -184,51 +192,70 @@
 
   // ---------------- YÖNETİCİ ÖZETİ (DASHBOARD) HESAPLAMALARI ----------------
   window.dashboardCiz = function() {
-      // Ekranda dashboard kartları yoksa (başka sayfadaysak) boşuna yorulma
-      if(!document.getElementById('dash_kasa')) return;
+    if(!document.getElementById('dash_kasa_listesi')) return;
 
-      let toplamKasa = 0;
-      let toplamAlacak = 0;
-      let toplamBorc = 0;
+    let bankalarHtml = '';
+    bankaListesi.forEach(b => {
+        let sembol = b.paraBirimi === 'USD' ? '$' : '€';
+        bankalarHtml += `<div class="d-flex justify-content-between border-bottom pb-1 mb-1"><small>${b.hesapAdi}</small><strong>${b.bakiye.toFixed(2)} ${sembol}</strong></div>`;
+    });
 
-      // 1. Kasadaki Parayı Hesapla
-      bankaListesi.forEach(banka => {
-          toplamKasa += (banka.bakiye || 0);
-      });
+    let alacakHtml = ''; let borcHtml = '';
+    cariListesi.forEach(c => {
+        let bakiye = c.bakiye || 0;
+        let sembol = (c.paraBirimi === 'USD') ? '$' : '€';
+        if(bakiye > 0) alacakHtml += `<span class="badge bg-light text-dark border m-1">${c.unvan}: ${bakiye.toFixed(2)}${sembol}</span>`;
+        else if(bakiye < 0) borcHtml += `<span class="badge bg-light text-dark border m-1">${c.unvan}: ${Math.abs(bakiye).toFixed(2)}${sembol}</span>`;
+    });
 
-      // 2. Cari Bakiyeleri Hesapla (Artı ise Müşteri bize borçlu=Alacak, Eksi ise Biz borçluyuz=Borç)
-      cariListesi.forEach(cari => {
-          let bakiye = cari.bakiye || 0;
-          if(bakiye > 0) {
-              toplamAlacak += bakiye;
-          } else if(bakiye < 0) {
-              toplamBorc += Math.abs(bakiye); // Eksi işareti kaldırarak (mutlak değer) topla
-          }
-      });
-
-      // 3. Ekrana Yazdır
-      document.getElementById('dash_kasa').innerHTML = toplamKasa.toFixed(2) + " €";
-      document.getElementById('dash_alacak').innerHTML = toplamAlacak.toFixed(2) + " €";
-      document.getElementById('dash_borc').innerHTML = toplamBorc.toFixed(2) + " €";
-  };
+    document.getElementById('dash_kasa_listesi').innerHTML = bankalarHtml || '<small class="text-muted">Kayıtlı banka yok.</small>';
+    document.getElementById('dash_alacak_rozetler').innerHTML = alacakHtml || '-';
+    document.getElementById('dash_borc_rozetler').innerHTML = borcHtml || '-';
+};
 
   // ---------------- CARİ İŞLEMLERİ ----------------
   window.tabloyuCiz = function() {
-      const tbody = document.getElementById('cariTabloGövdesi');
-      if (!tbody) return; 
-      tbody.innerHTML = ""; 
-      cariListesi.forEach(cari => {
-          let bolgeBadge = cari.bolge === 'Yerli' ? '<span class="badge bg-secondary">Yerli</span>' : '<span class="badge bg-info text-dark">Yabancı</span>';
-          let bakiye = cari.bakiye || 0;
-          let bakiyeRenk = bakiye < 0 ? 'text-danger' : (bakiye > 0 ? 'text-success' : 'text-dark');
-          tbody.innerHTML += `<tr>
-              <td><span class="fw-bold">${cari.unvan}</span><br><small class="text-muted">${cari.grup === 'Alici' ? 'Müşteri' : 'Tedarikçi'}</small></td>
-              <td>${bolgeBadge}</td><td>${cari.ulke}</td><td>${cari.vergiNo}</td>
-              <td class="${bakiyeRenk} fw-bold">${bakiye.toFixed(2)} €</td>
-              <td><button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button></td>
-          </tr>`;
-      });
-  };
+    const alan = document.getElementById('cariTabloGövdesi'); // İsmine aldanmayın, artık div olacak
+    if (!alan) return; 
+    alan.innerHTML = '<div class="row" id="cariKartlari"></div>';
+    const kartAlani = document.getElementById('cariKartlari');
+
+    cariListesi.forEach(cari => {
+        let bakiye = cari.bakiye || 0;
+        let bRenk = bakiye < 0 ? 'text-danger' : (bakiye > 0 ? 'text-success' : 'text-dark');
+        let birim = cari.paraBirimi || 'EUR';
+        let sembol = birim === 'USD' ? '$' : '€';
+
+        kartAlani.innerHTML += `
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100 border-start border-4 border-primary cursor-pointer" onclick="cariEkstreAc('${cari.id}')">
+                    <div class="card-body">
+                        <h6 class="fw-bold text-truncate">${cari.unvan}</h6>
+                        <small class="text-muted">${cari.ulke} | ${birim}</small>
+                        <h4 class="${bRenk} mt-2">${bakiye.toFixed(2)} ${sembol}</h4>
+                    </div>
+                </div>
+            </div>`;
+    });
+};
+
+    window.cariEkstreAc = async function(cariId) {
+    const cari = cariListesi.find(c => c.id === cariId);
+    let html = `<div id="yazdirilacak-alan" class="p-4 bg-white">
+        <h4 class="border-bottom pb-2">${cari.unvan} - Hesap Ekstresi</h4>
+        <p><strong>Para Birimi:</strong> ${cari.paraBirimi || 'EUR'} | <strong>Güncel Bakiye:</strong> ${cari.bakiye} ${cari.paraBirimi === 'USD' ? '$' : '€'}</p>
+        <table class="table table-sm">
+            <thead><tr><th>Tarih</th><th>İşlem Tipi</th><th>Açıklama</th><th>Tutar</th></tr></thead>
+            <tbody>`;
+            
+    // Not: Gerçek veriler için 'hesapHareketleri' ve 'faturalar' koleksiyonlarında filtreleme yapacak ayrı bir Firebase sorgusu eklenmelidir.
+    html += `<tr><td colspan="4" class="text-center text-muted">Geçmiş hareketler burada listelenir.</td></tr>`;
+    
+    html += `</tbody></table></div>`;
+    html += `<div class="mt-3"><button class="btn btn-secondary" onclick="window.print()"><i class="fas fa-print"></i> Ekstreyi Yazdır</button></div>`;
+    
+    document.getElementById('main-content').innerHTML = html;
+};
 
   window.cariKaydet = async function() {
       const unvan = document.getElementById('c_unvan').value;
@@ -597,113 +624,55 @@
   };
 
   // ---------------- ŞİRKET KÜNYESİ İŞLEMLERİ ----------------
+  
   window.kunyeCiz = function() {
       const alan = document.getElementById('kunyeKarti');
       if (!alan) return;
-      
       const v = kunyeVerisi;
+      
+      // NOT: innerHTML içine yazdirilacak-alan eklendi ve USD IBAN eklendi
       alan.innerHTML = `
-          <div class="row">
-              <h6 class="border-bottom pb-2 text-primary"><i class="fas fa-info-circle"></i> Resmi Kimlik Bilgileri</h6>
-              <div class="col-md-6 mb-3">
-                  <label class="text-muted small mb-1">Kısa Ünvan</label>
-                  <div class="d-flex align-items-center">
-                      <strong class="fs-6 me-3">${v.unvan || '-'}</strong>
-                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.unvan || ''}')"><i class="far fa-copy"></i></button>
+          <div id="yazdirilacak-alan">
+              <h4 class="mb-4 text-center d-none d-print-block">${v.unvan || 'ŞİRKET KÜNYESİ'}</h4>
+              <div class="row">
+                  <h6 class="border-bottom pb-2 text-primary"><i class="fas fa-info-circle"></i> Resmi Kimlik Bilgileri</h6>
+                  <div class="col-md-6 mb-3">
+                      <label class="text-muted small mb-1">Kısa Ünvan</label>
+                      <div><strong class="fs-6">${v.unvan || '-'}</strong></div>
                   </div>
-              </div>
-              <div class="col-md-6 mb-3">
-                  <label class="text-muted small mb-1">PIB (Vergi Numarası)</label>
-                  <div class="d-flex align-items-center">
-                      <strong class="fs-6 me-3">${v.pib || '-'}</strong>
-                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.pib || ''}')"><i class="far fa-copy"></i></button>
+                  <div class="col-md-6 mb-3">
+                      <label class="text-muted small mb-1">PIB (Vergi Numarası)</label>
+                      <div><strong class="fs-6">${v.pib || '-'}</strong></div>
                   </div>
-              </div>
-              <div class="col-md-12 mb-3">
-                  <label class="text-muted small mb-1">Tam Resmi Ünvan (Rješenje'deki Hali)</label>
-                  <div class="d-flex align-items-center">
-                      <strong class="fs-6 me-3">${v.tamUnvan || '-'}</strong>
-                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.tamUnvan || ''}')"><i class="far fa-copy"></i></button>
+                  <div class="col-md-12 mb-3">
+                      <label class="text-muted small mb-1">Tam Resmi Ünvan</label>
+                      <div><strong class="fs-6">${v.tamUnvan || '-'}</strong></div>
                   </div>
-              </div>
-              <div class="col-md-6 mb-3">
-                  <label class="text-muted small mb-1">Matični Broj (Sicil No)</label>
-                  <div class="d-flex align-items-center">
-                      <strong class="fs-6 me-3">${v.sicilNo || '-'}</strong>
-                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.sicilNo || ''}')"><i class="far fa-copy"></i></button>
+                  <div class="col-md-6 mb-3">
+                      <label class="text-muted small mb-1">Matični Broj (Sicil No)</label>
+                      <div><strong class="fs-6">${v.sicilNo || '-'}</strong></div>
                   </div>
-              </div>
-              <div class="col-md-6 mb-3">
-                  <label class="text-muted small mb-1">Kuruluş Tarihi</label>
-                  <div><strong class="fs-6">${v.kurulusTarihi || '-'}</strong></div>
-              </div>
-              <div class="col-md-6 mb-3">
-                  <label class="text-muted small mb-1">İcra Direktörü (Izvršni Direktor)</label>
-                  <div><strong class="fs-6">${v.direktor || '-'}</strong></div>
-              </div>
-              <div class="col-md-6 mb-3">
-                  <label class="text-muted small mb-1">Ana Faaliyet (Pretežna Djelatnost)</label>
-                  <div><strong class="fs-6">${v.faaliyet || '-'}</strong></div>
-              </div>
-              
-              <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-address-book"></i> İletişim Bilgileri</h6>
-              <div class="col-md-12 mb-3">
-                  <label class="text-muted small mb-1">Kayıtlı Adres</label>
-                  <div class="d-flex align-items-center">
-                      <strong class="fs-6 me-3">${v.adres || '-'}</strong>
-                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.adres || ''}')"><i class="far fa-copy"></i></button>
+                  <div class="col-md-6 mb-3">
+                      <label class="text-muted small mb-1">Ana Faaliyet</label>
+                      <div><strong class="fs-6">${v.faaliyet || '-'}</strong></div>
                   </div>
-              </div>
-              <div class="col-md-6 mb-3">
-                  <label class="text-muted small mb-1">Telefon 1 (TR/Kayıtlı)</label>
-                  <div class="d-flex align-items-center">
-                      <strong class="fs-6 me-3">${v.telefon1 || '-'}</strong>
-                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.telefon1 || ''}')"><i class="far fa-copy"></i></button>
-                  </div>
-              </div>
-              <div class="col-md-6 mb-3">
-                  <label class="text-muted small mb-1">Telefon 2 (MNE Lokal)</label>
-                  <div class="d-flex align-items-center">
-                      <strong class="fs-6 me-3">${v.telefon2 || '-'}</strong>
-                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.telefon2 || ''}')"><i class="far fa-copy"></i></button>
-                  </div>
-              </div>
-              <div class="col-md-6 mb-3">
-                  <label class="text-muted small mb-1">E-Posta 1 (Resmi)</label>
-                  <div class="d-flex align-items-center">
-                      <strong class="fs-6 me-3">${v.email1 || '-'}</strong>
-                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.email1 || ''}')"><i class="far fa-copy"></i></button>
-                  </div>
-              </div>
-              <div class="col-md-6 mb-3">
-                  <label class="text-muted small mb-1">E-Posta 2 / Web Sitesi</label>
-                  <div class="d-flex align-items-center">
-                      <strong class="fs-6 me-3">${v.email2 || '-'} <br> ${v.web || ''}</strong>
-                  </div>
-              </div>
 
-              <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-university"></i> Banka Bilgileri</h6>
-              <div class="col-md-12 mb-3">
-                  <label class="text-muted small mb-1">Banka Adı ve IBAN</label>
-                  <div class="d-flex align-items-center">
-                      <strong class="fs-6 me-3">${v.banka || ''} - ${v.iban || '-'}</strong>
-                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.iban || ''}')"><i class="far fa-copy"></i> IBAN</button>
+                  <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-university"></i> Banka Bilgileri</h6>
+                  <div class="col-md-6 mb-3">
+                      <label class="text-muted small mb-1">Banka Adı ve EUR IBAN</label>
+                      <div><strong class="fs-6">${v.banka || ''} <br> ${v.iban || '-'}</strong></div>
                   </div>
-              </div>
-              <div class="col-md-12">
-                  <label class="text-muted small mb-1">BIC / SWIFT Kodu</label>
-                  <div class="d-flex align-items-center">
-                      <strong class="fs-6 me-3">${v.swift || '-'}</strong>
-                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.swift || ''}')"><i class="far fa-copy"></i></button>
+                  <div class="col-md-6 mb-3">
+                      <label class="text-muted small mb-1">USD IBAN</label>
+                      <div><strong class="fs-6">${v.usdIban || '-'}</strong></div>
+                  </div>
+                  <div class="col-md-12">
+                      <label class="text-muted small mb-1">BIC / SWIFT Kodu</label>
+                      <div><strong class="fs-6">${v.swift || '-'}</strong></div>
                   </div>
               </div>
           </div>
       `;
-  };
-
-  window.kopyala = function(metin) {
-      if(!metin) return;
-      navigator.clipboard.writeText(metin).then(() => { alert("Başarıyla Kopyalandı!"); });
   };
 
   window.kunyeDuzenleAc = function() {
@@ -712,19 +681,11 @@
       document.getElementById('k_tamUnvan').value = v.tamUnvan || '';
       document.getElementById('k_pib').value = v.pib || '';
       document.getElementById('k_sicilNo').value = v.sicilNo || '';
-      document.getElementById('k_kurulusTarihi').value = v.kurulusTarihi || '';
-      document.getElementById('k_direktor').value = v.direktor || '';
       document.getElementById('k_faaliyet').value = v.faaliyet || '';
-      document.getElementById('k_adres').value = v.adres || '';
-      document.getElementById('k_telefon1').value = v.telefon1 || '';
-      document.getElementById('k_telefon2').value = v.telefon2 || '';
-      document.getElementById('k_email1').value = v.email1 || '';
-      document.getElementById('k_email2').value = v.email2 || '';
-      document.getElementById('k_web').value = v.web || '';
       document.getElementById('k_banka').value = v.banka || '';
       document.getElementById('k_iban').value = v.iban || '';
+      document.getElementById('k_usdIban').value = v.usdIban || ''; // YENİ EKLENDİ
       document.getElementById('k_swift').value = v.swift || '';
-      
       new bootstrap.Modal(document.getElementById('kunyeModal')).show();
   };
 
@@ -732,28 +693,26 @@
       const btn = document.querySelector("#kunyeModal .btn-primary");
       btn.disabled = true; btn.innerHTML = "Kaydediliyor...";
       try {
-          await setDoc(doc(db, "ayarlar", "kunye"), {
+          // VERİTABANINA YAZMA KOMUTU (usdIban eklendi)
+          await updateDoc(doc(db, "ayarlar", "kunye"), {
               unvan: document.getElementById('k_unvan').value,
               tamUnvan: document.getElementById('k_tamUnvan').value,
               pib: document.getElementById('k_pib').value,
               sicilNo: document.getElementById('k_sicilNo').value,
-              kurulusTarihi: document.getElementById('k_kurulusTarihi').value,
-              direktor: document.getElementById('k_direktor').value,
               faaliyet: document.getElementById('k_faaliyet').value,
-              adres: document.getElementById('k_adres').value,
-              telefon1: document.getElementById('k_telefon1').value,
-              telefon2: document.getElementById('k_telefon2').value,
-              email1: document.getElementById('k_email1').value,
-              email2: document.getElementById('k_email2').value,
-              web: document.getElementById('k_web').value,
               banka: document.getElementById('k_banka').value,
               iban: document.getElementById('k_iban').value,
-              swift: document.getElementById('k_swift').value,
-              guncellemeTarihi: serverTimestamp()
+              usdIban: document.getElementById('k_usdIban').value, // YENİ EKLENDİ
+              swift: document.getElementById('k_swift').value
           });
           bootstrap.Modal.getInstance(document.getElementById('kunyeModal')).hide();
       } catch(e) { alert("Hata: " + e.message); } 
       finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
+  };
+
+  window.kopyala = function(metin) {
+      if(!metin) return;
+      navigator.clipboard.writeText(metin).then(() => { alert("Başarıyla Kopyalandı!"); });
   };
 
   // ---------------- YAPAY ZEKA (GEMINI) AJAN İŞLEMLERİ ----------------
@@ -841,37 +800,44 @@
             mainContent.innerHTML = `
                 <h2 class="mb-4">Yönetici Özeti</h2>
                 <div class="row">
-                    <!-- Kasa & Banka Kartı -->
+                    <!-- Kasa ve Bankalar Listesi -->
                     <div class="col-md-4">
-                        <div class="card text-white bg-success mb-3 shadow">
+                        <div class="card text-dark bg-light mb-3 shadow border-success">
                             <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-wallet"></i> Kasa & Banka</h5>
-                                <h3 class="card-text mt-3" id="dash_kasa">0.00 €</h3>
+                                <h5 class="card-title text-success border-bottom pb-2"><i class="fas fa-wallet"></i> Kasa & Bankalar</h5>
+                                <div id="dash_kasa_listesi" class="mt-3">
+                                    <small class="text-muted">Yükleniyor...</small>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <!-- Alacaklar Kartı -->
+                    <!-- Alacaklı Olduğumuz Firmalar (Rozetler) -->
                     <div class="col-md-4">
-                        <div class="card text-white bg-info mb-3 shadow">
+                        <div class="card text-dark bg-light mb-3 shadow border-info">
                             <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-hand-holding-usd"></i> Toplam Alacak</h5>
-                                <h3 class="card-text mt-3" id="dash_alacak">0.00 €</h3>
+                                <h5 class="card-title text-info border-bottom pb-2"><i class="fas fa-hand-holding-usd"></i> Alacaklarımız</h5>
+                                <div id="dash_alacak_rozetler" class="mt-3 d-flex flex-wrap gap-1">
+                                    <small class="text-muted">Yükleniyor...</small>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <!-- Borçlar Kartı -->
+                    <!-- Borçlu Olduğumuz Firmalar (Rozetler) -->
                     <div class="col-md-4">
-                        <div class="card text-white bg-danger mb-3 shadow">
+                        <div class="card text-dark bg-light mb-3 shadow border-danger">
                             <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-file-invoice-dollar"></i> Toplam Borç</h5>
-                                <h3 class="card-text mt-3" id="dash_borc">0.00 €</h3>
+                                <h5 class="card-title text-danger border-bottom pb-2"><i class="fas fa-file-invoice-dollar"></i> Borçlarımız</h5>
+                                <div id="dash_borc_rozetler" class="mt-3 d-flex flex-wrap gap-1">
+                                    <small class="text-muted">Yükleniyor...</small>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             `;
             setTimeout(() => { if(typeof window.dashboardCiz === 'function') window.dashboardCiz(); }, 50);
-        } 
+        }
+
         else if(sayfa === 'cariler') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -902,6 +868,7 @@
                                     <div class="row mb-3">
                                         <div class="col-md-12"><label class="form-label">Ünvan *</label><input type="text" class="form-control" id="c_unvan" required></div>
                                     </div>
+                                    <div class="col-md-12 mb-3"><label class="form-label">Para Birimi *</label><select class="form-select" id="c_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select></div>
                                     <div class="row mb-3">
                                         <div class="col-md-6"><label class="form-label">Cari Grubu *</label><select class="form-select" id="c_grup"><option value="Alici">Alıcı</option><option value="Satici">Satıcı</option></select></div>
                                         <div class="col-md-6"><label class="form-label">Bölge *</label><select class="form-select" id="c_bolge"><option value="Yerli">Yerli (Karadağ)</option><option value="Yabanci">Yabancı (Yurt Dışı)</option></select></div>
@@ -1242,9 +1209,15 @@
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Şirket Künyesi</h2>
-                    <button class="btn btn-primary shadow-sm" onclick="kunyeDuzenleAc()">
-                        <i class="fas fa-edit"></i> Bilgileri Düzenle
-                    </button>
+                    <div>
+                        <!-- YAZDIR BUTONU BURAYA EKLENDİ -->
+                        <button class="btn btn-secondary shadow-sm me-2" onclick="window.print()">
+                            <i class="fas fa-print"></i> Yazdır
+                        </button>
+                        <button class="btn btn-primary shadow-sm" onclick="kunyeDuzenleAc()">
+                            <i class="fas fa-edit"></i> Bilgileri Düzenle
+                        </button>
+                    </div>
                 </div>
 
                 <div class="card shadow-sm border-0">
@@ -1263,40 +1236,27 @@
                             </div>
                             <div class="modal-body">
                                 <form id="kunyeForm">
-                                    <h6 class="border-bottom pb-2 text-primary">Resmi Kimlik Bilgileri</h6>
                                     <div class="row mb-2">
-                                        <div class="col-md-4"><label class="form-label small">Kısa Ünvan</label><input type="text" class="form-control form-control-sm" id="k_unvan" placeholder="EURO VERITAS COLSUNTING DOO"></div>
-                                        <div class="col-md-8"><label class="form-label small">Tam Resmi Ünvan</label><input type="text" class="form-control form-control-sm" id="k_tamUnvan" placeholder='"EURO VERITAS..." ZA PROIZVODNJU...'></div>
+                                        <div class="col-md-4"><label class="form-label small">Kısa Ünvan</label><input type="text" class="form-control form-control-sm" id="k_unvan"></div>
+                                        <div class="col-md-8"><label class="form-label small">Tam Resmi Ünvan</label><input type="text" class="form-control form-control-sm" id="k_tamUnvan"></div>
                                     </div>
                                     <div class="row mb-2">
                                         <div class="col-md-4"><label class="form-label small">PIB (Vergi No)</label><input type="text" class="form-control form-control-sm" id="k_pib"></div>
-                                        <div class="col-md-4"><label class="form-label small">Matični Broj (Sicil No)</label><input type="text" class="form-control form-control-sm" id="k_sicilNo"></div>
-                                        <div class="col-md-4"><label class="form-label small">Kuruluş Tarihi</label><input type="date" class="form-control form-control-sm" id="k_kurulusTarihi"></div>
-                                    </div>
-                                    <div class="row mb-3">
-                                        <div class="col-md-4"><label class="form-label small">İcra Direktörü</label><input type="text" class="form-control form-control-sm" id="k_direktor"></div>
-                                        <div class="col-md-8"><label class="form-label small">Ana Faaliyet</label><input type="text" class="form-control form-control-sm" id="k_faaliyet" placeholder="6920 Racunovodstveni..."></div>
-                                    </div>
-
-                                    <h6 class="border-bottom pb-2 text-primary mt-3">İletişim Bilgileri</h6>
-                                    <div class="row mb-2">
-                                        <div class="col-md-12"><label class="form-label small">Kayıtlı Adres</label><input type="text" class="form-control form-control-sm" id="k_adres"></div>
-                                    </div>
-                                    <div class="row mb-2">
-                                        <div class="col-md-6"><label class="form-label small">Telefon 1 (TR/Kayıtlı)</label><input type="text" class="form-control form-control-sm" id="k_telefon1"></div>
-                                        <div class="col-md-6"><label class="form-label small">Telefon 2 (Lokal Karadağ)</label><input type="text" class="form-control form-control-sm" id="k_telefon2"></div>
-                                    </div>
-                                    <div class="row mb-3">
-                                        <div class="col-md-4"><label class="form-label small">E-Posta 1 (Resmi)</label><input type="email" class="form-control form-control-sm" id="k_email1"></div>
-                                        <div class="col-md-4"><label class="form-label small">E-Posta 2 (Ekstra)</label><input type="email" class="form-control form-control-sm" id="k_email2"></div>
-                                        <div class="col-md-4"><label class="form-label small">Web Sitesi</label><input type="text" class="form-control form-control-sm" id="k_web"></div>
+                                        <div class="col-md-4"><label class="form-label small">Matični Broj</label><input type="text" class="form-control form-control-sm" id="k_sicilNo"></div>
+                                        <div class="col-md-4"><label class="form-label small">Ana Faaliyet</label><input type="text" class="form-control form-control-sm" id="k_faaliyet"></div>
                                     </div>
 
                                     <h6 class="border-bottom pb-2 text-primary mt-3">Banka Bilgileri</h6>
                                     <div class="row mb-2">
-                                        <div class="col-md-4"><label class="form-label small">Banka Adı</label><input type="text" class="form-control form-control-sm" id="k_banka"></div>
-                                        <div class="col-md-5"><label class="form-label small">IBAN Numarası</label><input type="text" class="form-control form-control-sm" id="k_iban"></div>
-                                        <div class="col-md-3"><label class="form-label small">SWIFT Kodu</label><input type="text" class="form-control form-control-sm" id="k_swift"></div>
+                                        <div class="col-md-12"><label class="form-label small">Banka Adı</label><input type="text" class="form-control form-control-sm" id="k_banka"></div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-md-6"><label class="form-label small">EUR IBAN Numarası</label><input type="text" class="form-control form-control-sm" id="k_iban"></div>
+                                        <!-- USD IBAN BURAYA EKLENDİ -->
+                                        <div class="col-md-6"><label class="form-label small">USD IBAN Numarası</label><input type="text" class="form-control form-control-sm" id="k_usdIban"></div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-md-6"><label class="form-label small">SWIFT Kodu</label><input type="text" class="form-control form-control-sm" id="k_swift"></div>
                                     </div>
                                 </form>
                             </div>
