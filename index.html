@@ -235,16 +235,26 @@
 
         kartAlani.innerHTML += `
             <div class="col-md-4 mb-3">
-                <div class="card shadow-sm h-100 border-start border-4 border-primary cursor-pointer" onclick="cariEkstreAc('${cari.id}')">
-                    <div class="card-body">
+                <div class="card shadow-sm h-100 border-start border-4 border-primary">
+                    <div class="card-body cursor-pointer" onclick="cariEkstreAc('${cari.id}')">
                         <h6 class="fw-bold text-truncate">${cari.unvan}</h6>
                         <small class="text-muted">${cari.ulke} | ${birim}</small>
                         <h4 class="${bRenk} mt-2">${bakiye.toFixed(2)} ${sembol}</h4>
+                    </div>
+                    <div class="card-footer bg-white border-top-0 text-end py-2">
+                        <button class="btn btn-sm btn-outline-primary py-0 me-1" title="Düzenle" onclick="cariDuzenleAc('${cari.id}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-outline-danger py-0" title="Sil" onclick="cariSil('${cari.id}')"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
             </div>`;
     });
 };
+
+    window.cariSil = async function(id) {
+      if(!confirm("Bu cari hesabı silmek istediğinize emin misiniz?")) return;
+      try { await deleteDoc(doc(db, "cariler", id)); } 
+      catch(e) { alert("Hata: " + e.message); }
+  };
 
     window.cariEkstreAc = async function(cariId) {
     const cari = cariListesi.find(c => c.id === cariId);
@@ -370,10 +380,22 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
                   <td>${fatura.tutar.toFixed(2)} €</td>
                   <td>${fatura.kdvTutar.toFixed(2)} €</td>
                   <td class="fw-bold">${fatura.toplamTutar.toFixed(2)} €</td>
-                  <td><span class="badge bg-secondary">Ödenmedi</span></td>
+                  <td>
+                      <button class="btn btn-sm btn-outline-danger py-0" title="Sil" onclick="faturaSil('${fatura.id}', '${fatura.cariId}', '${fatura.tur}', ${fatura.toplamTutar})"><i class="fas fa-trash"></i></button>
+                  </td>
               </tr>
           `;
       });
+  };
+  
+  window.faturaSil = async function(faturaId, cariId, tur, toplamTutar) {
+      if(!confirm("Bu faturayı silmek istediğinize emin misiniz? Cari bakiye otomatik olarak geri alınacaktır.")) return;
+      try {
+          await deleteDoc(doc(db, "faturalar", faturaId));
+          // Cari bakiyeyi tersine çevir
+          const bakiyeDegisimi = tur === 'Satis' ? -toplamTutar : toplamTutar;
+          await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(bakiyeDegisimi) });
+      } catch(e) { alert("Hata: " + e.message); }
   };
 
   // Yeni Fatura Modalını Açarken Carileri Listeye Doldur
@@ -481,38 +503,43 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
                   <td>${banka.paraBirimi}</td>
                   <td class="fw-bold fs-5 text-primary">${bakiye.toFixed(2)} ${banka.paraBirimi === 'EUR' ? '€' : ''}</td>
                   <td>
-                      <button class="btn btn-sm btn-success" onclick="islemModalAc('Tahsilat', '${banka.id}')"><i class="fas fa-arrow-down"></i> Tahsilat</button>
-                      <button class="btn btn-sm btn-danger" onclick="islemModalAc('Odeme', '${banka.id}')"><i class="fas fa-arrow-up"></i> Ödeme</button>
+                      <button class="btn btn-sm btn-success py-0" onclick="islemModalAc('Tahsilat', '${banka.id}')"><i class="fas fa-arrow-down"></i> Tahsilat</button>
+                      <button class="btn btn-sm btn-danger py-0 me-2" onclick="islemModalAc('Odeme', '${banka.id}')"><i class="fas fa-arrow-up"></i> Ödeme</button>
+                      <button class="btn btn-sm btn-outline-primary py-0" onclick="bankaDuzenleAc('${banka.id}')"><i class="fas fa-edit"></i></button>
+                      <button class="btn btn-sm btn-outline-danger py-0" onclick="bankaSil('${banka.id}')"><i class="fas fa-trash"></i></button>
                   </td>
               </tr>
           `;
       });
   };
 
-  // Yeni Banka/Kasa Kaydet
-  window.bankaKaydet = async function() {
-      const hesapAdi = document.getElementById('b_hesapAdi').value;
-      const bankaAdi = document.getElementById('b_bankaAdi').value;
-      const iban = document.getElementById('b_iban').value;
-      
-      if(hesapAdi === "") { alert("Hesap adı zorunludur!"); return; }
-      
-      const btn = document.querySelector("#yeniBankaModal .btn-primary");
-      btn.disabled = true; btn.innerHTML = "Kaydediliyor...";
+  window.bankaDuzenleAc = function(id) {
+      const b = bankaListesi.find(x => x.id === id);
+      document.getElementById('b_id').value = b.id;
+      document.getElementById('b_hesapAdi').value = b.hesapAdi;
+      document.getElementById('b_bankaAdi').value = b.bankaAdi || '';
+      document.getElementById('b_iban').value = b.iban || '';
+      document.querySelector("#yeniBankaModal .modal-title").innerHTML = "Hesabı Düzenle";
+      new bootstrap.Modal(document.getElementById('yeniBankaModal')).show();
+  };
 
+  window.bankaSil = async function(id) {
+      if(!confirm("Bu banka hesabını silmek istediğinize emin misiniz?")) return;
+      try { await deleteDoc(doc(db, "bankalar", id)); } catch(e) { alert("Hata: " + e.message); }
+  };
+
+  window.bankaKaydet = async function() {
+      const id = document.getElementById('b_id').value;
+      const hesapAdi = document.getElementById('b_hesapAdi').value;
+      if(hesapAdi === "") { alert("Hesap adı zorunludur!"); return; }
+      const data = { hesapAdi: hesapAdi, bankaAdi: document.getElementById('b_bankaAdi').value, iban: document.getElementById('b_iban').value };
+      
       try {
-          await addDoc(collection(db, "bankalar"), {
-              hesapAdi: hesapAdi,
-              bankaAdi: bankaAdi,
-              iban: iban,
-              paraBirimi: 'EUR',
-              bakiye: 0,
-              olusturmaTarihi: serverTimestamp()
-          });
+          if(id) { await updateDoc(doc(db, "bankalar", id), data); } 
+          else { data.bakiye = 0; data.paraBirimi = 'EUR'; data.olusturmaTarihi = serverTimestamp(); await addDoc(collection(db, "bankalar"), data); }
           bootstrap.Modal.getInstance(document.getElementById('yeniBankaModal')).hide();
-          document.getElementById('yeniBankaForm').reset();
-      } catch(e) { alert("Hata: " + e.message); } 
-      finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
+          document.getElementById('yeniBankaForm').reset(); document.getElementById('b_id').value = '';
+      } catch(e) { alert("Hata: " + e.message); }
   };
 
   // Tahsilat/Ödeme Modalını Hazırla
@@ -920,14 +947,8 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
                         <i class="fas fa-plus"></i> Yeni Cari Ekle
                     </button>
                 </div>
-                <div class="table-responsive bg-white p-3 rounded shadow-sm">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr><th>Ünvan</th><th>Bölge</th><th>Ülke</th><th>Vergi/VAT No</th><th>Bakiye</th><th>İşlemler</th></tr>
-                        </thead>
-                        <tbody id="cariTabloGövdesi"></tbody>
-                    </table>
-                </div>
+                
+                <div id="cariTabloGövdesi" class="mt-3"></div>
 
                 <!-- CARİ EKLEME MODALI -->
                 <div class="modal fade" id="yeniCariModal" tabindex="-1">
@@ -989,7 +1010,7 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
                                 <th>Matrah</th>
                                 <th>KDV</th>
                                 <th>Toplam</th>
-                                <th>Durum</th>
+                                <th>İşlemler</th>
                             </tr>
                         </thead>
                         <tbody id="faturaTabloGövdesi"></tbody>
@@ -1116,6 +1137,7 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
                             </div>
                             <div class="modal-body">
                                 <form id="yeniBankaForm">
+                                    <input type="hidden" id="b_id">
                                     <div class="mb-3">
                                         <label class="form-label">Hesap Adı * (Örn: Merkez Kasa, CKB Euro Hesabı)</label>
                                         <input type="text" class="form-control" id="b_hesapAdi" required>
