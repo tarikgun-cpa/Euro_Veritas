@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Euro Veritas - Yönetim Paneli</title>
+    <link rel="icon" type="image/x-icon" href="EV_Logo.ico">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { background-color: #f4f6f9; }
+        .sidebar { min-height: 100vh; background-color: #2c3e50; }
+        .sidebar a { color: #ecf0f1; text-decoration: none; padding: 15px 20px; display: block; border-bottom: 1px solid #34495e; transition: 0.3s; }
+        .sidebar a:hover { background-color: #34495e; padding-left: 25px; }
+        .sidebar a i { margin-right: 10px; width: 20px; text-align: center; }
+        .content-area { padding: 20px; }
+        
+        #login-container { min-height: 100vh; background-color: #2c3e50; }
+        .login-card { border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body>
+
+<!-- GİRİŞ EKRANI -->
+<div id="login-container" class="d-flex justify-content-center align-items-center">
+    <div class="card p-5 login-card bg-white" style="width: 100%; max-width: 400px;">
+        <div class="text-center mb-4">
+            <img src="Euro Veritas Consulting.jpg" alt="Euro Veritas Logo" style="max-width: 180px; height: auto; margin-bottom: 15px; border-radius: 10px;">
+            <h4 class="text-primary fw-bold mb-0">Yönetici Paneli</h4>
+        </div>
+        <div id="login-error" class="alert alert-danger d-none text-center" style="font-size: 14px;"></div>
+        <div class="mb-3">
+            <label class="form-label text-muted small">E-Posta Adresi</label>
+            <input type="email" id="login-email" class="form-control form-control-lg" placeholder="ornek@euroveritas.com">
+        </div>
+        <div class="mb-4">
+            <label class="form-label text-muted small">Şifre</label>
+            <input type="password" id="login-password" class="form-control form-control-lg" placeholder="••••••••">
+        </div>
+        <button class="btn btn-primary btn-lg w-100 fw-bold" onclick="girisYap()">Sisteme Giriş Yap</button>
+    </div>
+</div>
+
+<!-- ANA UYGULAMA -->
+<div class="container-fluid d-none" id="app-container">
+    <div class="row">
+        <!-- Sol Menü -->
+        <div class="col-md-2 p-0 sidebar shadow">
+            <div class="p-3 text-center border-bottom border-secondary mb-3" style="background-color: #ffffff;">
+                <img src="Euro Veritas Consulting.jpg" alt="Euro Veritas Logo" style="max-width: 100%; height: auto; border-radius: 8px;">
+            </div>
+            <a href="#" onclick="sayfaYukle('dashboard')"><i class="fas fa-chart-line"></i> Yönetici Özeti</a>
+            <a href="#" onclick="sayfaYukle('faturalar')"><i class="fas fa-file-invoice-dollar"></i> Faturalar</a>
+            <a href="#" onclick="sayfaYukle('cariler')"><i class="fas fa-users"></i> Cari Hesaplar</a>
+            <a href="#" onclick="sayfaYukle('bankalar')"><i class="fas fa-university"></i> Banka Hesapları</a>
+            <a href="#" onclick="sayfaYukle('vergiler')"><i class="fas fa-landmark"></i> Vergi Ödemeleri</a>
+            <a href="#" onclick="sayfaYukle('gorevler')"><i class="fas fa-tasks"></i> Görevler</a>
+            <a href="#" onclick="sayfaYukle('kunye')"><i class="fas fa-building"></i> Şirket Künyesi</a>
+            <a href="#" class="mt-5 text-warning" onclick="cikisYap()"><i class="fas fa-sign-out-alt"></i> Güvenli Çıkış</a>
+        </div>
+
+        <!-- Ana İçerik Alanı -->
+        <div class="col-md-10 content-area" id="main-content"></div>
+    </div>
+</div>
+
+<!-- Firebase SDK'ları -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+  // YENİ: Firebase Firestore kütüphanesine "doc" ve "updateDoc" eklendi (Bakiye güncellemek için)
+  import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, doc, updateDoc, increment, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    // BURAYA KENDİ BİLGİLERİNİZİ YAPIŞTIRIN
+    apiKey: "AIzaSyBOFBkfoLHyMEA5AsRVPmz8RMuyP2C3Sis",
+  authDomain: "euroveritasdoo.firebaseapp.com",
+  databaseURL: "https://euroveritasdoo-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "euroveritasdoo",
+  storageBucket: "euroveritasdoo.firebasestorage.app",
+  messagingSenderId: "789464136176",
+  appId: "1:789464136176:web:49808ec9e92e7c11608535"
+};
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app); 
+
+  let cariListesi = [];
+  let faturaListesi = []; // YENİ: Faturaları tutacak dizi
+  let cariDinleyici = null; 
+  let faturaDinleyici = null; // YENİ: Fatura dinleyici
+  let bankaListesi = [];
+  let bankaDinleyici = null;
+  let vergiListesi = [];
+  let vergiDinleyici = null;
+  let gorevListesi = [];
+  let gorevDinleyici = null;
+  let kunyeDinleyici = null;
+  let kunyeVerisi = {};
+  let islemListesi = []; // Banka hareketleri için
+
+  onAuthStateChanged(auth, (user) => {
+      if (user) {
+          document.getElementById('login-container').classList.add('d-none');
+          document.getElementById('login-container').classList.remove('d-flex');
+          document.getElementById('app-container').classList.remove('d-none');
+          
+          sayfaYukle('dashboard');
+
+          // CARİLERİ DİNLE
+          cariDinleyici = onSnapshot(collection(db, "cariler"), (snapshot) => {
+              cariListesi = [];
+              snapshot.forEach((doc) => { cariListesi.push({ id: doc.id, ...doc.data() }); });
+              if (document.getElementById('cariTabloGövdesi')) { window.tabloyuCiz(); }
+              if (document.getElementById('dash_kasa')) { window.dashboardCiz(); } // YENİ: Dashboard anında güncellensin
+          });
+
+          // FATURALARI DİNLE
+          faturaDinleyici = onSnapshot(collection(db, "faturalar"), (snapshot) => {
+              faturaListesi = [];
+              snapshot.forEach((doc) => { faturaListesi.push({ id: doc.id, ...doc.data() }); });
+              faturaListesi.sort((a,b) => new Date(b.tarih) - new Date(a.tarih));
+              if (document.getElementById('faturaTabloGövdesi')) { window.faturalariCiz(); }
+          });
+
+          // BANKALARI DİNLE
+          bankaDinleyici = onSnapshot(collection(db, "bankalar"), (snapshot) => {
+              bankaListesi = [];
+              snapshot.forEach((doc) => { bankaListesi.push({ id: doc.id, ...doc.data() }); });
+              if (document.getElementById('bankaTabloGövdesi')) { window.bankalariCiz(); }
+              if (document.getElementById('dash_kasa')) { window.dashboardCiz(); } // YENİ: Dashboard anında güncellensin
+          });
+
+          // VERGİLERİ DİNLE (YENİ)
+          vergiDinleyici = onSnapshot(collection(db, "vergiler"), (snapshot) => {
+              vergiListesi = [];
+              snapshot.forEach((doc) => { vergiListesi.push({ id: doc.id, ...doc.data() }); });
+              // Tarihe göre sırala (Yaklaşan en üstte)
+              vergiListesi.sort((a,b) => new Date(a.sonTarih) - new Date(b.sonTarih));
+              if (document.getElementById('vergiTabloGövdesi')) { window.vergileriCiz(); }
+          });
+
+          // GÖREVLERİ DİNLE (YENİ)
+          gorevDinleyici = onSnapshot(collection(db, "gorevler"), (snapshot) => {
+              gorevListesi = [];
+              snapshot.forEach((doc) => { gorevListesi.push({ id: doc.id, ...doc.data() }); });
+              gorevListesi.sort((a,b) => new Date(a.sonTarih || '2099') - new Date(b.sonTarih || '2099'));
+              if (document.getElementById('gorevListesiAlani')) { window.gorevleriCiz(); }
+          });
+
+          // KÜNYE DİNLE (YENİ)
+          kunyeDinleyici = onSnapshot(doc(db, "ayarlar", "kunye"), (docSnap) => {
+              if (docSnap.exists()) { kunyeVerisi = docSnap.data(); } 
+              else { kunyeVerisi = {}; }
+              if (document.getElementById('kunyeKarti')) { window.kunyeCiz(); }
+          });
+
+      } else {
+          document.getElementById('app-container').classList.add('d-none');
+          document.getElementById('login-container').classList.remove('d-none');
+          document.getElementById('login-container').classList.add('d-flex');
+          
+          if(cariDinleyici) cariDinleyici(); 
+          if(faturaDinleyici) faturaDinleyici(); 
+      }
+  });
+
+  window.girisYap = async function() {
+      const email = document.getElementById('login-email').value;
+      const pass = document.getElementById('login-password').value;
+      const hataKutusu = document.getElementById('login-error');
+      if(email === "" || pass === "") { hataKutusu.innerHTML = "E-posta ve şifre zorunludur."; hataKutusu.classList.remove('d-none'); return; }
+      try { await signInWithEmailAndPassword(auth, email, pass); hataKutusu.classList.add('d-none'); } 
+      catch (error) { hataKutusu.innerHTML = "Giriş başarısız."; hataKutusu.classList.remove('d-none'); }
+  };
+
+  window.cikisYap = async function() {
+      await signOut(auth);
+      document.getElementById('login-email').value = ""; document.getElementById('login-password').value = "";
+  };
+
+  // ---------------- YÖNETİCİ ÖZETİ (DASHBOARD) HESAPLAMALARI ----------------
+  window.dashboardCiz = function() {
+      // Ekranda dashboard kartları yoksa (başka sayfadaysak) boşuna yorulma
+      if(!document.getElementById('dash_kasa')) return;
+
+      let toplamKasa = 0;
+      let toplamAlacak = 0;
+      let toplamBorc = 0;
+
+      // 1. Kasadaki Parayı Hesapla
+      bankaListesi.forEach(banka => {
+          toplamKasa += (banka.bakiye || 0);
+      });
+
+      // 2. Cari Bakiyeleri Hesapla (Artı ise Müşteri bize borçlu=Alacak, Eksi ise Biz borçluyuz=Borç)
+      cariListesi.forEach(cari => {
+          let bakiye = cari.bakiye || 0;
+          if(bakiye > 0) {
+              toplamAlacak += bakiye;
+          } else if(bakiye < 0) {
+              toplamBorc += Math.abs(bakiye); // Eksi işareti kaldırarak (mutlak değer) topla
+          }
+      });
+
+      // 3. Ekrana Yazdır
+      document.getElementById('dash_kasa').innerHTML = toplamKasa.toFixed(2) + " €";
+      document.getElementById('dash_alacak').innerHTML = toplamAlacak.toFixed(2) + " €";
+      document.getElementById('dash_borc').innerHTML = toplamBorc.toFixed(2) + " €";
+  };
+
+  // ---------------- CARİ İŞLEMLERİ ----------------
+  window.tabloyuCiz = function() {
+      const tbody = document.getElementById('cariTabloGövdesi');
+      if (!tbody) return; 
+      tbody.innerHTML = ""; 
+      cariListesi.forEach(cari => {
+          let bolgeBadge = cari.bolge === 'Yerli' ? '<span class="badge bg-secondary">Yerli</span>' : '<span class="badge bg-info text-dark">Yabancı</span>';
+          let bakiye = cari.bakiye || 0;
+          let bakiyeRenk = bakiye < 0 ? 'text-danger' : (bakiye > 0 ? 'text-success' : 'text-dark');
+          tbody.innerHTML += `<tr>
+              <td><span class="fw-bold">${cari.unvan}</span><br><small class="text-muted">${cari.grup === 'Alici' ? 'Müşteri' : 'Tedarikçi'}</small></td>
+              <td>${bolgeBadge}</td><td>${cari.ulke}</td><td>${cari.vergiNo}</td>
+              <td class="${bakiyeRenk} fw-bold">${bakiye.toFixed(2)} €</td>
+              <td><button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button></td>
+          </tr>`;
+      });
+  };
+
+  window.cariKaydet = async function() {
+      const unvan = document.getElementById('c_unvan').value;
+      const vergiNo = document.getElementById('c_vergiNo').value;
+      if(unvan.trim() === "" || vergiNo.trim() === "") { alert("Ünvan ve Vergi numarası zorunludur."); return; }
+      const kaydetBtn = document.querySelector("#yeniCariModal .btn-primary");
+      kaydetBtn.innerHTML = "Kaydediliyor..."; kaydetBtn.disabled = true;
+      try {
+          await addDoc(collection(db, "cariler"), {
+              unvan: unvan, grup: document.getElementById('c_grup').value, bolge: document.getElementById('c_bolge').value, 
+              ulke: document.getElementById('c_ulke').value, vergiNo: vergiNo, iban: document.getElementById('c_iban').value, 
+              bic: document.getElementById('c_bic').value, email: document.getElementById('c_email').value, bakiye: 0, 
+              olusturmaTarihi: serverTimestamp()
+          });
+          bootstrap.Modal.getInstance(document.getElementById('yeniCariModal')).hide();
+      } catch (error) { alert("Hata: " + error.message); } 
+      finally { kaydetBtn.innerHTML = "Kaydet"; kaydetBtn.disabled = false; }
+  };
+
+
+  // ---------------- FATURA İŞLEMLERİ (YENİ) ----------------
+
+  // Fatura Tablosunu Ekrana Çizme
+  window.faturalariCiz = function() {
+      const tbody = document.getElementById('faturaTabloGövdesi');
+      if (!tbody) return; 
+      tbody.innerHTML = ""; 
+      
+      faturaListesi.forEach(fatura => {
+          let turBadge = fatura.tur === 'Satis' ? '<span class="badge bg-success">Satış</span>' : '<span class="badge bg-danger">Alım</span>';
+          
+          tbody.innerHTML += `
+              <tr>
+                  <td>${fatura.faturaNo}</td>
+                  <td>${fatura.tarih}</td>
+                  <td>${fatura.cariUnvan}</td>
+                  <td>${turBadge}</td>
+                  <td>${fatura.tutar.toFixed(2)} €</td>
+                  <td>${fatura.kdvTutar.toFixed(2)} €</td>
+                  <td class="fw-bold">${fatura.toplamTutar.toFixed(2)} €</td>
+                  <td><span class="badge bg-secondary">Ödenmedi</span></td>
+              </tr>
+          `;
+      });
+  };
+
+  // Yeni Fatura Modalını Açarken Carileri Listeye Doldur
+  window.faturaModalAc = function() {
+      const cariSelect = document.getElementById('f_cariId');
+      cariSelect.innerHTML = '<option value="">-- Cari Seçiniz --</option>';
+      cariListesi.forEach(cari => {
+          cariSelect.innerHTML += `<option value="${cari.id}">${cari.unvan} (${cari.grup === 'Alici' ? 'Müşteri' : 'Tedarikçi'})</option>`;
+      });
+      // Modalı göster
+      var myModal = new bootstrap.Modal(document.getElementById('yeniFaturaModal'));
+      myModal.show();
+  };
+
+  // Fatura Tutarını ve KDV'yi Otomatik Hesapla
+  window.hesaplaKdv = function() {
+      const tutar = parseFloat(document.getElementById('f_tutar').value) || 0;
+      const oran = parseFloat(document.getElementById('f_kdvOran').value) || 0;
+      const kdvTutar = tutar * (oran / 100);
+      const toplam = tutar + kdvTutar;
+      
+      document.getElementById('f_kdvTutar').value = kdvTutar.toFixed(2);
+      document.getElementById('f_toplam').value = toplam.toFixed(2);
+  };
+
+  // Faturayı Veritabanına Kaydet ve Cari Bakiyeyi Güncelle
+  window.faturaKaydet = async function() {
+      const cariId = document.getElementById('f_cariId').value;
+      const faturaNo = document.getElementById('f_faturaNo').value;
+      const tarih = document.getElementById('f_tarih').value;
+      const tur = document.getElementById('f_tur').value;
+      const tutar = parseFloat(document.getElementById('f_tutar').value) || 0;
+      const kdvTutar = parseFloat(document.getElementById('f_kdvTutar').value) || 0;
+      const toplamTutar = parseFloat(document.getElementById('f_toplam').value) || 0;
+
+      if(cariId === "" || faturaNo.trim() === "" || tarih === "" || tutar <= 0) {
+          alert("Lütfen Cari, Fatura No, Tarih ve Tutar alanlarını eksiksiz giriniz.");
+          return;
+      }
+
+      const kaydetBtn = document.querySelector("#yeniFaturaModal .btn-primary");
+      kaydetBtn.innerHTML = "İşleniyor..."; 
+      kaydetBtn.disabled = true;
+
+      try {
+          // 1. Seçilen carinin bilgilerini bul
+          const secilenCari = cariListesi.find(c => c.id === cariId);
+          
+          // 2. Faturayı Firebase'e kaydet
+          await addDoc(collection(db, "faturalar"), {
+              cariId: cariId,
+              cariUnvan: secilenCari.unvan,
+              faturaNo: faturaNo,
+              tarih: tarih,
+              tur: tur,
+              tutar: tutar,
+              kdvOran: parseFloat(document.getElementById('f_kdvOran').value),
+              kdvTutar: kdvTutar,
+              toplamTutar: toplamTutar,
+              durum: 'Bekliyor', // Ödendi / Bekliyor
+              islemTarihi: serverTimestamp()
+          });
+
+          // 3. CARİ BAKİYESİNİ GÜNCELLEME İŞLEMİ
+          let eskiBakiye = secilenCari.bakiye || 0;
+          let yeniBakiye = eskiBakiye;
+
+          if (tur === 'Satis') {
+              yeniBakiye = eskiBakiye + toplamTutar; // Müşteri borçlanır, bakiye artar
+          } else if (tur === 'Alim') {
+              yeniBakiye = eskiBakiye - toplamTutar; // Biz borçlanırız, bakiye eksiye gider
+          }
+
+          // İlgili Cari kartın veritabanındaki referansını al ve güncelle
+          const cariRef = doc(db, "cariler", cariId);
+          await updateDoc(cariRef, {
+              bakiye: yeniBakiye
+          });
+
+          bootstrap.Modal.getInstance(document.getElementById('yeniFaturaModal')).hide();
+          document.getElementById('yeniFaturaForm').reset();
+
+      } catch (error) {
+          alert("Kayıt sırasında hata oluştu: " + error.message);
+      } finally {
+          kaydetBtn.innerHTML = "Kaydet"; 
+          kaydetBtn.disabled = false;
+      }
+  };
+
+// ---------------- BANKA VE KASA İŞLEMLERİ ----------------
+
+  // Banka Tablosunu Çiz
+  window.bankalariCiz = function() {
+      const tbody = document.getElementById('bankaTabloGövdesi');
+      if (!tbody) return; 
+      tbody.innerHTML = ""; 
+      
+      bankaListesi.forEach(banka => {
+          let bakiye = banka.bakiye || 0;
+          tbody.innerHTML += `
+              <tr>
+                  <td><span class="fw-bold">${banka.hesapAdi}</span><br><small class="text-muted">${banka.bankaAdi}</small></td>
+                  <td>${banka.iban || '-'}</td>
+                  <td>${banka.paraBirimi}</td>
+                  <td class="fw-bold fs-5 text-primary">${bakiye.toFixed(2)} ${banka.paraBirimi === 'EUR' ? '€' : ''}</td>
+                  <td>
+                      <button class="btn btn-sm btn-success" onclick="islemModalAc('Tahsilat', '${banka.id}')"><i class="fas fa-arrow-down"></i> Tahsilat</button>
+                      <button class="btn btn-sm btn-danger" onclick="islemModalAc('Odeme', '${banka.id}')"><i class="fas fa-arrow-up"></i> Ödeme</button>
+                  </td>
+              </tr>
+          `;
+      });
+  };
+
+  // Yeni Banka/Kasa Kaydet
+  window.bankaKaydet = async function() {
+      const hesapAdi = document.getElementById('b_hesapAdi').value;
+      const bankaAdi = document.getElementById('b_bankaAdi').value;
+      const iban = document.getElementById('b_iban').value;
+      
+      if(hesapAdi === "") { alert("Hesap adı zorunludur!"); return; }
+      
+      const btn = document.querySelector("#yeniBankaModal .btn-primary");
+      btn.disabled = true; btn.innerHTML = "Kaydediliyor...";
+
+      try {
+          await addDoc(collection(db, "bankalar"), {
+              hesapAdi: hesapAdi,
+              bankaAdi: bankaAdi,
+              iban: iban,
+              paraBirimi: 'EUR',
+              bakiye: 0,
+              olusturmaTarihi: serverTimestamp()
+          });
+          bootstrap.Modal.getInstance(document.getElementById('yeniBankaModal')).hide();
+          document.getElementById('yeniBankaForm').reset();
+      } catch(e) { alert("Hata: " + e.message); } 
+      finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
+  };
+
+  // Tahsilat/Ödeme Modalını Hazırla
+  window.islemModalAc = function(tur, bankaId) {
+      document.getElementById('i_tur').value = tur;
+      document.getElementById('i_bankaId').value = bankaId;
+      document.getElementById('islemModalBaslik').innerHTML = tur === 'Tahsilat' ? 'Tahsilat Al (Giriş)' : 'Ödeme Yap (Çıkış)';
+      
+      // Carileri Select kutusuna doldur
+      const select = document.getElementById('i_cariId');
+      select.innerHTML = '<option value="">-- Cari Seçiniz --</option>';
+      cariListesi.forEach(c => { select.innerHTML += `<option value="${c.id}">${c.unvan} (Bakiye: ${c.bakiye}€)</option>`; });
+      
+      new bootstrap.Modal(document.getElementById('islemModal')).show();
+  };
+
+  // Tahsilat veya Ödemeyi Veritabanına İşle
+  window.islemKaydet = async function() {
+      const tur = document.getElementById('i_tur').value; // Tahsilat veya Odeme
+      const bankaId = document.getElementById('i_bankaId').value;
+      const cariId = document.getElementById('i_cariId').value;
+      const tutar = parseFloat(document.getElementById('i_tutar').value) || 0;
+      const aciklama = document.getElementById('i_aciklama').value;
+
+      if(!cariId || tutar <= 0) { alert("Lütfen cari seçip geçerli bir tutar girin."); return; }
+
+      const btn = document.querySelector("#islemModal .btn-primary");
+      btn.disabled = true; btn.innerHTML = "İşleniyor...";
+
+      try {
+          // 1. İşlem geçmişine kaydet
+          await addDoc(collection(db, "hesapHareketleri"), {
+              bankaId: bankaId,
+              cariId: cariId,
+              tur: tur,
+              tutar: tutar,
+              aciklama: aciklama,
+              tarih: serverTimestamp()
+          });
+
+          // 2. Banka Bakiyesini Güncelle
+          // Tahsilat ise banka artar, ödeme ise banka azalır
+          const bakiyeDegisimi = tur === 'Tahsilat' ? tutar : -tutar;
+          await updateDoc(doc(db, "bankalar", bankaId), {
+              bakiye: increment(bakiyeDegisimi)
+          });
+
+          // 3. Cari Bakiyeyi Güncelle
+          // Tahsilat aldıysak müşterinin bize borcu (bakiyesi) azalır (-tutar)
+          // Ödeme yaptıysak tedarikçiye olan borcumuz (bakiyesi, yani eksideki değer) artar (+tutar)
+          const cariBakiyeDegisimi = tur === 'Tahsilat' ? -tutar : tutar;
+          await updateDoc(doc(db, "cariler", cariId), {
+              bakiye: increment(cariBakiyeDegisimi)
+          });
+
+          bootstrap.Modal.getInstance(document.getElementById('islemModal')).hide();
+          document.getElementById('islemForm').reset();
+      } catch(e) { alert("Hata: " + e.message); } 
+      finally { btn.disabled = false; btn.innerHTML = "İşlemi Tamamla"; }
+  };
+
+  // ---------------- VERGİ VE YASAL ÖDEME İŞLEMLERİ ----------------
+  
+  window.vergileriCiz = function() {
+      const tbody = document.getElementById('vergiTabloGövdesi');
+      if (!tbody) return;
+      tbody.innerHTML = "";
+
+      vergiListesi.forEach(vergi => {
+          let durumBadge = vergi.durum === 'Ödendi' ? '<span class="badge bg-success">Ödendi</span>' : '<span class="badge bg-danger">Bekliyor</span>';
+          let islemButon = vergi.durum === 'Bekliyor' ? 
+              `<button class="btn btn-sm btn-outline-success" onclick="vergiOde('${vergi.id}')"><i class="fas fa-check"></i> Öde</button>` : 
+              '-';
+
+          tbody.innerHTML += `
+              <tr>
+                  <td><span class="fw-bold">${vergi.tur}</span></td>
+                  <td>${vergi.donem}</td>
+                  <td>${vergi.sonTarih}</td>
+                  <td class="fw-bold">${vergi.tutar.toFixed(2)} €</td>
+                  <td>${durumBadge}</td>
+                  <td>${islemButon}</td>
+              </tr>
+          `;
+      });
+  };
+
+  window.vergiKaydet = async function() {
+      const tur = document.getElementById('v_tur').value;
+      const donem = document.getElementById('v_donem').value;
+      const sonTarih = document.getElementById('v_sonTarih').value;
+      const tutar = parseFloat(document.getElementById('v_tutar').value) || 0;
+
+      if(tur === "" || donem === "" || tutar <= 0) { alert("Lütfen alanları eksiksiz doldurun."); return; }
+
+      const btn = document.querySelector("#yeniVergiModal .btn-primary");
+      btn.disabled = true; btn.innerHTML = "Kaydediliyor...";
+
+      try {
+          await addDoc(collection(db, "vergiler"), {
+              tur: tur, donem: donem, sonTarih: sonTarih, tutar: tutar, durum: 'Bekliyor', islemTarihi: serverTimestamp()
+          });
+          bootstrap.Modal.getInstance(document.getElementById('yeniVergiModal')).hide();
+          document.getElementById('yeniVergiForm').reset();
+      } catch(e) { alert("Hata: " + e.message); } 
+      finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
+  };
+
+  window.vergiOde = async function(id) {
+      if(confirm("Bu vergiyi ödendi olarak işaretlemek istediğinize emin misiniz?")) {
+          try {
+              await updateDoc(doc(db, "vergiler", id), { durum: 'Ödendi' });
+          } catch(e) { alert("Hata: " + e.message); }
+      }
+  };
+
+  // ---------------- GÖREVLER (TO-DO) İŞLEMLERİ ----------------
+  window.gorevleriCiz = function() {
+      const alan = document.getElementById('gorevListesiAlani');
+      if (!alan) return;
+      alan.innerHTML = "";
+
+      if(gorevListesi.length === 0) {
+          alan.innerHTML = "<p class='text-muted'>Harika! Şu an bekleyen bir görev yok.</p>";
+          return;
+      }
+
+      gorevListesi.forEach(gorev => {
+          let isDone = gorev.durum === 'Tamamlandı';
+          let badgeRenk = isDone ? 'bg-success' : 'bg-warning text-dark';
+          let btnTamamla = !isDone ? 
+              `<button class="btn btn-sm btn-success me-2" onclick="gorevDurumGuncelle('${gorev.id}', 'Tamamlandı')" title="Tamamlandı İşaretle"><i class="fas fa-check"></i></button>` : '';
+
+          alan.innerHTML += `
+              <div class="card mb-2 shadow-sm ${isDone ? 'border-success' : ''}">
+                  <div class="card-body d-flex justify-content-between align-items-center p-3">
+                      <div>
+                          <h6 class="mb-1 ${isDone ? 'text-decoration-line-through text-muted' : 'fw-bold'}">${gorev.baslik}</h6>
+                          <small class="text-muted"><i class="far fa-calendar-alt"></i> Son Tarih: ${gorev.sonTarih || 'Belirtilmedi'} | ${gorev.detay || ''}</small>
+                      </div>
+                      <div class="d-flex align-items-center">
+                          <span class="badge ${badgeRenk} me-3">${gorev.durum}</span>
+                          ${btnTamamla}
+                          <button class="btn btn-sm btn-outline-danger" onclick="gorevSil('${gorev.id}')" title="Görevi Sil"><i class="fas fa-trash"></i></button>
+                      </div>
+                  </div>
+              </div>
+          `;
+      });
+  };
+
+  window.gorevKaydet = async function() {
+      const baslik = document.getElementById('g_baslik').value;
+      if(baslik.trim() === "") { alert("Görev başlığı zorunludur."); return; }
+
+      const btn = document.querySelector("#yeniGorevModal .btn-primary");
+      btn.disabled = true; btn.innerHTML = "Ekleniyor...";
+
+      try {
+          await addDoc(collection(db, "gorevler"), {
+              baslik: baslik,
+              detay: document.getElementById('g_detay').value,
+              sonTarih: document.getElementById('g_sonTarih').value,
+              durum: 'Bekliyor',
+              islemTarihi: serverTimestamp()
+          });
+          bootstrap.Modal.getInstance(document.getElementById('yeniGorevModal')).hide();
+          document.getElementById('yeniGorevForm').reset();
+      } catch(e) { alert("Hata: " + e.message); } 
+      finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
+  };
+
+  window.gorevDurumGuncelle = async function(id, yeniDurum) {
+      try { await updateDoc(doc(db, "gorevler", id), { durum: yeniDurum }); } 
+      catch(e) { alert("Hata: " + e.message); }
+  };
+
+  window.gorevSil = async function(id) {
+      if(confirm("Bu görevi silmek istediğinize emin misiniz?")) {
+          try { await deleteDoc(doc(db, "gorevler", id)); } 
+          catch(e) { alert("Hata: " + e.message); }
+      }
+  };
+
+  // ---------------- ŞİRKET KÜNYESİ İŞLEMLERİ ----------------
+  window.kunyeCiz = function() {
+      const alan = document.getElementById('kunyeKarti');
+      if (!alan) return;
+      
+      const v = kunyeVerisi;
+      alan.innerHTML = `
+          <div class="row">
+              <h6 class="border-bottom pb-2 text-primary"><i class="fas fa-info-circle"></i> Resmi Kimlik Bilgileri</h6>
+              <div class="col-md-6 mb-3">
+                  <label class="text-muted small mb-1">Kısa Ünvan</label>
+                  <div class="d-flex align-items-center">
+                      <strong class="fs-6 me-3">${v.unvan || '-'}</strong>
+                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.unvan || ''}')"><i class="far fa-copy"></i></button>
+                  </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                  <label class="text-muted small mb-1">PIB (Vergi Numarası)</label>
+                  <div class="d-flex align-items-center">
+                      <strong class="fs-6 me-3">${v.pib || '-'}</strong>
+                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.pib || ''}')"><i class="far fa-copy"></i></button>
+                  </div>
+              </div>
+              <div class="col-md-12 mb-3">
+                  <label class="text-muted small mb-1">Tam Resmi Ünvan (Rješenje'deki Hali)</label>
+                  <div class="d-flex align-items-center">
+                      <strong class="fs-6 me-3">${v.tamUnvan || '-'}</strong>
+                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.tamUnvan || ''}')"><i class="far fa-copy"></i></button>
+                  </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                  <label class="text-muted small mb-1">Matični Broj (Sicil No)</label>
+                  <div class="d-flex align-items-center">
+                      <strong class="fs-6 me-3">${v.sicilNo || '-'}</strong>
+                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.sicilNo || ''}')"><i class="far fa-copy"></i></button>
+                  </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                  <label class="text-muted small mb-1">Kuruluş Tarihi</label>
+                  <div><strong class="fs-6">${v.kurulusTarihi || '-'}</strong></div>
+              </div>
+              <div class="col-md-6 mb-3">
+                  <label class="text-muted small mb-1">İcra Direktörü (Izvršni Direktor)</label>
+                  <div><strong class="fs-6">${v.direktor || '-'}</strong></div>
+              </div>
+              <div class="col-md-6 mb-3">
+                  <label class="text-muted small mb-1">Ana Faaliyet (Pretežna Djelatnost)</label>
+                  <div><strong class="fs-6">${v.faaliyet || '-'}</strong></div>
+              </div>
+              
+              <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-address-book"></i> İletişim Bilgileri</h6>
+              <div class="col-md-12 mb-3">
+                  <label class="text-muted small mb-1">Kayıtlı Adres</label>
+                  <div class="d-flex align-items-center">
+                      <strong class="fs-6 me-3">${v.adres || '-'}</strong>
+                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.adres || ''}')"><i class="far fa-copy"></i></button>
+                  </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                  <label class="text-muted small mb-1">Telefon 1 (TR/Kayıtlı)</label>
+                  <div class="d-flex align-items-center">
+                      <strong class="fs-6 me-3">${v.telefon1 || '-'}</strong>
+                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.telefon1 || ''}')"><i class="far fa-copy"></i></button>
+                  </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                  <label class="text-muted small mb-1">Telefon 2 (MNE Lokal)</label>
+                  <div class="d-flex align-items-center">
+                      <strong class="fs-6 me-3">${v.telefon2 || '-'}</strong>
+                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.telefon2 || ''}')"><i class="far fa-copy"></i></button>
+                  </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                  <label class="text-muted small mb-1">E-Posta 1 (Resmi)</label>
+                  <div class="d-flex align-items-center">
+                      <strong class="fs-6 me-3">${v.email1 || '-'}</strong>
+                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.email1 || ''}')"><i class="far fa-copy"></i></button>
+                  </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                  <label class="text-muted small mb-1">E-Posta 2 / Web Sitesi</label>
+                  <div class="d-flex align-items-center">
+                      <strong class="fs-6 me-3">${v.email2 || '-'} <br> ${v.web || ''}</strong>
+                  </div>
+              </div>
+
+              <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-university"></i> Banka Bilgileri</h6>
+              <div class="col-md-12 mb-3">
+                  <label class="text-muted small mb-1">Banka Adı ve IBAN</label>
+                  <div class="d-flex align-items-center">
+                      <strong class="fs-6 me-3">${v.banka || ''} - ${v.iban || '-'}</strong>
+                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.iban || ''}')"><i class="far fa-copy"></i> IBAN</button>
+                  </div>
+              </div>
+              <div class="col-md-12">
+                  <label class="text-muted small mb-1">BIC / SWIFT Kodu</label>
+                  <div class="d-flex align-items-center">
+                      <strong class="fs-6 me-3">${v.swift || '-'}</strong>
+                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="kopyala('${v.swift || ''}')"><i class="far fa-copy"></i></button>
+                  </div>
+              </div>
+          </div>
+      `;
+  };
+
+  window.kopyala = function(metin) {
+      if(!metin) return;
+      navigator.clipboard.writeText(metin).then(() => { alert("Başarıyla Kopyalandı!"); });
+  };
+
+  window.kunyeDuzenleAc = function() {
+      const v = kunyeVerisi;
+      document.getElementById('k_unvan').value = v.unvan || '';
+      document.getElementById('k_tamUnvan').value = v.tamUnvan || '';
+      document.getElementById('k_pib').value = v.pib || '';
+      document.getElementById('k_sicilNo').value = v.sicilNo || '';
+      document.getElementById('k_kurulusTarihi').value = v.kurulusTarihi || '';
+      document.getElementById('k_direktor').value = v.direktor || '';
+      document.getElementById('k_faaliyet').value = v.faaliyet || '';
+      document.getElementById('k_adres').value = v.adres || '';
+      document.getElementById('k_telefon1').value = v.telefon1 || '';
+      document.getElementById('k_telefon2').value = v.telefon2 || '';
+      document.getElementById('k_email1').value = v.email1 || '';
+      document.getElementById('k_email2').value = v.email2 || '';
+      document.getElementById('k_web').value = v.web || '';
+      document.getElementById('k_banka').value = v.banka || '';
+      document.getElementById('k_iban').value = v.iban || '';
+      document.getElementById('k_swift').value = v.swift || '';
+      
+      new bootstrap.Modal(document.getElementById('kunyeModal')).show();
+  };
+
+  window.kunyeKaydet = async function() {
+      const btn = document.querySelector("#kunyeModal .btn-primary");
+      btn.disabled = true; btn.innerHTML = "Kaydediliyor...";
+      try {
+          await setDoc(doc(db, "ayarlar", "kunye"), {
+              unvan: document.getElementById('k_unvan').value,
+              tamUnvan: document.getElementById('k_tamUnvan').value,
+              pib: document.getElementById('k_pib').value,
+              sicilNo: document.getElementById('k_sicilNo').value,
+              kurulusTarihi: document.getElementById('k_kurulusTarihi').value,
+              direktor: document.getElementById('k_direktor').value,
+              faaliyet: document.getElementById('k_faaliyet').value,
+              adres: document.getElementById('k_adres').value,
+              telefon1: document.getElementById('k_telefon1').value,
+              telefon2: document.getElementById('k_telefon2').value,
+              email1: document.getElementById('k_email1').value,
+              email2: document.getElementById('k_email2').value,
+              web: document.getElementById('k_web').value,
+              banka: document.getElementById('k_banka').value,
+              iban: document.getElementById('k_iban').value,
+              swift: document.getElementById('k_swift').value,
+              guncellemeTarihi: serverTimestamp()
+          });
+          bootstrap.Modal.getInstance(document.getElementById('kunyeModal')).hide();
+      } catch(e) { alert("Hata: " + e.message); } 
+      finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
+  };
+
+</script>
+
+<script>
+    // SAYFA YÜKLEME FONKSİYONU
+    function sayfaYukle(sayfa) {
+        const mainContent = document.getElementById('main-content');
+        
+        if(sayfa === 'dashboard') {
+            mainContent.innerHTML = `
+                <h2 class="mb-4">Yönetici Özeti</h2>
+                <div class="row">
+                    <!-- Kasa & Banka Kartı -->
+                    <div class="col-md-4">
+                        <div class="card text-white bg-success mb-3 shadow">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="fas fa-wallet"></i> Kasa & Banka</h5>
+                                <h3 class="card-text mt-3" id="dash_kasa">0.00 €</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Alacaklar Kartı -->
+                    <div class="col-md-4">
+                        <div class="card text-white bg-info mb-3 shadow">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="fas fa-hand-holding-usd"></i> Toplam Alacak</h5>
+                                <h3 class="card-text mt-3" id="dash_alacak">0.00 €</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Borçlar Kartı -->
+                    <div class="col-md-4">
+                        <div class="card text-white bg-danger mb-3 shadow">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="fas fa-file-invoice-dollar"></i> Toplam Borç</h5>
+                                <h3 class="card-text mt-3" id="dash_borc">0.00 €</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => { if(typeof window.dashboardCiz === 'function') window.dashboardCiz(); }, 50);
+        } 
+        else if(sayfa === 'cariler') {
+            mainContent.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Cari Hesaplar</h2>
+                    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#yeniCariModal">
+                        <i class="fas fa-plus"></i> Yeni Cari Ekle
+                    </button>
+                </div>
+                <div class="table-responsive bg-white p-3 rounded shadow-sm">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr><th>Ünvan</th><th>Bölge</th><th>Ülke</th><th>Vergi/VAT No</th><th>Bakiye</th><th>İşlemler</th></tr>
+                        </thead>
+                        <tbody id="cariTabloGövdesi"></tbody>
+                    </table>
+                </div>
+
+                <!-- CARİ EKLEME MODALI -->
+                <div class="modal fade" id="yeniCariModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header bg-dark text-white">
+                                <h5 class="modal-title">Yeni Cari Kart Oluştur</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="yeniCariForm">
+                                    <div class="row mb-3">
+                                        <div class="col-md-12"><label class="form-label">Ünvan *</label><input type="text" class="form-control" id="c_unvan" required></div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6"><label class="form-label">Cari Grubu *</label><select class="form-select" id="c_grup"><option value="Alici">Alıcı</option><option value="Satici">Satıcı</option></select></div>
+                                        <div class="col-md-6"><label class="form-label">Bölge *</label><select class="form-select" id="c_bolge"><option value="Yerli">Yerli (Karadağ)</option><option value="Yabanci">Yabancı (Yurt Dışı)</option></select></div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6"><label class="form-label">Ülke</label><input type="text" class="form-control" id="c_ulke" value="Montenegro"></div>
+                                        <div class="col-md-6"><label class="form-label">Vergi No / PIB *</label><input type="text" class="form-control" id="c_vergiNo"></div>
+                                    </div>
+                                    <h6 class="mt-4 border-bottom pb-2">Banka ve İletişim</h6>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6"><label class="form-label">IBAN</label><input type="text" class="form-control" id="c_iban"></div>
+                                        <div class="col-md-6"><label class="form-label">BIC / SWIFT</label><input type="text" class="form-control" id="c_bic"></div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-12"><label class="form-label">E-Posta</label><input type="email" class="form-control" id="c_email"></div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button><button type="button" class="btn btn-primary" onclick="cariKaydet()">Kaydet</button></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => { if(typeof window.tabloyuCiz === 'function') window.tabloyuCiz(); }, 50);
+        }
+        else if(sayfa === 'faturalar') {
+            mainContent.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Alım ve Satış Faturaları</h2>
+                    <button class="btn btn-primary shadow-sm" onclick="faturaModalAc()">
+                        <i class="fas fa-plus"></i> Yeni Fatura İşle
+                    </button>
+                </div>
+                
+                <div class="table-responsive bg-white p-3 rounded shadow-sm">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fatura No</th>
+                                <th>Tarih</th>
+                                <th>Cari Ünvan (Firma)</th>
+                                <th>Tür</th>
+                                <th>Matrah</th>
+                                <th>KDV</th>
+                                <th>Toplam</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody id="faturaTabloGövdesi"></tbody>
+                    </table>
+                </div>
+
+                <!-- YENİ FATURA EKLEME MODALI -->
+                <div class="modal fade" id="yeniFaturaModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header bg-dark text-white">
+                                <h5 class="modal-title">Yeni Fatura İşle</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="yeniFaturaForm">
+                                    <div class="row mb-3">
+                                        <div class="col-md-12">
+                                            <label class="form-label">Cari Hesap (Firma) *</label>
+                                            <select class="form-select" id="f_cariId" required></select>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Fatura Yönü *</label>
+                                            <select class="form-select" id="f_tur">
+                                                <option value="Satis">Satış (Kestiğimiz)</option>
+                                                <option value="Alim">Alım (Bize Gelen)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Fatura Numarası *</label>
+                                            <input type="text" class="form-control" id="f_faturaNo" placeholder="Örn: 2026-001">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Fatura Tarihi *</label>
+                                            <input type="date" class="form-control" id="f_tarih">
+                                        </div>
+                                    </div>
+                                    
+                                    <h6 class="mt-4 border-bottom pb-2">Tutar ve Vergi Bilgileri</h6>
+                                    
+                                    <div class="row mb-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Tutar (KDV Hariç) € *</label>
+                                            <input type="number" class="form-control" id="f_tutar" onkeyup="hesaplaKdv()" onchange="hesaplaKdv()" step="0.01">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">KDV Oranı (%)</label>
+                                            <select class="form-select" id="f_kdvOran" onchange="hesaplaKdv()">
+                                                <option value="21">21% (Standart PDV)</option>
+                                                <option value="7">7% (İndirimli)</option>
+                                                <option value="0">0% (İstisna / Yurt Dışı)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">KDV Tutarı €</label>
+                                            <input type="text" class="form-control bg-light" id="f_kdvTutar" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-8"></div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Genel Toplam €</label>
+                                            <input type="text" class="form-control border-success text-success fw-bold" id="f_toplam" readonly>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-primary" onclick="faturaKaydet()">Faturayı İşle</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => { if(typeof window.faturalariCiz === 'function') window.faturalariCiz(); }, 50);
+            
+        }
+        else if(sayfa === 'bankalar') {
+            mainContent.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Banka ve Kasa Hesapları</h2>
+                    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#yeniBankaModal">
+                        <i class="fas fa-plus"></i> Yeni Hesap Ekle
+                    </button>
+                </div>
+                
+                <div class="table-responsive bg-white p-3 rounded shadow-sm mb-4">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Hesap Adı</th>
+                                <th>IBAN</th>
+                                <th>Para Birimi</th>
+                                <th>Güncel Bakiye</th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bankaTabloGövdesi"></tbody>
+                    </table>
+                </div>
+
+                <!-- YENİ BANKA/KASA MODALI -->
+                <div class="modal fade" id="yeniBankaModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-dark text-white">
+                                <h5 class="modal-title">Yeni Banka/Kasa Hesabı</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="yeniBankaForm">
+                                    <div class="mb-3">
+                                        <label class="form-label">Hesap Adı * (Örn: Merkez Kasa, CKB Euro Hesabı)</label>
+                                        <input type="text" class="form-control" id="b_hesapAdi" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Banka Adı (Kasaysa boş bırakın)</label>
+                                        <input type="text" class="form-control" id="b_bankaAdi">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">IBAN Numarası</label>
+                                        <input type="text" class="form-control" id="b_iban">
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-primary" onclick="bankaKaydet()">Kaydet</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAHSİLAT / ÖDEME İŞLEM MODALI -->
+                <div class="modal fade" id="islemModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title" id="islemModalBaslik">İşlem Yap</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="islemForm">
+                                    <input type="hidden" id="i_tur">
+                                    <input type="hidden" id="i_bankaId">
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">İlgili Cari (Kime/Kimden) *</label>
+                                        <select class="form-select" id="i_cariId" required></select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Tutar (€) *</label>
+                                        <input type="number" class="form-control" id="i_tutar" step="0.01" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Açıklama (Dekont No / Detay)</label>
+                                        <input type="text" class="form-control" id="i_aciklama">
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-primary" onclick="islemKaydet()">İşlemi Tamamla</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => { if(typeof window.bankalariCiz === 'function') window.bankalariCiz(); }, 50);
+        }
+
+        else if(sayfa === 'vergiler') {
+            mainContent.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Vergi ve Yasal Ödemeler</h2>
+                    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#yeniVergiModal">
+                        <i class="fas fa-plus"></i> Yeni Vergi Ekle
+                    </button>
+                </div>
+
+                <div class="table-responsive bg-white p-3 rounded shadow-sm mb-4">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Vergi Türü</th>
+                                <th>Dönem</th>
+                                <th>Son Ödeme Tarihi</th>
+                                <th>Tutar</th>
+                                <th>Durum</th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vergiTabloGövdesi"></tbody>
+                    </table>
+                </div>
+
+                <!-- YENİ VERGİ MODALI -->
+                <div class="modal fade" id="yeniVergiModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-dark text-white">
+                                <h5 class="modal-title">Yeni Vergi / Ödeme Ekle</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="yeniVergiForm">
+                                    <div class="mb-3">
+                                        <label class="form-label">Vergi Türü *</label>
+                                        <select class="form-select" id="v_tur">
+                                            <option value="PDV (KDV)">PDV (KDV - %21, %7)</option>
+                                            <option value="Kurumlar Vergisi">Kurumlar Vergisi</option>
+                                            <option value="Maaş / SGK / Stopaj">Maaş / SGK / Stopaj</option>
+                                            <option value="Muhasebe ve Diğer Harçlar">Muhasebe ve Diğer Harçlar</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Dönem *</label>
+                                        <input type="month" class="form-control" id="v_donem" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Son Ödeme Tarihi *</label>
+                                        <input type="date" class="form-control" id="v_sonTarih" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Tutar (€) *</label>
+                                        <input type="number" class="form-control" id="v_tutar" step="0.01" required>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-primary" onclick="vergiKaydet()">Kaydet</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => { if(typeof window.vergileriCiz === 'function') window.vergileriCiz(); }, 50);
+        }
+        else if(sayfa === 'gorevler') {
+            mainContent.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Görevler ve Notlar</h2>
+                    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#yeniGorevModal">
+                        <i class="fas fa-plus"></i> Yeni Görev Ekle
+                    </button>
+                </div>
+
+                <div id="gorevListesiAlani" class="mt-3">
+                    <!-- Görev kartları buraya JS ile eklenecek -->
+                </div>
+
+                <!-- YENİ GÖREV MODALI -->
+                <div class="modal fade" id="yeniGorevModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-dark text-white">
+                                <h5 class="modal-title">Yeni Görev / Not Ekle</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="yeniGorevForm">
+                                    <div class="mb-3">
+                                        <label class="form-label">Görev Başlığı *</label>
+                                        <input type="text" class="form-control" id="g_baslik" placeholder="Örn: Avukat ile oturum izni yenilemesi" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Detay / Notlar</label>
+                                        <textarea class="form-control" id="g_detay" rows="2"></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Son Tarih</label>
+                                        <input type="date" class="form-control" id="g_sonTarih">
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-primary" onclick="gorevKaydet()">Kaydet</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => { if(typeof window.gorevleriCiz === 'function') window.gorevleriCiz(); }, 50);
+        }
+
+        else if(sayfa === 'kunye') {
+            mainContent.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Şirket Künyesi</h2>
+                    <button class="btn btn-primary shadow-sm" onclick="kunyeDuzenleAc()">
+                        <i class="fas fa-edit"></i> Bilgileri Düzenle
+                    </button>
+                </div>
+
+                <div class="card shadow-sm border-0">
+                    <div class="card-body p-4" id="kunyeKarti">
+                        <!-- Bilgiler JS ile buraya gelecek -->
+                    </div>
+                </div>
+
+                <!-- KÜNYE DÜZENLEME MODALI -->
+                <div class="modal fade" id="kunyeModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header bg-dark text-white">
+                                <h5 class="modal-title">Firma Bilgilerini Düzenle</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="kunyeForm">
+                                    <h6 class="border-bottom pb-2 text-primary">Resmi Kimlik Bilgileri</h6>
+                                    <div class="row mb-2">
+                                        <div class="col-md-4"><label class="form-label small">Kısa Ünvan</label><input type="text" class="form-control form-control-sm" id="k_unvan" placeholder="EURO VERITAS COLSUNTING DOO"></div>
+                                        <div class="col-md-8"><label class="form-label small">Tam Resmi Ünvan</label><input type="text" class="form-control form-control-sm" id="k_tamUnvan" placeholder='"EURO VERITAS..." ZA PROIZVODNJU...'></div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-md-4"><label class="form-label small">PIB (Vergi No)</label><input type="text" class="form-control form-control-sm" id="k_pib"></div>
+                                        <div class="col-md-4"><label class="form-label small">Matični Broj (Sicil No)</label><input type="text" class="form-control form-control-sm" id="k_sicilNo"></div>
+                                        <div class="col-md-4"><label class="form-label small">Kuruluş Tarihi</label><input type="date" class="form-control form-control-sm" id="k_kurulusTarihi"></div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-4"><label class="form-label small">İcra Direktörü</label><input type="text" class="form-control form-control-sm" id="k_direktor"></div>
+                                        <div class="col-md-8"><label class="form-label small">Ana Faaliyet</label><input type="text" class="form-control form-control-sm" id="k_faaliyet" placeholder="6920 Racunovodstveni..."></div>
+                                    </div>
+
+                                    <h6 class="border-bottom pb-2 text-primary mt-3">İletişim Bilgileri</h6>
+                                    <div class="row mb-2">
+                                        <div class="col-md-12"><label class="form-label small">Kayıtlı Adres</label><input type="text" class="form-control form-control-sm" id="k_adres"></div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-md-6"><label class="form-label small">Telefon 1 (TR/Kayıtlı)</label><input type="text" class="form-control form-control-sm" id="k_telefon1"></div>
+                                        <div class="col-md-6"><label class="form-label small">Telefon 2 (Lokal Karadağ)</label><input type="text" class="form-control form-control-sm" id="k_telefon2"></div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-4"><label class="form-label small">E-Posta 1 (Resmi)</label><input type="email" class="form-control form-control-sm" id="k_email1"></div>
+                                        <div class="col-md-4"><label class="form-label small">E-Posta 2 (Ekstra)</label><input type="email" class="form-control form-control-sm" id="k_email2"></div>
+                                        <div class="col-md-4"><label class="form-label small">Web Sitesi</label><input type="text" class="form-control form-control-sm" id="k_web"></div>
+                                    </div>
+
+                                    <h6 class="border-bottom pb-2 text-primary mt-3">Banka Bilgileri</h6>
+                                    <div class="row mb-2">
+                                        <div class="col-md-4"><label class="form-label small">Banka Adı</label><input type="text" class="form-control form-control-sm" id="k_banka"></div>
+                                        <div class="col-md-5"><label class="form-label small">IBAN Numarası</label><input type="text" class="form-control form-control-sm" id="k_iban"></div>
+                                        <div class="col-md-3"><label class="form-label small">SWIFT Kodu</label><input type="text" class="form-control form-control-sm" id="k_swift"></div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-primary" onclick="kunyeKaydet()">Kaydet</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => { if(typeof window.kunyeCiz === 'function') window.kunyeCiz(); }, 50);
+        }
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
