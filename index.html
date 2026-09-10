@@ -288,7 +288,13 @@
     hareketler.sort((a,b) => a.hamTarih - b.hamTarih); // Eskiden yeniye
 
     let html = `<div id="yazdirilacak-alan" class="p-4 bg-white shadow-sm rounded">
-        <h4 class="border-bottom pb-2">${cari.unvan} - Hesap Ekstresi</h4>
+        <div class="d-flex align-items-center mb-4 border-bottom pb-2">
+            <img src="Euro Veritas Consulting.jpg" style="height: 70px; margin-right: 20px;" class="d-none d-print-block">
+            <div>
+                <h4 class="mb-0">${cari.unvan} - Hesap Ekstresi</h4>
+                <p class="mb-0"><strong>Bakiye:</strong> <span class="fs-5 ${cari.bakiye > 0 ? 'text-success' : 'text-danger'}">${cari.bakiye.toFixed(2)} ${birim}</span></p>
+            </div>
+        </div>
         <p><strong>Bakiye:</strong> <span class="fs-5 ${cari.bakiye > 0 ? 'text-success' : 'text-danger'}">${cari.bakiye.toFixed(2)} ${birim}</span></p>
         <table class="table table-sm table-striped mt-3">
             <thead class="table-dark"><tr><th>Tarih</th><th>İşlem Tipi</th><th>Açıklama</th><th class="text-end">Tutar</th><th class="d-print-none text-center">Sil</th></tr></thead>
@@ -381,13 +387,35 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
                   <td>${fatura.kdvTutar.toFixed(2)} €</td>
                   <td class="fw-bold">${fatura.toplamTutar.toFixed(2)} €</td>
                   <td>
+                      <button class="btn btn-sm btn-outline-primary py-0 me-1" title="Düzenle" onclick="faturaDuzenleAc('${fatura.id}')"><i class="fas fa-edit"></i></button>
                       <button class="btn btn-sm btn-outline-danger py-0" title="Sil" onclick="faturaSil('${fatura.id}', '${fatura.cariId}', '${fatura.tur}', ${fatura.toplamTutar})"><i class="fas fa-trash"></i></button>
                   </td>
               </tr>
           `;
       });
   };
-  
+
+  window.faturaDuzenleAc = function(id) {
+      const f = faturaListesi.find(x => x.id === id);
+      
+      const cariSelect = document.getElementById('f_cariId');
+      cariSelect.innerHTML = '<option value="">-- Cari Seçiniz --</option>';
+      cariListesi.forEach(c => { cariSelect.innerHTML += `<option value="${c.id}" ${c.id === f.cariId ? 'selected' : ''}>${c.unvan}</option>`; });
+
+      document.getElementById('f_id').value = f.id;
+      document.getElementById('f_tur').value = f.tur;
+      document.getElementById('f_paraBirimi').value = f.paraBirimi || 'EUR';
+      document.getElementById('f_faturaNo').value = f.faturaNo;
+      document.getElementById('f_tarih').value = f.tarih;
+      document.getElementById('f_tutar').value = f.tutar;
+      document.getElementById('f_kdvOran').value = f.kdvOran;
+      
+      window.hesaplaKdv();
+      
+      document.querySelector("#yeniFaturaModal .modal-title").innerHTML = "Fatura Düzenle";
+      new bootstrap.Modal(document.getElementById('yeniFaturaModal')).show();
+  };
+
   window.faturaSil = async function(faturaId, cariId, tur, toplamTutar) {
       if(!confirm("Bu faturayı silmek istediğinize emin misiniz? Cari bakiye otomatik olarak geri alınacaktır.")) return;
       try {
@@ -397,6 +425,7 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
           await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(bakiyeDegisimi) });
       } catch(e) { alert("Hata: " + e.message); }
   };
+
 
   // Yeni Fatura Modalını Açarken Carileri Listeye Doldur
   window.faturaModalAc = function() {
@@ -498,6 +527,7 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
           let bakiye = banka.bakiye || 0;
           tbody.innerHTML += `
               <tr>
+                  <tr class="cursor-pointer" onclick="if(event.target.tagName !== 'BUTTON' && event.target.tagName !== 'I') bankaEkstreAc('${banka.id}')">
                   <td><span class="fw-bold">${banka.hesapAdi}</span><br><small class="text-muted">${banka.bankaAdi}</small></td>
                   <td>${banka.iban || '-'}</td>
                   <td>${banka.paraBirimi}</td>
@@ -519,27 +549,63 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
       document.getElementById('b_hesapAdi').value = b.hesapAdi;
       document.getElementById('b_bankaAdi').value = b.bankaAdi || '';
       document.getElementById('b_iban').value = b.iban || '';
+      document.getElementById('b_paraBirimi').value = b.paraBirimi || 'EUR';
       document.querySelector("#yeniBankaModal .modal-title").innerHTML = "Hesabı Düzenle";
       new bootstrap.Modal(document.getElementById('yeniBankaModal')).show();
-  };
-
-  window.bankaSil = async function(id) {
-      if(!confirm("Bu banka hesabını silmek istediğinize emin misiniz?")) return;
-      try { await deleteDoc(doc(db, "bankalar", id)); } catch(e) { alert("Hata: " + e.message); }
   };
 
   window.bankaKaydet = async function() {
       const id = document.getElementById('b_id').value;
       const hesapAdi = document.getElementById('b_hesapAdi').value;
       if(hesapAdi === "") { alert("Hesap adı zorunludur!"); return; }
-      const data = { hesapAdi: hesapAdi, bankaAdi: document.getElementById('b_bankaAdi').value, iban: document.getElementById('b_iban').value };
+      const data = { 
+          hesapAdi: hesapAdi, 
+          bankaAdi: document.getElementById('b_bankaAdi').value, 
+          iban: document.getElementById('b_iban').value,
+          paraBirimi: document.getElementById('b_paraBirimi').value
+      };
       
       try {
           if(id) { await updateDoc(doc(db, "bankalar", id), data); } 
-          else { data.bakiye = 0; data.paraBirimi = 'EUR'; data.olusturmaTarihi = serverTimestamp(); await addDoc(collection(db, "bankalar"), data); }
+          else { data.bakiye = 0; data.olusturmaTarihi = serverTimestamp(); await addDoc(collection(db, "bankalar"), data); }
           bootstrap.Modal.getInstance(document.getElementById('yeniBankaModal')).hide();
           document.getElementById('yeniBankaForm').reset(); document.getElementById('b_id').value = '';
       } catch(e) { alert("Hata: " + e.message); }
+  };
+  window.bankaEkstreAc = async function(bankaId) {
+      const banka = bankaListesi.find(b => b.id === bankaId);
+      let birim = banka.paraBirimi === 'USD' ? '$' : '€';
+      
+      let hareketler = islemListesi.filter(i => i.bankaId === bankaId);
+      
+      let html = `<div id="yazdirilacak-alan" class="p-4 bg-white shadow-sm rounded">
+          <div class="d-flex align-items-center mb-4">
+              <img src="Euro Veritas Consulting.jpg" style="height: 60px; margin-right: 15px;" class="d-none d-print-block">
+              <div><h4 class="mb-0">${banka.hesapAdi} - Banka/Kasa Ekstresi</h4><p class="mb-0 text-muted"><strong>Güncel Bakiye:</strong> <span class="${banka.bakiye >= 0 ? 'text-success' : 'text-danger'}">${banka.bakiye.toFixed(2)} ${birim}</span></p></div>
+          </div>
+          <table class="table table-sm table-striped">
+              <thead class="table-dark"><tr><th>Tarih</th><th>İşlem Yönü</th><th>Cari Unvan (Kime/Kimden)</th><th>Açıklama</th><th class="text-end">Tutar</th><th class="d-print-none text-center">İptal</th></tr></thead>
+              <tbody>`;
+              
+      if(hareketler.length === 0) { html += `<tr><td colspan="6" class="text-center text-muted">İşlem bulunamadı.</td></tr>`; } 
+      else {
+          hareketler.forEach(h => {
+              let d = h.tarih ? new Date(h.tarih.seconds * 1000).toLocaleDateString('tr-TR') : '-';
+              let renk = h.tur === 'Tahsilat' ? 'text-success' : 'text-danger';
+              let cariAdi = cariListesi.find(c => c.id === h.cariId)?.unvan || 'Silinmiş Cari';
+              let silButon = `<button class="btn btn-sm btn-outline-danger py-0" onclick="islemSil('${h.id}', '${h.cariId}', '${h.bankaId}', ${h.tutar})" title="İşlemi İptal Et"><i class="fas fa-trash"></i></button>`;
+              
+              html += `<tr><td>${d}</td><td>${h.tur}</td><td>${cariAdi}</td><td>${h.aciklama}</td><td class="text-end fw-bold ${renk}">${h.tutar.toFixed(2)} ${birim}</td><td class="d-print-none text-center">${silButon}</td></tr>`;
+          });
+      }
+      html += `</tbody></table></div>`;
+      html += `<div class="mt-3"><button class="btn btn-secondary shadow-sm" onclick="window.print()"><i class="fas fa-print"></i> Yazdır</button> <button class="btn btn-outline-danger ms-2" onclick="sayfaYukle('bankalar')">Kapat</button></div>`;
+      document.getElementById('main-content').innerHTML = html;
+  };
+
+  window.bankaSil = async function(id) {
+      if(!confirm("Bu banka hesabını silmek istediğinize emin misiniz?")) return;
+      try { await deleteDoc(doc(db, "bankalar", id)); } catch(e) { alert("Hata: " + e.message); }
   };
 
   // Tahsilat/Ödeme Modalını Hazırla
@@ -756,8 +822,26 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
                       <div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.adres || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.adres || ''}')"><i class="far fa-copy"></i></button></div>
                   </div>
                   <div class="col-md-6 mb-3">
-                      <label class="text-muted small mb-1">İletişim (E-Posta / Telefon)</label>
-                      <div><strong class="fs-6">${v.email1 || '-'} / ${v.telefon1 || '-'}</strong></div>
+                      <label class="text-muted small mb-1">Ana Faaliyet</label>
+                      <div><strong class="fs-6">${v.faaliyet || '-'}</strong></div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                      <label class="text-muted small mb-1">İcra Direktörü / Sermaye</label>
+                      <div><strong class="fs-6">${v.direktor || '-'} / ${v.sermaye || '-'} €</strong></div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                      <label class="text-muted small mb-1">Kuruluş Tarihi</label>
+                      <div><strong class="fs-6">${v.kurulus || '-'}</strong></div>
+                  </div>
+                  
+                  <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-address-book"></i> İletişim Bilgileri</h6>
+                  <div class="col-md-6 mb-3">
+                      <label class="text-muted small mb-1">E-Posta 1 / E-Posta 2</label>
+                      <div><strong class="fs-6">${v.email1 || '-'} <br> ${v.email2 || '-'}</strong></div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                      <label class="text-muted small mb-1">Telefon 1 / Telefon 2</label>
+                      <div><strong class="fs-6">${v.telefon1 || '-'} <br> ${v.telefon2 || '-'}</strong></div>
                   </div>
 
                   <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-university"></i> Banka Bilgileri</h6>
@@ -780,17 +864,27 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
 
   window.kunyeDuzenleAc = function() {
       const v = kunyeVerisi;
+      // Eski alanlar
       document.getElementById('k_unvan').value = v.unvan || '';
       document.getElementById('k_tamUnvan').value = v.tamUnvan || '';
       document.getElementById('k_pib').value = v.pib || '';
       document.getElementById('k_sicilNo').value = v.sicilNo || '';
       document.getElementById('k_adres').value = v.adres || '';
-      document.getElementById('k_email1').value = v.email1 || '';
-      document.getElementById('k_telefon1').value = v.telefon1 || '';
       document.getElementById('k_banka').value = v.banka || '';
       document.getElementById('k_iban').value = v.iban || '';
       document.getElementById('k_usdIban').value = v.usdIban || '';
       document.getElementById('k_swift').value = v.swift || '';
+      
+      // Yeni eklenen alanlar
+      document.getElementById('k_faaliyet').value = v.faaliyet || '';
+      document.getElementById('k_direktor').value = v.direktor || '';
+      document.getElementById('k_kurulus').value = v.kurulus || '';
+      document.getElementById('k_sermaye').value = v.sermaye || '';
+      document.getElementById('k_email1').value = v.email1 || '';
+      document.getElementById('k_email2').value = v.email2 || '';
+      document.getElementById('k_telefon1').value = v.telefon1 || '';
+      document.getElementById('k_telefon2').value = v.telefon2 || '';
+      
       new bootstrap.Modal(document.getElementById('kunyeModal')).show();
   };
 
@@ -799,17 +893,26 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
       btn.disabled = true; btn.innerHTML = "Kaydediliyor...";
       try {
           await setDoc(doc(db, "ayarlar", "kunye"), {
+              // Eski alanlar
               unvan: document.getElementById('k_unvan').value,
               tamUnvan: document.getElementById('k_tamUnvan').value,
               pib: document.getElementById('k_pib').value,
               sicilNo: document.getElementById('k_sicilNo').value,
               adres: document.getElementById('k_adres').value,
-              email1: document.getElementById('k_email1').value,
-              telefon1: document.getElementById('k_telefon1').value,
               banka: document.getElementById('k_banka').value,
               iban: document.getElementById('k_iban').value,
               usdIban: document.getElementById('k_usdIban').value,
-              swift: document.getElementById('k_swift').value
+              swift: document.getElementById('k_swift').value,
+              
+              // Yeni eklenen alanlar
+              faaliyet: document.getElementById('k_faaliyet').value,
+              direktor: document.getElementById('k_direktor').value,
+              kurulus: document.getElementById('k_kurulus').value,
+              sermaye: document.getElementById('k_sermaye').value,
+              email1: document.getElementById('k_email1').value,
+              email2: document.getElementById('k_email2').value,
+              telefon1: document.getElementById('k_telefon1').value,
+              telefon2: document.getElementById('k_telefon2').value
           });
           bootstrap.Modal.getInstance(document.getElementById('kunyeModal')).hide();
       } catch(e) { alert("Hata: " + e.message); } 
@@ -1027,6 +1130,7 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
                             </div>
                             <div class="modal-body">
                                 <form id="yeniFaturaForm">
+                                    <input type="hidden" id="f_id">
                                     <div class="row mb-3">
                                         <div class="col-md-12">
                                             <label class="form-label">Cari Hesap (Firma) *</label>
@@ -1079,14 +1183,14 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
                                             </select>
                                         </div>
                                         <div class="col-md-4">
-                                            <label class="form-label">KDV Tutarı €</label>
+                                            <label class="form-label">KDV Tutarı</label>
                                             <input type="text" class="form-control bg-light" id="f_kdvTutar" readonly>
                                         </div>
                                     </div>
                                     <div class="row mb-3">
                                         <div class="col-md-8"></div>
                                         <div class="col-md-4">
-                                            <label class="form-label fw-bold">Genel Toplam €</label>
+                                            <label class="form-label fw-bold">Genel Toplam</label>
                                             <input type="text" class="form-control border-success text-success fw-bold" id="f_toplam" readonly>
                                         </div>
                                     </div>
@@ -1145,6 +1249,10 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
                                     <div class="mb-3">
                                         <label class="form-label">Banka Adı (Kasaysa boş bırakın)</label>
                                         <input type="text" class="form-control" id="b_bankaAdi">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Para Birimi *</label>
+                                        <select class="form-select" id="b_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">IBAN Numarası</label>
@@ -1355,8 +1463,18 @@ window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
                                         <div class="col-md-4"><label class="form-label small">Kayıtlı Adres</label><input type="text" class="form-control form-control-sm" id="k_adres"></div>
                                     </div>
                                     <div class="row mb-2">
-                                        <div class="col-md-6"><label class="form-label small">E-Posta</label><input type="email" class="form-control form-control-sm" id="k_email1"></div>
-                                        <div class="col-md-6"><label class="form-label small">Telefon</label><input type="text" class="form-control form-control-sm" id="k_telefon1"></div>
+                                        <div class="col-md-3"><label class="form-label small">Ana Faaliyet</label><input type="text" class="form-control form-control-sm" id="k_faaliyet"></div>
+                                        <div class="col-md-3"><label class="form-label small">İcra Direktörü</label><input type="text" class="form-control form-control-sm" id="k_direktor"></div>
+                                        <div class="col-md-3"><label class="form-label small">Kuruluş Tarihi</label><input type="date" class="form-control form-control-sm" id="k_kurulus"></div>
+                                        <div class="col-md-3"><label class="form-label small">Sermaye (€)</label><input type="text" class="form-control form-control-sm" id="k_sermaye"></div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-md-6"><label class="form-label small">E-Posta 1</label><input type="email" class="form-control form-control-sm" id="k_email1"></div>
+                                        <div class="col-md-6"><label class="form-label small">E-Posta 2</label><input type="email" class="form-control form-control-sm" id="k_email2"></div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-md-6"><label class="form-label small">Telefon 1</label><input type="text" class="form-control form-control-sm" id="k_telefon1"></div>
+                                        <div class="col-md-6"><label class="form-label small">Telefon 2</label><input type="text" class="form-control form-control-sm" id="k_telefon2"></div>
                                     </div>
 
                                     <h6 class="border-bottom pb-2 text-primary mt-3">Banka Bilgileri</h6>
