@@ -142,6 +142,13 @@
               if (document.getElementById('dash_kasa')) { window.dashboardCiz(); } // YENİ: Dashboard anında güncellensin
           });
 
+          // HESAP HAREKETLERİNİ DİNLE (Eksik olan kısım)
+          onSnapshot(collection(db, "hesapHareketleri"), (snapshot) => {
+              islemListesi = [];
+              snapshot.forEach((doc) => { islemListesi.push({ id: doc.id, ...doc.data() }); });
+              islemListesi.sort((a,b) => (b.tarih?.seconds || 0) - (a.tarih?.seconds || 0));
+          });
+
           // VERGİLERİ DİNLE (YENİ)
           vergiDinleyici = onSnapshot(collection(db, "vergiler"), (snapshot) => {
               vergiListesi = [];
@@ -241,38 +248,105 @@
 
     window.cariEkstreAc = async function(cariId) {
     const cari = cariListesi.find(c => c.id === cariId);
-    let html = `<div id="yazdirilacak-alan" class="p-4 bg-white">
+    let birim = cari.paraBirimi === 'USD' ? '$' : '€';
+    
+    // Faturaları ve Banka İşlemlerini Birleştir
+    let hareketler = [];
+    faturaListesi.filter(f => f.cariId === cariId).forEach(f => {
+        hareketler.push({
+            id: f.id, tipKodu: 'fatura',
+            tarih: f.tarih, 
+            tip: f.tur === 'Satis' ? 'Satış Faturası' : 'Alım Faturası', 
+            aciklama: `Fatura No: ${f.faturaNo}`, 
+            tutar: f.tur === 'Satis' ? f.toplamTutar : -f.toplamTutar,
+            hamTarih: new Date(f.tarih).getTime()
+        });
+    });
+    
+    islemListesi.filter(i => i.cariId === cariId).forEach(i => {
+        let d = i.tarih ? new Date(i.tarih.seconds * 1000) : new Date();
+        hareketler.push({
+            id: i.id, tipKodu: 'islem', bankaId: i.bankaId,
+            tarih: d.toISOString().split('T')[0], 
+            tip: i.tur === 'Tahsilat' ? 'Tahsilat (Giriş)' : 'Ödeme (Çıkış)', 
+            aciklama: i.aciklama || 'Banka/Kasa İşlemi', 
+            tutar: i.tur === 'Tahsilat' ? -i.tutar : i.tutar,
+            hamTarih: d.getTime()
+        });
+    });
+
+    hareketler.sort((a,b) => a.hamTarih - b.hamTarih); // Eskiden yeniye
+
+    let html = `<div id="yazdirilacak-alan" class="p-4 bg-white shadow-sm rounded">
         <h4 class="border-bottom pb-2">${cari.unvan} - Hesap Ekstresi</h4>
-        <p><strong>Para Birimi:</strong> ${cari.paraBirimi || 'EUR'} | <strong>Güncel Bakiye:</strong> ${cari.bakiye} ${cari.paraBirimi === 'USD' ? '$' : '€'}</p>
-        <table class="table table-sm">
-            <thead><tr><th>Tarih</th><th>İşlem Tipi</th><th>Açıklama</th><th>Tutar</th></tr></thead>
+        <p><strong>Bakiye:</strong> <span class="fs-5 ${cari.bakiye > 0 ? 'text-success' : 'text-danger'}">${cari.bakiye.toFixed(2)} ${birim}</span></p>
+        <table class="table table-sm table-striped mt-3">
+            <thead class="table-dark"><tr><th>Tarih</th><th>İşlem Tipi</th><th>Açıklama</th><th class="text-end">Tutar</th><th class="d-print-none text-center">Sil</th></tr></thead>
             <tbody>`;
             
-    // Not: Gerçek veriler için 'hesapHareketleri' ve 'faturalar' koleksiyonlarında filtreleme yapacak ayrı bir Firebase sorgusu eklenmelidir.
-    html += `<tr><td colspan="4" class="text-center text-muted">Geçmiş hareketler burada listelenir.</td></tr>`;
-    
+    if(hareketler.length === 0) {
+        html += `<tr><td colspan="5" class="text-center text-muted">Geçmiş hareket bulunamadı.</td></tr>`;
+    } else {
+        hareketler.forEach(h => {
+            let renk = h.tutar > 0 ? 'text-success' : 'text-danger';
+            let silButon = h.tipKodu === 'islem' ? 
+                `<button class="btn btn-sm btn-outline-danger py-0" onclick="islemSil('${h.id}', '${cariId}', '${h.bankaId}', ${h.tutar})" title="Banka işlemini sil"><i class="fas fa-trash"></i></button>` : 
+                `<span class="badge bg-light text-muted">Fatura sekmesinden silin</span>`;
+                
+            html += `<tr>
+                <td>${h.tarih}</td><td>${h.tip}</td><td>${h.aciklama}</td>
+                <td class="text-end fw-bold ${renk}">${h.tutar.toFixed(2)} ${birim}</td>
+                <td class="d-print-none text-center">${silButon}</td>
+            </tr>`;
+        });
+    }
     html += `</tbody></table></div>`;
-    html += `<div class="mt-3"><button class="btn btn-secondary" onclick="window.print()"><i class="fas fa-print"></i> Ekstreyi Yazdır</button></div>`;
+    html += `<div class="mt-3"><button class="btn btn-secondary shadow-sm" onclick="window.print()"><i class="fas fa-print"></i> Yazdır</button> <button class="btn btn-outline-danger ms-2" onclick="sayfaYukle('cariler')">Kapat</button></div>`;
     
     document.getElementById('main-content').innerHTML = html;
 };
 
+// YENİ EKLENEN: Ekstreden Banka İşlemi Silme (Bakiye düzeltmeli)
+window.islemSil = async function(islemId, cariId, bankaId, islemTutari) {
+    if(!confirm("Bu banka hareketini silmek istediğinize emin misiniz? Cari ve Banka bakiyeleri otomatik geri alınacaktır.")) return;
+    try {
+        await deleteDoc(doc(db, "hesapHareketleri", islemId));
+        // İşlem tutarı ekstreden gelir (Tahsilat ise negatif, ödeme ise pozitiftir)
+        // Tersini yaparak bakiyeleri geri alıyoruz.
+        await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(-islemTutari) });
+        await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(islemTutari) });
+        cariEkstreAc(cariId); // Ekranı yenile
+    } catch(e) { alert("Hata: " + e.message); }
+};
+
+  window.cariDuzenleAc = function(id) {
+      const c = cariListesi.find(x => x.id === id);
+      document.getElementById('c_id').value = c.id;
+      document.getElementById('c_unvan').value = c.unvan; document.getElementById('c_paraBirimi').value = c.paraBirimi || 'EUR';
+      document.getElementById('c_grup').value = c.grup; document.getElementById('c_bolge').value = c.bolge;
+      document.getElementById('c_ulke').value = c.ulke; document.getElementById('c_vergiNo').value = c.vergiNo;
+      document.getElementById('c_iban').value = c.iban; document.getElementById('c_bic').value = c.bic;
+      document.getElementById('c_email').value = c.email;
+      document.querySelector("#yeniCariModal .modal-title").innerHTML = "Cari Düzenle";
+      new bootstrap.Modal(document.getElementById('yeniCariModal')).show();
+  };
+
   window.cariKaydet = async function() {
+      const id = document.getElementById('c_id').value; // HTML'de formun içine <input type="hidden" id="c_id"> eklemelisiniz.
       const unvan = document.getElementById('c_unvan').value;
-      const vergiNo = document.getElementById('c_vergiNo').value;
-      if(unvan.trim() === "" || vergiNo.trim() === "") { alert("Ünvan ve Vergi numarası zorunludur."); return; }
-      const kaydetBtn = document.querySelector("#yeniCariModal .btn-primary");
-      kaydetBtn.innerHTML = "Kaydediliyor..."; kaydetBtn.disabled = true;
+      if(unvan.trim() === "") { alert("Ünvan zorunludur."); return; }
+      const data = {
+          unvan: unvan, paraBirimi: document.getElementById('c_paraBirimi').value, grup: document.getElementById('c_grup').value,
+          bolge: document.getElementById('c_bolge').value, ulke: document.getElementById('c_ulke').value, 
+          vergiNo: document.getElementById('c_vergiNo').value, iban: document.getElementById('c_iban').value, 
+          bic: document.getElementById('c_bic').value, email: document.getElementById('c_email').value
+      };
+      
       try {
-          await addDoc(collection(db, "cariler"), {
-              unvan: unvan, grup: document.getElementById('c_grup').value, bolge: document.getElementById('c_bolge').value, 
-              ulke: document.getElementById('c_ulke').value, vergiNo: vergiNo, iban: document.getElementById('c_iban').value, 
-              bic: document.getElementById('c_bic').value, email: document.getElementById('c_email').value, bakiye: 0, 
-              olusturmaTarihi: serverTimestamp()
-          });
+          if(id) { await updateDoc(doc(db, "cariler", id), data); } 
+          else { data.bakiye = 0; data.olusturmaTarihi = serverTimestamp(); await addDoc(collection(db, "cariler"), data); }
           bootstrap.Modal.getInstance(document.getElementById('yeniCariModal')).hide();
-      } catch (error) { alert("Hata: " + error.message); } 
-      finally { kaydetBtn.innerHTML = "Kaydet"; kaydetBtn.disabled = false; }
+      } catch (e) { alert("Hata: " + e.message); }
   };
 
 
@@ -624,13 +698,11 @@
   };
 
   // ---------------- ŞİRKET KÜNYESİ İŞLEMLERİ ----------------
-  
   window.kunyeCiz = function() {
       const alan = document.getElementById('kunyeKarti');
       if (!alan) return;
       const v = kunyeVerisi;
       
-      // NOT: innerHTML içine yazdirilacak-alan eklendi ve USD IBAN eklendi
       alan.innerHTML = `
           <div id="yazdirilacak-alan">
               <h4 class="mb-4 text-center d-none d-print-block">${v.unvan || 'ŞİRKET KÜNYESİ'}</h4>
@@ -638,37 +710,41 @@
                   <h6 class="border-bottom pb-2 text-primary"><i class="fas fa-info-circle"></i> Resmi Kimlik Bilgileri</h6>
                   <div class="col-md-6 mb-3">
                       <label class="text-muted small mb-1">Kısa Ünvan</label>
-                      <div><strong class="fs-6">${v.unvan || '-'}</strong></div>
+                      <div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.unvan || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.unvan || ''}')"><i class="far fa-copy"></i></button></div>
                   </div>
                   <div class="col-md-6 mb-3">
                       <label class="text-muted small mb-1">PIB (Vergi Numarası)</label>
-                      <div><strong class="fs-6">${v.pib || '-'}</strong></div>
+                      <div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.pib || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.pib || ''}')"><i class="far fa-copy"></i></button></div>
                   </div>
                   <div class="col-md-12 mb-3">
                       <label class="text-muted small mb-1">Tam Resmi Ünvan</label>
-                      <div><strong class="fs-6">${v.tamUnvan || '-'}</strong></div>
+                      <div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.tamUnvan || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.tamUnvan || ''}')"><i class="far fa-copy"></i></button></div>
                   </div>
                   <div class="col-md-6 mb-3">
                       <label class="text-muted small mb-1">Matični Broj (Sicil No)</label>
-                      <div><strong class="fs-6">${v.sicilNo || '-'}</strong></div>
+                      <div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.sicilNo || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.sicilNo || ''}')"><i class="far fa-copy"></i></button></div>
                   </div>
                   <div class="col-md-6 mb-3">
-                      <label class="text-muted small mb-1">Ana Faaliyet</label>
-                      <div><strong class="fs-6">${v.faaliyet || '-'}</strong></div>
+                      <label class="text-muted small mb-1">Kayıtlı Adres</label>
+                      <div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.adres || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.adres || ''}')"><i class="far fa-copy"></i></button></div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                      <label class="text-muted small mb-1">İletişim (E-Posta / Telefon)</label>
+                      <div><strong class="fs-6">${v.email1 || '-'} / ${v.telefon1 || '-'}</strong></div>
                   </div>
 
                   <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-university"></i> Banka Bilgileri</h6>
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-12 mb-3">
                       <label class="text-muted small mb-1">Banka Adı ve EUR IBAN</label>
-                      <div><strong class="fs-6">${v.banka || ''} <br> ${v.iban || '-'}</strong></div>
+                      <div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.banka || ''} - ${v.iban || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.iban || ''}')"><i class="far fa-copy"></i> EUR Kopyala</button></div>
                   </div>
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-12 mb-3">
                       <label class="text-muted small mb-1">USD IBAN</label>
-                      <div><strong class="fs-6">${v.usdIban || '-'}</strong></div>
+                      <div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.usdIban || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.usdIban || ''}')"><i class="far fa-copy"></i> USD Kopyala</button></div>
                   </div>
                   <div class="col-md-12">
                       <label class="text-muted small mb-1">BIC / SWIFT Kodu</label>
-                      <div><strong class="fs-6">${v.swift || '-'}</strong></div>
+                      <div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.swift || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.swift || ''}')"><i class="far fa-copy"></i> Kopyala</button></div>
                   </div>
               </div>
           </div>
@@ -681,10 +757,12 @@
       document.getElementById('k_tamUnvan').value = v.tamUnvan || '';
       document.getElementById('k_pib').value = v.pib || '';
       document.getElementById('k_sicilNo').value = v.sicilNo || '';
-      document.getElementById('k_faaliyet').value = v.faaliyet || '';
+      document.getElementById('k_adres').value = v.adres || '';
+      document.getElementById('k_email1').value = v.email1 || '';
+      document.getElementById('k_telefon1').value = v.telefon1 || '';
       document.getElementById('k_banka').value = v.banka || '';
       document.getElementById('k_iban').value = v.iban || '';
-      document.getElementById('k_usdIban').value = v.usdIban || ''; // YENİ EKLENDİ
+      document.getElementById('k_usdIban').value = v.usdIban || '';
       document.getElementById('k_swift').value = v.swift || '';
       new bootstrap.Modal(document.getElementById('kunyeModal')).show();
   };
@@ -693,26 +771,22 @@
       const btn = document.querySelector("#kunyeModal .btn-primary");
       btn.disabled = true; btn.innerHTML = "Kaydediliyor...";
       try {
-          // VERİTABANINA YAZMA KOMUTU (usdIban eklendi)
-          await updateDoc(doc(db, "ayarlar", "kunye"), {
+          await setDoc(doc(db, "ayarlar", "kunye"), {
               unvan: document.getElementById('k_unvan').value,
               tamUnvan: document.getElementById('k_tamUnvan').value,
               pib: document.getElementById('k_pib').value,
               sicilNo: document.getElementById('k_sicilNo').value,
-              faaliyet: document.getElementById('k_faaliyet').value,
+              adres: document.getElementById('k_adres').value,
+              email1: document.getElementById('k_email1').value,
+              telefon1: document.getElementById('k_telefon1').value,
               banka: document.getElementById('k_banka').value,
               iban: document.getElementById('k_iban').value,
-              usdIban: document.getElementById('k_usdIban').value, // YENİ EKLENDİ
+              usdIban: document.getElementById('k_usdIban').value,
               swift: document.getElementById('k_swift').value
           });
           bootstrap.Modal.getInstance(document.getElementById('kunyeModal')).hide();
       } catch(e) { alert("Hata: " + e.message); } 
       finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
-  };
-
-  window.kopyala = function(metin) {
-      if(!metin) return;
-      navigator.clipboard.writeText(metin).then(() => { alert("Başarıyla Kopyalandı!"); });
   };
 
   // ---------------- YAPAY ZEKA (GEMINI) AJAN İŞLEMLERİ ----------------
@@ -865,6 +939,7 @@
                             </div>
                             <div class="modal-body">
                                 <form id="yeniCariForm">
+                                    <input type="hidden" id="c_id"> <!-- SADECE BU SATIR EKLENDİ -->
                                     <div class="row mb-3">
                                         <div class="col-md-12"><label class="form-label">Ünvan *</label><input type="text" class="form-control" id="c_unvan" required></div>
                                     </div>
@@ -945,6 +1020,14 @@
                                                 <option value="Alim">Alım (Bize Gelen)</option>
                                             </select>
                                         </div>
+                                        
+                                        <div class="col-md-4">
+                                            <label class="form-label">Para Birimi *</label>
+                                             <select class="form-select" id="f_paraBirimi">
+                                                <option value="EUR">Euro (€)</option>
+                                                <option value="USD">Dolar ($)</option>
+                                            </select>
+                                        </div>
                                         <div class="col-md-4">
                                             <label class="form-label">Fatura Numarası *</label>
                                             <input type="text" class="form-control" id="f_faturaNo" placeholder="Örn: 2026-001">
@@ -958,8 +1041,12 @@
                                     <h6 class="mt-4 border-bottom pb-2">Tutar ve Vergi Bilgileri</h6>
                                     
                                     <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <label class="form-label">Tutar (KDV Hariç) € *</label>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Para Birimi *</label>
+                                            <select class="form-select" id="f_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Tutar (KDV Hariç) *</label>
                                             <input type="number" class="form-control" id="f_tutar" onkeyup="hesaplaKdv()" onchange="hesaplaKdv()" step="0.01">
                                         </div>
                                         <div class="col-md-4">
@@ -1243,7 +1330,11 @@
                                     <div class="row mb-2">
                                         <div class="col-md-4"><label class="form-label small">PIB (Vergi No)</label><input type="text" class="form-control form-control-sm" id="k_pib"></div>
                                         <div class="col-md-4"><label class="form-label small">Matični Broj</label><input type="text" class="form-control form-control-sm" id="k_sicilNo"></div>
-                                        <div class="col-md-4"><label class="form-label small">Ana Faaliyet</label><input type="text" class="form-control form-control-sm" id="k_faaliyet"></div>
+                                        <div class="col-md-4"><label class="form-label small">Kayıtlı Adres</label><input type="text" class="form-control form-control-sm" id="k_adres"></div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-md-6"><label class="form-label small">E-Posta</label><input type="email" class="form-control form-control-sm" id="k_email1"></div>
+                                        <div class="col-md-6"><label class="form-label small">Telefon</label><input type="text" class="form-control form-control-sm" id="k_telefon1"></div>
                                     </div>
 
                                     <h6 class="border-bottom pb-2 text-primary mt-3">Banka Bilgileri</h6>
@@ -1252,7 +1343,6 @@
                                     </div>
                                     <div class="row mb-2">
                                         <div class="col-md-6"><label class="form-label small">EUR IBAN Numarası</label><input type="text" class="form-control form-control-sm" id="k_iban"></div>
-                                        <!-- USD IBAN BURAYA EKLENDİ -->
                                         <div class="col-md-6"><label class="form-label small">USD IBAN Numarası</label><input type="text" class="form-control form-control-sm" id="k_usdIban"></div>
                                     </div>
                                     <div class="row mb-2">
