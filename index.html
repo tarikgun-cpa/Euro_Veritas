@@ -256,6 +256,13 @@
       catch(e) { alert("Hata: " + e.message); }
   };
 
+  window.yeniCariAc = function() {
+      document.getElementById('yeniCariForm').reset();
+      document.getElementById('c_id').value = '';
+      document.querySelector("#yeniCariModal .modal-title").innerHTML = "Yeni Cari Kart Oluştur";
+      new bootstrap.Modal(document.getElementById('yeniCariModal')).show();
+  };
+
     window.cariEkstreAc = async function(cariId) {
     const cari = cariListesi.find(c => c.id === cariId);
     let birim = cari.paraBirimi === 'USD' ? '$' : '€';
@@ -526,12 +533,16 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
       bankaListesi.forEach(banka => {
           let bakiye = banka.bakiye || 0;
           tbody.innerHTML += `
-              <tr>
-                  <tr class="cursor-pointer" onclick="if(event.target.tagName !== 'BUTTON' && event.target.tagName !== 'I') bankaEkstreAc('${banka.id}')">
-                  <td><span class="fw-bold">${banka.hesapAdi}</span><br><small class="text-muted">${banka.bankaAdi}</small></td>
+              <tr class="cursor-pointer" onclick="if(event.target.tagName !== 'BUTTON' && event.target.tagName !== 'I') bankaEkstreAc('${banka.id}')">
+                  <td>
+                      <div class="d-flex align-items-center">
+                          <div class="me-3 fs-3 ${banka.tur === 'Kasa' ? 'text-warning' : 'text-primary'}"><i class="fas ${banka.tur === 'Kasa' ? 'fa-box' : 'fa-building'}"></i></div>
+                          <div><span class="fw-bold">${banka.hesapAdi}</span><br><small class="text-muted">${banka.bankaAdi || 'Nakit Kasa'}</small></div>
+                      </div>
+                  </td>
                   <td>${banka.iban || '-'}</td>
-                  <td>${banka.paraBirimi}</td>
-                  <td class="fw-bold fs-5 text-primary">${bakiye.toFixed(2)} ${banka.paraBirimi === 'EUR' ? '€' : ''}</td>
+                  <td><span class="badge ${banka.tur === 'Kasa' ? 'bg-warning text-dark' : 'bg-primary'}">${banka.tur || 'Banka'}</span></td>
+                  <td class="fw-bold fs-5 text-primary">${bakiye.toFixed(2)} ${banka.paraBirimi === 'USD' ? '$' : '€'}</td>
                   <td>
                       <button class="btn btn-sm btn-success py-0" onclick="islemModalAc('Tahsilat', '${banka.id}')"><i class="fas fa-arrow-down"></i> Tahsilat</button>
                       <button class="btn btn-sm btn-danger py-0 me-2" onclick="islemModalAc('Odeme', '${banka.id}')"><i class="fas fa-arrow-up"></i> Ödeme</button>
@@ -546,6 +557,7 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
   window.bankaDuzenleAc = function(id) {
       const b = bankaListesi.find(x => x.id === id);
       document.getElementById('b_id').value = b.id;
+      document.getElementById('b_tur').value = b.tur || 'Banka'; // YENİ
       document.getElementById('b_hesapAdi').value = b.hesapAdi;
       document.getElementById('b_bankaAdi').value = b.bankaAdi || '';
       document.getElementById('b_iban').value = b.iban || '';
@@ -558,8 +570,10 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
       const id = document.getElementById('b_id').value;
       const hesapAdi = document.getElementById('b_hesapAdi').value;
       if(hesapAdi === "") { alert("Hesap adı zorunludur!"); return; }
+      
       const data = { 
           hesapAdi: hesapAdi, 
+          tur: document.getElementById('b_tur').value,
           bankaAdi: document.getElementById('b_bankaAdi').value, 
           iban: document.getElementById('b_iban').value,
           paraBirimi: document.getElementById('b_paraBirimi').value
@@ -618,7 +632,7 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
       const select = document.getElementById('i_cariId');
       select.innerHTML = '<option value="">-- Cari Seçiniz --</option>';
       cariListesi.forEach(c => { select.innerHTML += `<option value="${c.id}">${c.unvan} (Bakiye: ${c.bakiye}€)</option>`; });
-      
+      document.getElementById('i_tarih').value = new Date().toISOString().split('T')[0];
       new bootstrap.Modal(document.getElementById('islemModal')).show();
   };
 
@@ -643,7 +657,7 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
               tur: tur,
               tutar: tutar,
               aciklama: aciklama,
-              tarih: serverTimestamp()
+              tarih: new Date(document.getElementById('i_tarih').value)
           });
 
           // 2. Banka Bakiyesini Güncelle
@@ -1046,7 +1060,7 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Cari Hesaplar</h2>
-                    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#yeniCariModal">
+                    <button class="btn btn-primary shadow-sm" onclick="yeniCariAc()">
                         <i class="fas fa-plus"></i> Yeni Cari Ekle
                     </button>
                 </div>
@@ -1242,17 +1256,23 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
                             <div class="modal-body">
                                 <form id="yeniBankaForm">
                                     <input type="hidden" id="b_id">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Hesap Türü *</label>
+                                            <select class="form-select" id="b_tur"><option value="Banka">Banka Hesabı</option><option value="Kasa">Nakit Kasa</option></select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Para Birimi *</label>
+                                            <select class="form-select" id="b_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select>
+                                        </div>
+                                    </div>
                                     <div class="mb-3">
-                                        <label class="form-label">Hesap Adı * (Örn: Merkez Kasa, CKB Euro Hesabı)</label>
+                                        <label class="form-label">Hesap Adı * (Örn: Merkez Kasa, CKB Euro)</label>
                                         <input type="text" class="form-control" id="b_hesapAdi" required>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Banka Adı (Kasaysa boş bırakın)</label>
                                         <input type="text" class="form-control" id="b_bankaAdi">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Para Birimi *</label>
-                                        <select class="form-select" id="b_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">IBAN Numarası</label>
@@ -1285,9 +1305,15 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
                                         <label class="form-label">İlgili Cari (Kime/Kimden) *</label>
                                         <select class="form-select" id="i_cariId" required></select>
                                     </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Tutar (€) *</label>
-                                        <input type="number" class="form-control" id="i_tutar" step="0.01" required>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">İşlem Tarihi *</label>
+                                            <input type="date" class="form-control" id="i_tarih" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Tutar *</label>
+                                            <input type="number" class="form-control" id="i_tutar" step="0.01" required>
+                                        </div>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Açıklama (Dekont No / Detay)</label>
