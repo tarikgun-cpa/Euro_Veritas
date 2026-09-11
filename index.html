@@ -222,9 +222,9 @@
     bankaListesi.forEach(b => {
         let sembol = b.paraBirimi === 'USD' ? '$' : '€';
         let icon = b.tur === 'Kasa' ? 'fa-box' : 'fa-university';
-        bankalarHtml += `<div class="d-flex justify-content-between align-items-center border-bottom border-light border-opacity-25 pb-2 mb-2">
-            <span class="opacity-75 text-truncate pe-2" style="max-width: 60%;"><i class="fas ${icon} me-2"></i>${b.hesapAdi}</span>
-            <strong class="fs-5">${b.bakiye.toFixed(2)} ${sembol}</strong>
+        bankalarHtml += `<div class="d-flex justify-content-between align-items-center border-bottom border-secondary border-opacity-10 pb-2 mb-2">
+            <span class="text-truncate pe-2 text-secondary" style="max-width: 60%;"><i class="fas ${icon} me-2"></i>${b.hesapAdi}</span>
+            <strong class="fs-5 text-dark">${b.bakiye.toFixed(2)} ${sembol}</strong>
         </div>`;
     });
 
@@ -233,44 +233,52 @@
         let bakiye = c.bakiye || 0;
         let sembol = (c.paraBirimi === 'USD') ? '$' : '€';
         
-        let cariSatiri = `<div class="d-flex justify-content-between align-items-center bg-white bg-opacity-25 p-2 rounded">
-            <span class="text-truncate fw-medium pe-2" style="max-width: 65%;" title="${c.unvan}">${c.unvan}</span>
-            <strong class="fs-6">${Math.abs(bakiye).toFixed(2)} ${sembol}</strong>
+        let cariSatiri = `<div class="d-flex justify-content-between align-items-center bg-white p-2 rounded shadow-sm border border-light">
+            <span class="text-truncate fw-medium pe-2 text-secondary" style="max-width: 65%;" title="${c.unvan}">${c.unvan}</span>
+            <strong class="fs-6 text-dark">${Math.abs(bakiye).toFixed(2)} ${sembol}</strong>
         </div>`;
 
         if(bakiye > 0) alacakHtml += cariSatiri;
         else if(bakiye < 0) borcHtml += cariSatiri;
     });
 
-    document.getElementById('dash_kasa_listesi').innerHTML = bankalarHtml || '<span class="opacity-75">Kayıtlı kasa veya banka yok.</span>';
-    document.getElementById('dash_alacak_rozetler').innerHTML = alacakHtml || '<span class="opacity-75">Şu an kimseden alacağınız bulunmuyor.</span>';
-    document.getElementById('dash_borc_rozetler').innerHTML = borcHtml || '<span class="opacity-75">Harika! Kimseye borcunuz yok.</span>';
+    document.getElementById('dash_kasa_listesi').innerHTML = bankalarHtml || '<span class="text-muted">Kayıtlı kasa veya banka yok.</span>';
+    document.getElementById('dash_alacak_rozetler').innerHTML = alacakHtml || '<span class="text-muted">Şu an kimseden alacağınız bulunmuyor.</span>';
+    document.getElementById('dash_borc_rozetler').innerHTML = borcHtml || '<span class="text-muted">Harika! Kimseye borcunuz yok.</span>';
 };
 
   // ---------------- CARİ İŞLEMLERİ ----------------
   window.tabloyuCiz = function() {
-    const alan = document.getElementById('cariTabloGövdesi'); // İsmine aldanmayın, artık div olacak
+    const alan = document.getElementById('cariTabloGövdesi');
     if (!alan) return; 
     alan.innerHTML = '<div class="row" id="cariKartlari"></div>';
     const kartAlani = document.getElementById('cariKartlari');
 
-    cariListesi.forEach(cari => {
+    // Kurumsal pastel renk paleti
+    const pastelRenkler = ['#f0f4f8', '#fdf6e3', '#f4f1f8', '#eefbf4', '#fdf4f4'];
+
+    cariListesi.forEach((cari, index) => {
         let bakiye = cari.bakiye || 0;
         let bRenk = bakiye < 0 ? 'text-danger' : (bakiye > 0 ? 'text-success' : 'text-dark');
         let birim = cari.paraBirimi || 'EUR';
         let sembol = birim === 'USD' ? '$' : '€';
+        let paraBirimiRengi = birim === 'USD' ? 'bg-success' : 'bg-primary';
+        let arkaplan = pastelRenkler[index % pastelRenkler.length];
 
         kartAlani.innerHTML += `
             <div class="col-md-4 mb-3">
-                <div class="card shadow-sm h-100 border-start border-4 border-primary">
-                    <div class="card-body cursor-pointer" onclick="cariEkstreAc('${cari.id}')">
-                        <h6 class="fw-bold text-truncate">${cari.unvan}</h6>
-                        <small class="text-muted">${cari.ulke} | ${birim}</small>
-                        <h4 class="${bRenk} mt-2">${bakiye.toFixed(2)} ${sembol}</h4>
+                <div class="card border-0 shadow-sm h-100 rounded-4" style="background-color: ${arkaplan};">
+                    <div class="card-body cursor-pointer position-relative" onclick="cariEkstreAc('${cari.id}')">
+                        <!-- Dikkat Çekici Para Birimi Rozeti -->
+                        <span class="badge ${paraBirimiRengi} position-absolute top-0 end-0 m-3 px-3 py-2 shadow-sm fs-6 rounded-pill">${birim}</span>
+                        
+                        <h6 class="fw-bold text-truncate pe-5 mb-1" style="color: #2c3e50;" title="${cari.unvan}">${cari.unvan}</h6>
+                        <small class="text-muted"><i class="fas fa-globe-europe me-1 text-secondary"></i>${cari.ulke}</small>
+                        <h3 class="${bRenk} mt-3 fw-bold">${bakiye.toFixed(2)} ${sembol}</h3>
                     </div>
-                    <div class="card-footer bg-white border-top-0 text-end py-2">
-                        <button class="btn btn-sm btn-outline-primary py-0 me-1" title="Düzenle" onclick="cariDuzenleAc('${cari.id}')"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-outline-danger py-0" title="Sil" onclick="cariSil('${cari.id}')"><i class="fas fa-trash"></i></button>
+                    <div class="card-footer bg-transparent border-top border-secondary border-opacity-10 text-end py-2">
+                        <button class="btn btn-sm btn-light text-primary shadow-sm py-0 me-1" title="Düzenle" onclick="cariDuzenleAc('${cari.id}')"><i class="fas fa-edit"></i> Düzenle</button>
+                        <button class="btn btn-sm btn-light text-danger shadow-sm py-0" title="Sil" onclick="cariSil('${cari.id}')"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
             </div>`;
@@ -1002,33 +1010,33 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
                 <div class="row">
                     <!-- Kasa ve Bankalar Listesi -->
                     <div class="col-md-4 mb-4">
-                        <div class="card border-0 shadow-lg rounded-4 h-100" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white;">
-                            <div class="card-body p-4">
-                                <h5 class="fw-bold mb-4 border-bottom border-light pb-2 border-opacity-50"><i class="fas fa-wallet me-2"></i>Kasa ve Bankalar</h5>
+                        <div class="card border-0 shadow-sm rounded-4 h-100" style="background-color: #f0f4f8;">
+                            <div class="card-body p-4 text-dark">
+                                <h5 class="fw-bold mb-4 border-bottom pb-2" style="color: #2c3e50;"><i class="fas fa-wallet me-2 text-primary"></i>Kasa ve Bankalar</h5>
                                 <div id="dash_kasa_listesi">
-                                    <span class="opacity-75">Yükleniyor...</span>
+                                    <span class="text-muted">Yükleniyor...</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <!-- Alacaklı Olduğumuz Firmalar -->
                     <div class="col-md-4 mb-4">
-                        <div class="card border-0 shadow-lg rounded-4 h-100" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
-                            <div class="card-body p-4">
-                                <h5 class="fw-bold mb-4 border-bottom border-light pb-2 border-opacity-50"><i class="fas fa-hand-holding-usd me-2"></i>Alacaklarımız</h5>
+                        <div class="card border-0 shadow-sm rounded-4 h-100" style="background-color: #f0fdf4;">
+                            <div class="card-body p-4 text-dark">
+                                <h5 class="fw-bold mb-4 border-bottom pb-2" style="color: #115e59;"><i class="fas fa-hand-holding-usd me-2 text-success"></i>Alacaklarımız</h5>
                                 <div id="dash_alacak_rozetler" class="d-flex flex-column gap-2">
-                                    <span class="opacity-75">Yükleniyor...</span>
+                                    <span class="text-muted">Yükleniyor...</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <!-- Borçlu Olduğumuz Firmalar -->
                     <div class="col-md-4 mb-4">
-                        <div class="card border-0 shadow-lg rounded-4 h-100" style="background: linear-gradient(135deg, #cb2d3e 0%, #ef473a 100%); color: white;">
-                            <div class="card-body p-4">
-                                <h5 class="fw-bold mb-4 border-bottom border-light pb-2 border-opacity-50"><i class="fas fa-file-invoice-dollar me-2"></i>Borçlarımız</h5>
+                        <div class="card border-0 shadow-sm rounded-4 h-100" style="background-color: #fef2f2;">
+                            <div class="card-body p-4 text-dark">
+                                <h5 class="fw-bold mb-4 border-bottom pb-2" style="color: #991b1b;"><i class="fas fa-file-invoice-dollar me-2 text-danger"></i>Borçlarımız</h5>
                                 <div id="dash_borc_rozetler" class="d-flex flex-column gap-2">
-                                    <span class="opacity-75">Yükleniyor...</span>
+                                    <span class="text-muted">Yükleniyor...</span>
                                 </div>
                             </div>
                         </div>
