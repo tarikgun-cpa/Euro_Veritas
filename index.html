@@ -119,28 +119,42 @@
           
           sayfaYukle('dashboard');
 
-          // CARİLERİ DİNLE
+          // CARİLERİ DİNLE (NaN Oto-Düzeltme Eklendi)
           cariDinleyici = onSnapshot(collection(db, "cariler"), (snapshot) => {
               cariListesi = [];
-              snapshot.forEach((doc) => { cariListesi.push({ id: doc.id, ...doc.data() }); });
+              snapshot.forEach((docSnap) => { 
+                  let data = docSnap.data();
+                  if(Number.isNaN(data.bakiye) || data.bakiye === null) {
+                      updateDoc(doc(db, "cariler", docSnap.id), { bakiye: 0 });
+                      data.bakiye = 0;
+                  }
+                  cariListesi.push({ id: docSnap.id, ...data }); 
+              });
               if (document.getElementById('cariTabloGövdesi')) { window.tabloyuCiz(); }
-              if (document.getElementById('dash_kasa')) { window.dashboardCiz(); } // YENİ: Dashboard anında güncellensin
+              if (typeof window.dashboardCiz === 'function') { window.dashboardCiz(); }
           });
 
           // FATURALARI DİNLE
           faturaDinleyici = onSnapshot(collection(db, "faturalar"), (snapshot) => {
               faturaListesi = [];
-              snapshot.forEach((doc) => { faturaListesi.push({ id: doc.id, ...doc.data() }); });
+              snapshot.forEach((docSnap) => { faturaListesi.push({ id: docSnap.id, ...docSnap.data() }); });
               faturaListesi.sort((a,b) => new Date(b.tarih) - new Date(a.tarih));
               if (document.getElementById('faturaTabloGövdesi')) { window.faturalariCiz(); }
           });
 
-          // BANKALARI DİNLE
+          // BANKALARI DİNLE (NaN Oto-Düzeltme Eklendi)
           bankaDinleyici = onSnapshot(collection(db, "bankalar"), (snapshot) => {
               bankaListesi = [];
-              snapshot.forEach((doc) => { bankaListesi.push({ id: doc.id, ...doc.data() }); });
+              snapshot.forEach((docSnap) => { 
+                  let data = docSnap.data();
+                  if(Number.isNaN(data.bakiye) || data.bakiye === null) {
+                      updateDoc(doc(db, "bankalar", docSnap.id), { bakiye: 0 });
+                      data.bakiye = 0;
+                  }
+                  bankaListesi.push({ id: docSnap.id, ...data }); 
+              });
               if (document.getElementById('bankaTabloGövdesi')) { window.bankalariCiz(); }
-              if (document.getElementById('dash_kasa')) { window.dashboardCiz(); } // YENİ: Dashboard anında güncellensin
+              if (typeof window.dashboardCiz === 'function') { window.dashboardCiz(); }
           });
 
           // HESAP HAREKETLERİNİ DİNLE (Eksik olan kısım)
@@ -659,9 +673,10 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
               let d = h.tarih ? new Date(h.tarih.seconds * 1000).toLocaleDateString('tr-TR') : '-';
               let renk = h.tur === 'Tahsilat' ? 'text-success' : 'text-danger';
               let cariAdi = cariListesi.find(c => c.id === h.cariId)?.unvan || 'Silinmiş Cari';
-              let silButon = `<button class="btn btn-sm btn-outline-danger py-0" onclick="islemSil('${h.id}', '${h.cariId}', '${h.bankaId}', ${h.tutar})" title="İşlemi İptal Et"><i class="fas fa-trash"></i></button>`;
+              let silButon = `<button class="btn btn-sm btn-outline-danger py-0" onclick="islemSil('${h.id}', '${h.cariId}', '${h.bankaId}', '${h.tur}', ${h.tutar})" title="İşlemi İptal Et"><i class="fas fa-trash"></i></button>`;
               
-              html += `<tr><td>${d}</td><td>${h.tur}</td><td>${cariAdi}</td><td>${h.aciklama}</td><td class="text-end fw-bold ${renk}">${h.tutar.toFixed(2)} ${birim}</td><td class="d-print-none text-center">${silButon}</td></tr>`;
+              html += `<tr><td>${d}</td><td>${h.tur}</td><td>${cariAdi}</td><td>${h.aciklama}</td><td class="text-end fw-bold ${renk}">${Math.abs(h.tutar).toFixed(2)} ${birim}</td><td class="d-print-none text-center">${silButon}</td></tr>`;
+
           });
       }
       html += `</tbody></table></div>`;
