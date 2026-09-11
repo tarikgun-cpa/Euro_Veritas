@@ -542,24 +542,36 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
 // ---------------- BANKA VE KASA İŞLEMLERİ ----------------
 
   // Banka Tablosunu Çiz
-  window.bankalariCiz = function() {
-      const tbody = document.getElementById('bankaTabloGövdesi');
-      if (!tbody) return; 
-      tbody.innerHTML = ""; 
+ window.bankalariCiz = function() {
+      const bTbody = document.getElementById('bankaTabloGövdesi');
+      const kTbody = document.getElementById('kasaTabloGövdesi');
+      if (!bTbody || !kTbody) return; 
+      bTbody.innerHTML = ""; kTbody.innerHTML = ""; 
       
       bankaListesi.forEach(banka => {
           let bakiye = banka.bakiye || 0;
-          tbody.innerHTML += `
+          let isKasa = banka.tur === 'Kasa';
+          
+          // Hesap Numaralarını Yan Yana Formatlama
+          let hesapNoGosterimi = '-';
+          if (!isKasa) {
+              let nolar = [];
+              if (banka.iban) nolar.push(`<span class="text-muted small">IBAN:</span> ${banka.iban}`);
+              if (banka.yerelHesap) nolar.push(`<span class="text-muted small">Yerel:</span> ${banka.yerelHesap}`);
+              hesapNoGosterimi = nolar.length > 0 ? nolar.join('<br>') : '-';
+          }
+
+          let html = `
               <tr class="cursor-pointer" onclick="if(event.target.tagName !== 'BUTTON' && event.target.tagName !== 'I') bankaEkstreAc('${banka.id}')">
                   <td>
                       <div class="d-flex align-items-center">
-                          <div class="me-3 fs-3 ${banka.tur === 'Kasa' ? 'text-warning' : 'text-primary'}"><i class="fas ${banka.tur === 'Kasa' ? 'fa-box' : 'fa-building'}"></i></div>
-                          <div><span class="fw-bold">${banka.hesapAdi}</span><br><small class="text-muted">${banka.bankaAdi || 'Nakit Kasa'}</small></div>
+                          <div class="me-3 fs-3 ${isKasa ? 'text-warning' : 'text-primary'}"><i class="fas ${isKasa ? 'fa-box' : 'fa-building'}"></i></div>
+                          <div><span class="fw-bold">${banka.hesapAdi}</span><br><small class="text-muted">${banka.bankaAdi || (isKasa ? 'Nakit Kasa' : '')}</small></div>
                       </div>
                   </td>
-                  <td>${banka.iban || '-'}</td>
-                  <td><span class="badge ${banka.tur === 'Kasa' ? 'bg-warning text-dark' : 'bg-primary'}">${banka.tur || 'Banka'}</span></td>
-                  <td class="fw-bold fs-5 text-primary">${bakiye.toFixed(2)} ${banka.paraBirimi === 'USD' ? '$' : '€'}</td>
+                  <td>${hesapNoGosterimi}</td>
+                  <td><span class="badge ${isKasa ? 'bg-warning text-dark' : 'bg-primary'}">${banka.paraBirimi}</span></td>
+                  <td class="fw-bold fs-5 ${isKasa ? 'text-warning' : 'text-primary'}">${bakiye.toFixed(2)} ${banka.paraBirimi === 'USD' ? '$' : '€'}</td>
                   <td>
                       <button class="btn btn-sm btn-success py-0" onclick="islemModalAc('Tahsilat', '${banka.id}')"><i class="fas fa-arrow-down"></i> Tahsilat</button>
                       <button class="btn btn-sm btn-danger py-0 me-2" onclick="islemModalAc('Odeme', '${banka.id}')"><i class="fas fa-arrow-up"></i> Ödeme</button>
@@ -568,16 +580,19 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
                   </td>
               </tr>
           `;
+          if(isKasa) kTbody.innerHTML += html;
+          else bTbody.innerHTML += html;
       });
   };
 
   window.bankaDuzenleAc = function(id) {
       const b = bankaListesi.find(x => x.id === id);
       document.getElementById('b_id').value = b.id;
-      document.getElementById('b_tur').value = b.tur || 'Banka'; // YENİ
+      document.getElementById('b_tur').value = b.tur || 'Banka';
       document.getElementById('b_hesapAdi').value = b.hesapAdi;
       document.getElementById('b_bankaAdi').value = b.bankaAdi || '';
       document.getElementById('b_iban').value = b.iban || '';
+      document.getElementById('b_yerelHesap').value = b.yerelHesap || '';
       document.getElementById('b_paraBirimi').value = b.paraBirimi || 'EUR';
       document.querySelector("#yeniBankaModal .modal-title").innerHTML = "Hesabı Düzenle";
       new bootstrap.Modal(document.getElementById('yeniBankaModal')).show();
@@ -593,6 +608,7 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
           tur: document.getElementById('b_tur').value,
           bankaAdi: document.getElementById('b_bankaAdi').value, 
           iban: document.getElementById('b_iban').value,
+          yerelHesap: document.getElementById('b_yerelHesap').value,
           paraBirimi: document.getElementById('b_paraBirimi').value
       };
       
@@ -842,13 +858,15 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
                   <div class="col-md-6 mb-3"><label class="text-muted small mb-1">Kuruluş Tarihi</label><div><strong class="fs-6">${v.kurulus || '-'}</strong></div></div>
                   
                   <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-address-book"></i> İletişim Bilgileri</h6>
+                  <div class="col-md-12 mb-3"><label class="text-muted small mb-1">Web Sitesi</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.web || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.web || ''}')"><i class="far fa-copy"></i></button></div></div>
                   <div class="col-md-6 mb-3"><label class="text-muted small mb-1">E-Posta 1 / E-Posta 2</label><div><strong class="fs-6">${v.email1 || '-'} <br> ${v.email2 || '-'}</strong></div></div>
                   <div class="col-md-6 mb-3"><label class="text-muted small mb-1">Telefon 1 / Telefon 2</label><div><strong class="fs-6">${v.telefon1 || '-'} <br> ${v.telefon2 || '-'}</strong></div></div>
 
                   <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-university"></i> Banka Bilgileri</h6>
-                  <div class="col-md-12 mb-3"><label class="text-muted small mb-1">Banka Adı ve EUR IBAN</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.banka || ''} - ${v.iban || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.iban || ''}')"><i class="far fa-copy"></i> EUR</button></div></div>
-                  <div class="col-md-12 mb-3"><label class="text-muted small mb-1">USD IBAN</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.usdIban || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.usdIban || ''}')"><i class="far fa-copy"></i> USD</button></div></div>
-                  <div class="col-md-12"><label class="text-muted small mb-1">BIC / SWIFT Kodu</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.swift || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.swift || ''}')"><i class="far fa-copy"></i></button></div></div>
+                  <div class="col-md-12 mb-3"><label class="text-muted small mb-1">Banka Adı ve EUR IBAN (Uluslararası)</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.banka || ''} - ${v.iban || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.iban || ''}')"><i class="far fa-copy"></i> EUR Kopyala</button></div></div>
+                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">Yerel Hesap No (Karadağ İçi)</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.yerelHesap || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.yerelHesap || ''}')"><i class="far fa-copy"></i> Yerel Kopyala</button></div></div>
+                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">USD IBAN</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.usdIban || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.usdIban || ''}')"><i class="far fa-copy"></i> USD Kopyala</button></div></div>
+                  <div class="col-md-12"><label class="text-muted small mb-1">BIC / SWIFT Kodu</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.swift || '-'}</strong><button class="btn btn-sm btn-outline-secondary py-0 d-print-none" onclick="kopyala('${v.swift || ''}')"><i class="far fa-copy"></i> Kopyala</button></div></div>
                   
                   <h6 class="border-bottom pb-2 mt-4 text-danger d-print-none"><i class="fas fa-lock"></i> Dijital Platform Şifreleri (Gizli)</h6>
                   <div class="col-md-12 mb-3 d-print-none">
@@ -864,12 +882,13 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
       document.getElementById('k_unvan').value = v.unvan || ''; document.getElementById('k_tamUnvan').value = v.tamUnvan || '';
       document.getElementById('k_pib').value = v.pib || ''; document.getElementById('k_sicilNo').value = v.sicilNo || '';
       document.getElementById('k_adres').value = v.adres || ''; document.getElementById('k_banka').value = v.banka || '';
-      document.getElementById('k_iban').value = v.iban || ''; document.getElementById('k_usdIban').value = v.usdIban || '';
-      document.getElementById('k_swift').value = v.swift || ''; document.getElementById('k_faaliyet').value = v.faaliyet || '';
-      document.getElementById('k_direktor').value = v.direktor || ''; document.getElementById('k_kurulus').value = v.kurulus || '';
-      document.getElementById('k_sermaye').value = v.sermaye || ''; document.getElementById('k_email1').value = v.email1 || '';
-      document.getElementById('k_email2').value = v.email2 || ''; document.getElementById('k_telefon1').value = v.telefon1 || '';
-      document.getElementById('k_telefon2').value = v.telefon2 || ''; document.getElementById('k_sifreler').value = v.sifreler || '';
+      document.getElementById('k_iban').value = v.iban || ''; document.getElementById('k_yerelHesap').value = v.yerelHesap || '';
+      document.getElementById('k_usdIban').value = v.usdIban || ''; document.getElementById('k_swift').value = v.swift || ''; 
+      document.getElementById('k_faaliyet').value = v.faaliyet || ''; document.getElementById('k_direktor').value = v.direktor || ''; 
+      document.getElementById('k_kurulus').value = v.kurulus || ''; document.getElementById('k_sermaye').value = v.sermaye || ''; 
+      document.getElementById('k_email1').value = v.email1 || ''; document.getElementById('k_email2').value = v.email2 || ''; 
+      document.getElementById('k_telefon1').value = v.telefon1 || ''; document.getElementById('k_telefon2').value = v.telefon2 || ''; 
+      document.getElementById('k_web').value = v.web || ''; document.getElementById('k_sifreler').value = v.sifreler || '';
       new bootstrap.Modal(document.getElementById('kunyeModal')).show();
   };
 
@@ -881,12 +900,13 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
               unvan: document.getElementById('k_unvan').value, tamUnvan: document.getElementById('k_tamUnvan').value,
               pib: document.getElementById('k_pib').value, sicilNo: document.getElementById('k_sicilNo').value,
               adres: document.getElementById('k_adres').value, banka: document.getElementById('k_banka').value,
-              iban: document.getElementById('k_iban').value, usdIban: document.getElementById('k_usdIban').value,
-              swift: document.getElementById('k_swift').value, faaliyet: document.getElementById('k_faaliyet').value,
-              direktor: document.getElementById('k_direktor').value, kurulus: document.getElementById('k_kurulus').value,
-              sermaye: document.getElementById('k_sermaye').value, email1: document.getElementById('k_email1').value,
-              email2: document.getElementById('k_email2').value, telefon1: document.getElementById('k_telefon1').value,
-              telefon2: document.getElementById('k_telefon2').value, sifreler: document.getElementById('k_sifreler').value
+              iban: document.getElementById('k_iban').value, yerelHesap: document.getElementById('k_yerelHesap').value,
+              usdIban: document.getElementById('k_usdIban').value, swift: document.getElementById('k_swift').value, 
+              faaliyet: document.getElementById('k_faaliyet').value, direktor: document.getElementById('k_direktor').value, 
+              kurulus: document.getElementById('k_kurulus').value, sermaye: document.getElementById('k_sermaye').value, 
+              email1: document.getElementById('k_email1').value, email2: document.getElementById('k_email2').value, 
+              telefon1: document.getElementById('k_telefon1').value, telefon2: document.getElementById('k_telefon2').value, 
+              web: document.getElementById('k_web').value, sifreler: document.getElementById('k_sifreler').value
           });
           bootstrap.Modal.getInstance(document.getElementById('kunyeModal')).hide();
       } catch(e) { alert("Hata: " + e.message); } finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
@@ -1181,18 +1201,23 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
                     </button>
                 </div>
                 
+                <h5 class="text-primary border-bottom pb-2 mb-3"><i class="fas fa-university"></i> Banka Hesapları</h5>
                 <div class="table-responsive bg-white p-3 rounded shadow-sm mb-4">
                     <table class="table table-hover align-middle">
                         <thead class="table-light">
-                            <tr>
-                                <th>Hesap Adı</th>
-                                <th>IBAN</th>
-                                <th>Para Birimi</th>
-                                <th>Güncel Bakiye</th>
-                                <th>İşlemler</th>
-                            </tr>
+                            <tr><th>Banka ve Hesap Adı</th><th>IBAN / Hesap No</th><th>Para Birimi</th><th>Güncel Bakiye</th><th>İşlemler</th></tr>
                         </thead>
                         <tbody id="bankaTabloGövdesi"></tbody>
+                    </table>
+                </div>
+
+                <h5 class="text-warning border-bottom pb-2 mb-3 mt-4"><i class="fas fa-box"></i> Nakit Kasalar</h5>
+                <div class="table-responsive bg-white p-3 rounded shadow-sm mb-4">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr><th>Kasa Adı</th><th>Açıklama</th><th>Para Birimi</th><th>Güncel Bakiye</th><th>İşlemler</th></tr>
+                        </thead>
+                        <tbody id="kasaTabloGövdesi"></tbody>
                     </table>
                 </div>
 
@@ -1225,9 +1250,15 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
                                         <label class="form-label">Banka Adı (Kasaysa boş bırakın)</label>
                                         <input type="text" class="form-control" id="b_bankaAdi">
                                     </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">IBAN Numarası</label>
-                                        <input type="text" class="form-control" id="b_iban">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">IBAN (Uluslararası/Swift)</label>
+                                            <input type="text" class="form-control" id="b_iban" placeholder="ME...">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Yerel Hesap No (Karadağ İçi)</label>
+                                            <input type="text" class="form-control" id="b_yerelHesap" placeholder="520-...">
+                                        </div>
                                     </div>
                                 </form>
                             </div>
@@ -1446,6 +1477,9 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
                                         <div class="col-md-3"><label class="form-label small">Sermaye (€)</label><input type="text" class="form-control form-control-sm" id="k_sermaye"></div>
                                     </div>
                                     <div class="row mb-2">
+                                        <div class="col-md-12"><label class="form-label small">Web Sitesi</label><input type="text" class="form-control form-control-sm" id="k_web" placeholder="www.euroveritas.com"></div>
+                                    </div>
+                                    <div class="row mb-2">
                                         <div class="col-md-6"><label class="form-label small">E-Posta 1</label><input type="email" class="form-control form-control-sm" id="k_email1"></div>
                                         <div class="col-md-6"><label class="form-label small">E-Posta 2</label><input type="email" class="form-control form-control-sm" id="k_email2"></div>
                                     </div>
@@ -1459,7 +1493,10 @@ window.islemSil = async function(islemId, cariId, bankaId, tur, islemTutari) {
                                         <div class="col-md-12"><label class="form-label small">Banka Adı</label><input type="text" class="form-control form-control-sm" id="k_banka"></div>
                                     </div>
                                     <div class="row mb-2">
-                                        <div class="col-md-6"><label class="form-label small">EUR IBAN Numarası</label><input type="text" class="form-control form-control-sm" id="k_iban"></div>
+                                        <div class="col-md-12"><label class="form-label small">EUR IBAN Numarası (Uluslararası / Swift İçin)</label><input type="text" class="form-control form-control-sm" id="k_iban" placeholder="ME..."></div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-md-6"><label class="form-label small">Yerel Hesap No (Karadağ İçi)</label><input type="text" class="form-control form-control-sm" id="k_yerelHesap" placeholder="520-..."></div>
                                         <div class="col-md-6"><label class="form-label small">USD IBAN Numarası</label><input type="text" class="form-control form-control-sm" id="k_usdIban"></div>
                                     </div>
                                     <div class="row mb-2">
