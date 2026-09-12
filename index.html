@@ -1245,7 +1245,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       document.getElementById('ai_soru').value = ""; 
 
       // AI Uzmanlık Kimliği (System Prompt)
-      const systemPrompt = "Sen Euro Veritas firmasının Karadağ (Montenegro) mali mevzuatına, vergi yasalarına, SGK (Doprinosi) sistemine ve uluslararası finansal danışmanlığa hakim kıdemli bir yapay zeka danışmanısın. Kullanıcının sorusuna Karadağ yasalarını temel alarak profesyonel, net, anlaşılır ve çözüm odaklı bir dille cevap ver. Gereksiz uzatma, finansal detayları maddeler halinde özetle.\n\nKullanıcının Sorusu: ";
+      const systemPrompt = "Euro Veritas firmasının Karadağ (Montenegro) mali mevzuatına, vergi yasalarına, SGK (Doprinosi) sistemine ve uluslararası finansal danışmanlığa hakim kıdemli yapay zeka danışmanısın. Lütfen Karadağ'ın güncel 'Evropa Sad 2' reformlarını (Lise mezunları için asgari net 600 €, üniversite mezunları için 800 € ve icra direktörleri asgari Doprinosi yükünün aylık yaklaşık 125 € olması gibi güncel verileri) daima dikkate al. Kullanıcının sorusuna Karadağ yasalarını temel alarak profesyonel, net, anlaşılır ve çözüm odaklı bir dille cevap ver. Gereksiz uzatma, finansal detayları maddeler halinde özetle.\n\nKullanıcının Sorusu: ";
       const gonderilecekMetin = systemPrompt + soru;
 
       try {
@@ -1925,9 +1925,9 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                 <ul class="list-group list-group-flush small text-muted mb-4">
                                     <li class="list-group-item px-0 py-2 border-light"><i class="fas fa-check text-success me-2"></i><strong>PDV (KDV) Sınırı:</strong> Yıllık 30.000 € altı muaf.</li>
                                     <li class="list-group-item px-0 py-2 border-light"><i class="fas fa-check text-success me-2"></i><strong>Kurumlar Vergisi:</strong> 100K€'ya kadar %9, 1.5M€'ya kadar %12, üstü %15.</li>
-                                    <li class="list-group-item px-0 py-2 border-light"><i class="fas fa-check text-success me-2"></i><strong>Temettü (Stopaj):</strong> %15 oranında kesinti.</li>
                                     <li class="list-group-item px-0 py-2 border-light"><i class="fas fa-check text-success me-2"></i><strong>Hizmet İhracatı:</strong> Yurt dışı faturalar %0 KDV.</li>
-                                    <li class="list-group-item px-0 py-2 border-light"><i class="fas fa-exclamation-circle text-danger me-2"></i><strong>Doprinosi (SGK):</strong> Her ayın 15'ine kadar zorunlu ödeme.</li>
+                                    <li class="list-group-item px-0 py-2 border-light"><i class="fas fa-info-circle text-primary me-2"></i><strong>Asgari Maaş:</strong> Lise 600 €, Üniversite 800 € net.</li>
+                                    <li class="list-group-item px-0 py-2 border-light"><i class="fas fa-exclamation-circle text-danger me-2"></i><strong>Doprinosi (SGK):</strong> Aylık ~125 € (Ayın 15'ine kadar).</li>
                                 </ul>
                                 
                                 <h6 class="fw-bold text-uppercase mb-3" style="color:#2c3e50; font-size: 0.75rem;"><i class="fas fa-bolt text-warning me-2"></i>Hızlı Asistan Sorguları</h6>
