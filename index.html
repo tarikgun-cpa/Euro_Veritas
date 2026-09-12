@@ -771,7 +771,10 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
   window.vergileriCiz = function() {
       const bTbody = document.getElementById('bekleyenVergiTabloGövdesi');
       const oTbody = document.getElementById('odenenVergiTabloGövdesi');
-      if (!bTbody || !oTbody) return; bTbody.innerHTML = ""; oTbody.innerHTML = "";
+      // Sadece o an ekranda vergi sayfası açıksa çizim yap
+      if (!bTbody || !oTbody) return; 
+      
+      bTbody.innerHTML = ""; oTbody.innerHTML = "";
 
       vergiListesi.forEach(vergi => {
           if(vergi.durum === 'Bekliyor') {
@@ -806,7 +809,10 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       try {
           if(id) await updateDoc(doc(db, "vergiler", id), { tur: tur, donem: donem, sonTarih: sonTarih, tutar: tutar });
           else await addDoc(collection(db, "vergiler"), { tur: tur, donem: donem, sonTarih: sonTarih, tutar: tutar, durum: 'Bekliyor', islemTarihi: serverTimestamp() });
-          bootstrap.Modal.getInstance(document.getElementById('yeniVergiModal')).hide();
+          let m = bootstrap.Modal.getInstance(document.getElementById('yeniVergiModal')); if(m) m.hide();
+          
+          // Ekranda güncellemeyi zorla
+          if (document.getElementById('bekleyenVergiTabloGövdesi')) { window.vergileriCiz(); }
       } catch(e) { alert("Hata: " + e.message); } 
   };
 
