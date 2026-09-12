@@ -323,6 +323,36 @@
         </tr>`;
     }
     document.getElementById('dash_kar_zarar').innerHTML = kzHtml;
+
+    // Temettü (Kâr Payı) Simülatörü Hesaplaması
+    let netKar = toplamGelir - toplamGider;
+    let temettuVergisi = netKar > 0 ? netKar * 0.15 : 0;
+    let cekilebilirNakit = netKar > 0 ? netKar - temettuVergisi : 0;
+
+    let temettuHtml = `
+        <div class="card bg-dark text-white shadow-sm mt-4 rounded-4 border-0">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-uppercase text-muted mb-1" style="font-size: 0.75rem; letter-spacing: 1px;"><i class="fas fa-coins text-warning me-2"></i>Temettü Simülatörü (15% Karadağ Stopajı)</h6>
+                    <h4 class="mb-0 fw-bold text-white">${cekilebilirNakit.toLocaleString('en-US', {minimumFractionDigits: 2})} € <span class="fs-6 fw-normal text-muted">Net Çekilebilir Nakit</span></h4>
+                </div>
+                <div class="text-end">
+                    <small class="d-block text-muted">Brüt Kâr: ${netKar > 0 ? netKar.toLocaleString('en-US', {minimumFractionDigits: 2}) : '0.00'} €</small>
+                    <small class="d-block text-danger">- ${temettuVergisi.toLocaleString('en-US', {minimumFractionDigits: 2})} € Vergi</small>
+                </div>
+            </div>
+        </div>
+    `;
+
+    let karZararKarti = document.getElementById('dash_kar_zarar').closest('.card');
+    if (karZararKarti && !document.getElementById('temettu_alani')) {
+        let temettuDiv = document.createElement('div');
+        temettuDiv.id = 'temettu_alani';
+        temettuDiv.innerHTML = temettuHtml;
+        karZararKarti.parentNode.insertBefore(temettuDiv, karZararKarti.nextSibling);
+    } else if (document.getElementById('temettu_alani')) {
+        document.getElementById('temettu_alani').innerHTML = temettuHtml;
+    }
   };
 
 
