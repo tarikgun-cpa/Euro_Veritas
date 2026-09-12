@@ -164,7 +164,7 @@
               vergiListesi = [];
               snapshot.forEach((doc) => { vergiListesi.push({ id: doc.id, ...doc.data() }); });
               vergiListesi.sort((a,b) => new Date(a.sonTarih) - new Date(b.sonTarih));
-              if (document.getElementById('vergiTabloGövdesi')) { window.vergileriCiz(); }
+              if (document.getElementById('bekleyenVergiTabloGövdesi')) { window.vergileriCiz(); }
           });
 
           // GÖREVLERİ DİNLE
