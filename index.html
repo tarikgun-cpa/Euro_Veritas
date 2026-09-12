@@ -572,7 +572,7 @@
               </div>
           </div>
           
-          <h3 class="text-center fw-bold mb-5" style="color: #2c3e50; letter-spacing: 2px;">PROFORMA INVOICE / SÖZLEŞME</h3>
+          <h3 class="text-center fw-bold mb-5" style="color: #2c3e50; letter-spacing: 2px;">PROFORMA INVOICE</h3>
           
           <div class="row mb-5">
               <div class="col-6">
@@ -879,10 +879,54 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
           const cariFarki = tur === 'Tahsilat' ? tutar : -tutar;
 
           await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(cariFarki) });
-          await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(bankaFarki) });
+          
+          if(bankaId !== "KUR_FARKI") {
+              await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(bankaFarki) });
+          }
 
-          document.getElementById('main-content').innerHTML = '<div class="alert alert-success mt-4">İşlem başarıyla silindi ve bakiyeler güncellendi. Sol menüden listeye dönebilirsiniz.</div>';
+          document.getElementById('main-content').innerHTML = '<div class="alert alert-success mt-4">İşlem başarıyla silindi ve bakiyeler güncellendi. Lütfen sol menüden listeye dönün.</div>';
       } catch(e) { alert("Hata: " + e.message); }
+  };
+
+  window.kurFarkiModalAc = function() {
+      const select = document.getElementById('kf_cariId');
+      select.innerHTML = '<option value="">-- Cari Seçiniz --</option>';
+      cariListesi.forEach(c => { select.innerHTML += `<option value="${c.id}">${c.unvan} (Bakiye: ${c.bakiye} ${c.paraBirimi})</option>`; });
+      document.getElementById('kf_tarih').value = new Date().toISOString().split('T')[0];
+      document.getElementById('kurFarkiForm').reset();
+      new bootstrap.Modal(document.getElementById('kurFarkiModal')).show();
+  };
+
+  window.kurFarkiKaydet = async function() {
+      const cariId = document.getElementById('kf_cariId').value;
+      const yon = document.getElementById('kf_yon').value; 
+      const tutar = parseFloat(document.getElementById('kf_tutar').value) || 0;
+      const aciklama = document.getElementById('kf_aciklama').value || 'Kur Farkı Düzeltmesi';
+      const tarih = document.getElementById('kf_tarih').value;
+
+      if(!cariId || tutar <= 0) { alert("Lütfen cari ve tutar seçiniz."); return; }
+
+      const btn = document.querySelector("#kurFarkiModal .btn-info");
+      btn.disabled = true; btn.innerHTML = "İşleniyor...";
+
+      try {
+          let bakiyeDegisimi = yon === 'Lehte' ? -tutar : tutar;
+          let islemTuru = yon === 'Lehte' ? 'Tahsilat' : 'Odeme'; 
+
+          await addDoc(collection(db, "hesapHareketleri"), {
+              bankaId: "KUR_FARKI",
+              cariId: cariId,
+              tur: islemTuru,
+              tutar: tutar,
+              aciklama: `[Kur Farkı] ${aciklama}`,
+              tarih: new Date(tarih)
+          });
+
+          await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(bakiyeDegisimi) });
+
+          bootstrap.Modal.getInstance(document.getElementById('kurFarkiModal')).hide();
+      } catch(e) { alert("Hata: " + e.message); }
+      finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
   };
 
   window.islemModalAc = function(tur, bankaId) {
@@ -931,14 +975,19 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
   window.vergileriCiz = function() {
       const bTbody = document.getElementById('bekleyenVergiTabloGövdesi');
       const oTbody = document.getElementById('odenenVergiTabloGövdesi');
-      // Sadece o an ekranda vergi sayfası açıksa çizim yap
       if (!bTbody || !oTbody) return; 
       
       bTbody.innerHTML = ""; oTbody.innerHTML = "";
 
       vergiListesi.forEach(vergi => {
           if(vergi.durum === 'Bekliyor') {
-              bTbody.innerHTML += `<tr><td><span class="fw-bold">${vergi.tur}</span></td><td>${vergi.donem}</td><td>${vergi.sonTarih}</td><td class="fw-bold">${vergi.tutar.toFixed(2)} €</td><td><span class="badge bg-danger">Bekliyor</span></td>
+              let bugun = new Date();
+              let sonG = new Date(vergi.sonTarih);
+              let farkGun = Math.ceil((sonG - bugun) / (1000 * 60 * 60 * 24));
+              let uyariClass = farkGun <= 5 ? 'text-danger fw-bold' : '';
+              let uyariIkon = farkGun <= 5 ? '<i class="fas fa-exclamation-triangle text-danger me-1" title="Yaklaşan Ödeme!"></i>' : '';
+
+              bTbody.innerHTML += `<tr><td><span class="fw-bold">${vergi.tur}</span></td><td>${vergi.donem}</td><td class="${uyariClass}">${uyariIkon}${vergi.sonTarih}</td><td class="fw-bold">${vergi.tutar.toFixed(2)} €</td><td><span class="badge bg-danger">Bekliyor</span></td>
               <td><button class="btn btn-sm btn-success py-0 me-1" onclick="vergiOdeAc('${vergi.id}')"><i class="fas fa-check"></i> Öde</button><button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="vergiDuzenleAc('${vergi.id}')"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-outline-danger py-0" onclick="vergiSil('${vergi.id}')"><i class="fas fa-trash"></i></button></td></tr>`;
           } else {
               let bnk = bankaListesi.find(b => b.id === vergi.odenenBankaId)?.hesapAdi || 'Belirsiz Kasa';
@@ -948,6 +997,26 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       });
       if(bTbody.innerHTML === '') bTbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted small">Bekleyen vergi bulunmuyor.</td></tr>';
       if(oTbody.innerHTML === '') oTbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted small">Ödenmiş vergi bulunmuyor.</td></tr>';
+  };
+
+  window.doprinosiOtomatikEkle = function() {
+      let bugun = new Date();
+      let ay = bugun.getMonth() + 1;
+      let yil = bugun.getFullYear();
+      let donemStr = yil + "-" + String(ay).padStart(2, '0');
+      
+      // Karadağ'da doprinosi genelde sonraki ayın 15'ine kadar ödenir
+      let gelecekAy = new Date(yil, bugun.getMonth() + 1, 15); 
+      let sonTarihStr = gelecekAy.toISOString().split('T')[0];
+
+      document.getElementById('yeniVergiForm').reset(); 
+      document.getElementById('v_id').value = '';
+      document.getElementById('v_tur').value = 'Maaş / SGK / Stopaj (Doprinosi)';
+      document.getElementById('v_donem').value = donemStr;
+      document.getElementById('v_sonTarih').value = sonTarihStr;
+      document.getElementById('v_tutar').value = 125.00; // Asgari tutar (düzenlenebilir)
+
+      new bootstrap.Modal(document.getElementById('yeniVergiModal')).show();
   };
 
   window.vergiModalAc = function() {
@@ -1434,9 +1503,14 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Banka ve Kasa Hesapları</h2>
-                    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#yeniBankaModal">
-                        <i class="fas fa-plus"></i> Yeni Hesap Ekle
-                    </button>
+                    <div>
+                        <button class="btn btn-info text-white shadow-sm me-2" onclick="kurFarkiModalAc()">
+                            <i class="fas fa-exchange-alt"></i> Kur Farkı İşle
+                        </button>
+                        <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#yeniBankaModal">
+                            <i class="fas fa-plus"></i> Yeni Hesap Ekle
+                        </button>
+                    </div>
                 </div>
                 
                 <h6 class="text-primary border-bottom pb-2 mb-3"><i class="fas fa-university"></i> Banka Hesapları</h6>
@@ -1546,6 +1620,52 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                         </div>
                     </div>
                 </div>
+
+                <!-- KUR FARKI MODALI -->
+                <div class="modal fade" id="kurFarkiModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-info text-white">
+                                <h5 class="modal-title"><i class="fas fa-exchange-alt me-2"></i>Kur Farkı Düzeltmesi</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="kurFarkiForm">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">İlgili Cari (Müşteri/Tedarikçi) *</label>
+                                        <select class="form-select" id="kf_cariId" required></select>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label text-muted small">İşlem Tarihi *</label>
+                                            <input type="date" class="form-control" id="kf_tarih" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label text-muted small">Tutar *</label>
+                                            <input type="number" class="form-control" id="kf_tutar" step="0.01" required>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Kur Farkı Yönü *</label>
+                                        <select class="form-select" id="kf_yon">
+                                            <option value="Lehte">Cari Borcunu Azalt (Lehte / FX Gain)</option>
+                                            <option value="Aleyhte">Cari Borcunu Artır (Aleyhte / FX Loss)</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Açıklama</label>
+                                        <input type="text" class="form-control" id="kf_aciklama" placeholder="Örn: USD/EUR parite farkı düzeltmesi">
+                                    </div>
+                                    <div class="alert alert-warning small py-2 mb-0"><i class="fas fa-info-circle"></i> Kur farkı işlemleri banka/kasa bakiyenizi <b>etkilemez</b>, yalnızca Cari Hesabın bakiyesini düzeltir.</div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-info text-white" onclick="kurFarkiKaydet()">Kaydet</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             `;
             setTimeout(() => { if(typeof window.bankalariCiz === 'function') window.bankalariCiz(); }, 50);
         }
@@ -1554,9 +1674,14 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Vergi ve Yasal Ödemeler</h2>
-                    <button class="btn btn-primary shadow-sm" onclick="vergiModalAc()">
-                        <i class="fas fa-plus"></i> Yeni Vergi Ekle
-                    </button>
+                    <div>
+                        <button class="btn btn-warning shadow-sm fw-bold me-2" onclick="doprinosiOtomatikEkle()">
+                            <i class="fas fa-bolt"></i> Aylık Doprinosi (SGK) Ekle
+                        </button>
+                        <button class="btn btn-primary shadow-sm" onclick="vergiModalAc()">
+                            <i class="fas fa-plus"></i> Yeni Vergi Ekle
+                        </button>
+                    </div>
                 </div>
 
                 <ul class="nav nav-tabs mb-3" role="tablist">
