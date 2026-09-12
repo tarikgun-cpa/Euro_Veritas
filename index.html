@@ -287,7 +287,8 @@
         let [y, m] = f.tarih.split('-');
         if(y === seciliYil && f.paraBirimi === 'EUR') { 
             let ayIndex = parseInt(m) - 1;
-            if(f.tur === 'Satis') aylikVeri[ayIndex].gelir += f.toplamTutar;
+            // İhracat ve Yerel Satışlar artık gelir sayılıyor
+            if(f.tur === 'Satis' || f.tur === 'Ihracat' || f.tur === 'YerelSatis') aylikVeri[ayIndex].gelir += f.toplamTutar;
             else if(f.tur === 'Alim') aylikVeri[ayIndex].gider += f.toplamTutar;
         }
     });
@@ -409,9 +410,12 @@
 
     let tamHareketler = [];
     faturaListesi.filter(f => f.cariId === cariId).forEach(f => {
-        let ekAciklama = f.aciklama ? ` - ${f.aciklama}` : '';
-        tamHareketler.push({ id: f.id, tipKodu: 'fatura', tarih: f.tarih, tip: f.tur === 'Satis' ? 'Satış Faturası' : 'Alım Faturası', 
-            aciklama: `Fatura No: ${f.faturaNo}${ekAciklama}`, tutar: f.tur === 'Satis' ? f.toplamTutar : -f.toplamTutar, hamTarih: new Date(f.tarih).getTime() });
+        let ekAciklama = f.aciklama ? ` - <span class="text-muted">${f.aciklama}</span>` : '';
+        let isSatis = (f.tur === 'Satis' || f.tur === 'Ihracat' || f.tur === 'YerelSatis');
+        let tipIsmi = isSatis ? (f.tur === 'Ihracat' ? 'Hizmet İhracatı' : 'Satış Faturası') : 'Alım Faturası';
+        
+        tamHareketler.push({ id: f.id, tipKodu: 'fatura', tarih: f.tarih, tip: tipIsmi, 
+            aciklama: `Fatura No: ${f.faturaNo}${ekAciklama}`, tutar: isSatis ? f.toplamTutar : -f.toplamTutar, hamTarih: new Date(f.tarih).getTime() });
     });
     islemListesi.filter(i => i.cariId === cariId).forEach(i => {
         let dStr = i.tarih ? new Date(i.tarih.seconds * 1000).toISOString().split('T')[0] : '';
@@ -504,10 +508,11 @@
 
   // ---------------- FATURA İŞLEMLERİ ----------------
   window.faturalariCiz = function() {
-      const sTbody = document.getElementById('satisTabloGövdesi');
+      const iTbody = document.getElementById('ihracatTabloGövdesi');
+      const yTbody = document.getElementById('yerelSatisTabloGövdesi');
       const aTbody = document.getElementById('alimTabloGövdesi');
-      if (!sTbody || !aTbody) return; 
-      sTbody.innerHTML = ""; aTbody.innerHTML = "";
+      if (!iTbody || !yTbody || !aTbody) return; 
+      iTbody.innerHTML = ""; yTbody.innerHTML = ""; aTbody.innerHTML = "";
       
       faturaListesi.forEach(fatura => {
           let sembol = fatura.paraBirimi === 'USD' ? '$' : '€';
@@ -520,10 +525,17 @@
                   <td>${fatura.tutar.toFixed(2)} ${sembol}</td><td>${fatura.kdvTutar.toFixed(2)} ${sembol}</td>
                   <td class="fw-bold text-dark text-end">${fatura.toplamTutar.toFixed(2)} ${sembol}</td><td>${islemButonlari}</td></tr>`;
 
-          if(fatura.tur === 'Satis') sTbody.innerHTML += html; else aTbody.innerHTML += html;
+          if(fatura.tur === 'Ihracat' || fatura.tur === 'Satis') iTbody.innerHTML += html; 
+          else if(fatura.tur === 'YerelSatis') yTbody.innerHTML += html; 
+          else aTbody.innerHTML += html;
       });
-      if(sTbody.innerHTML === '') sTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kayıtlı satış faturası yok.</td></tr>';
+      if(iTbody.innerHTML === '') iTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kayıtlı hizmet ihracatı faturası yok.</td></tr>';
+      if(yTbody.innerHTML === '') yTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kayıtlı yerel satış faturası yok.</td></tr>';
       if(aTbody.innerHTML === '') aTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kayıtlı alım faturası yok.</td></tr>';
+  };
+
+  window.proformaUretAc = function() {
+      alert("Proforma Sözleşme modülü aktif ediliyor. Şirket logonuz ve banka IBAN'larınızla otomatik PDF taslakları burada oluşacak.");
   };
 
   window.faturaDuzenleAc = function(id) {
@@ -545,7 +557,7 @@
       try {
           let tutar = Math.abs(parseFloat(toplamTutar)); 
           await deleteDoc(doc(db, "faturalar", faturaId));
-          const bakiyeDegisimi = tur === 'Satis' ? -tutar : tutar;
+          const bakiyeDegisimi = (tur === 'Satis' || tur === 'Ihracat' || tur === 'YerelSatis') ? -tutar : tutar;
           await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(bakiyeDegisimi) });
       } catch(e) { alert("Hata: " + e.message); }
   };
@@ -577,12 +589,13 @@
 
       try {
           const secilenCari = cariListesi.find(c => c.id === cariId);
-          const yeniBakiyeDegisimi = tur === 'Satis' ? toplamTutar : -toplamTutar; 
+          const isSatis = (tur === 'Satis' || tur === 'Ihracat' || tur === 'YerelSatis');
+          const yeniBakiyeDegisimi = isSatis ? toplamTutar : -toplamTutar; 
 
           if (id) {
               const eskiFatura = faturaListesi.find(f => f.id === id);
               if(eskiFatura) {
-                  const eskiBakiyeIadesi = eskiFatura.tur === 'Satis' ? -eskiFatura.toplamTutar : eskiFatura.toplamTutar;
+                  const eskiBakiyeIadesi = (eskiFatura.tur === 'Satis' || eskiFatura.tur === 'Ihracat' || eskiFatura.tur === 'YerelSatis') ? -eskiFatura.toplamTutar : eskiFatura.toplamTutar;
                   await updateDoc(doc(db, "cariler", eskiFatura.cariId), { bakiye: increment(eskiBakiyeIadesi) });
               }
               await updateDoc(doc(db, "faturalar", id), { cariId: cariId, cariUnvan: secilenCari.unvan, faturaNo: faturaNo, tarih: tarih, tur: tur, paraBirimi: paraBirimi, tutar: tutar, kdvOran: kdvOran, kdvTutar: kdvTutar, toplamTutar: toplamTutar, aciklama: aciklama });
