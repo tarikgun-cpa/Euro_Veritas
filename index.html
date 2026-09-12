@@ -1342,66 +1342,75 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'vergiler') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Vergi ve Yasal Ödemeler</h2>
-                    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#yeniVergiModal">
+                    <h2 class="text-dark fw-bold" style="color: #2c3e50;">Vergi ve Yasal Ödemeler</h2>
+                    <button class="btn btn-primary shadow-sm" onclick="vergiModalAc()">
                         <i class="fas fa-plus"></i> Yeni Vergi Ekle
                     </button>
                 </div>
 
-                <div class="table-responsive bg-white p-3 rounded shadow-sm mb-4">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Vergi Türü</th>
-                                <th>Dönem</th>
-                                <th>Son Ödeme Tarihi</th>
-                                <th>Tutar</th>
-                                <th>Durum</th>
-                                <th>İşlemler</th>
-                            </tr>
-                        </thead>
-                        <tbody id="vergiTabloGövdesi"></tbody>
-                    </table>
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item"><button class="nav-link active text-danger fw-bold" data-bs-toggle="tab" data-bs-target="#v-bekleyen" type="button">Ödenecekler</button></li>
+                    <li class="nav-item"><button class="nav-link text-success fw-bold" data-bs-toggle="tab" data-bs-target="#v-odenen" type="button">Geçmiş Ödemeler</button></li>
+                </ul>
+
+                <div class="tab-content bg-white p-3 rounded shadow-sm border-top-0 mb-4">
+                    <div class="tab-pane fade show active" id="v-bekleyen">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle">
+                                <thead class="table-light text-muted small"><tr><th>Vergi Türü</th><th>Dönem</th><th>Son Ödeme Tarihi</th><th>Tutar</th><th>Durum</th><th>İşlemler</th></tr></thead>
+                                <tbody id="bekleyenVergiTabloGövdesi"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="v-odenen">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle">
+                                <thead class="table-light text-muted small"><tr><th>Vergi Türü</th><th>Dönem</th><th>Son Ödeme Tarihi</th><th>Tutar</th><th>Durum / Kasa</th><th>İşlemler</th></tr></thead>
+                                <tbody id="odenenVergiTabloGövdesi"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- YENİ VERGİ MODALI -->
+                <!-- YENİ/DÜZENLE VERGİ MODALI -->
                 <div class="modal fade" id="yeniVergiModal" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header bg-dark text-white">
-                                <h5 class="modal-title">Yeni Vergi / Ödeme Ekle</h5>
+                                <h5 class="modal-title">Vergi / Ödeme Kaydı</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
                                 <form id="yeniVergiForm">
                                     <input type="hidden" id="v_id">
-                                    <div class="mb-3">
-                                        <label class="form-label">Vergi Türü *</label>
-                                        <select class="form-select" id="v_tur">
-                                            <option value="PDV (KDV)">PDV (KDV - %21, %7)</option>
-                                            <option value="Kurumlar Vergisi">Kurumlar Vergisi</option>
-                                            <option value="Maaş / SGK / Stopaj">Maaş / SGK / Stopaj</option>
-                                            <option value="Muhasebe ve Diğer Harçlar">Muhasebe ve Diğer Harçlar</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Dönem *</label>
-                                        <input type="month" class="form-control" id="v_donem" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Son Ödeme Tarihi *</label>
-                                        <input type="date" class="form-control" id="v_sonTarih" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Tutar (€) *</label>
-                                        <input type="number" class="form-control" id="v_tutar" step="0.01" required>
-                                    </div>
+                                    <div class="mb-3"><label class="form-label">Vergi Türü *</label><select class="form-select" id="v_tur"><option value="PDV (KDV)">PDV (KDV - %21, %7)</option><option value="Kurumlar Vergisi">Kurumlar Vergisi</option><option value="Maaş / SGK / Stopaj">Maaş / SGK / Stopaj</option><option value="Muhasebe ve Diğer Harçlar">Muhasebe ve Diğer Harçlar</option></select></div>
+                                    <div class="mb-3"><label class="form-label">Dönem *</label><input type="month" class="form-control" id="v_donem" required></div>
+                                    <div class="mb-3"><label class="form-label">Son Ödeme Tarihi *</label><input type="date" class="form-control" id="v_sonTarih" required></div>
+                                    <div class="mb-3"><label class="form-label">Tutar (€) *</label><input type="number" class="form-control" id="v_tutar" step="0.01" required></div>
                                 </form>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                                <button type="button" class="btn btn-primary" onclick="vergiKaydet()">Kaydet</button>
+                            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button><button type="button" class="btn btn-primary" onclick="vergiKaydet()">Kaydet</button></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VERGİ ÖDEME (BANKA SEÇİMİ) MODALI -->
+                <div class="modal fade" id="vergiOdeModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">Ödemeyi Gerçekleştir</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
+                            <div class="modal-body">
+                                <input type="hidden" id="vo_vergiId">
+                                <div class="mb-3">
+                                    <label class="form-label">Ödemenin Yapılacağı Kasa/Banka *</label>
+                                    <select class="form-select" id="vo_bankaId"></select>
+                                </div>
+                                <p class="text-muted small mb-0"><i class="fas fa-info-circle"></i> Ödeme tamamlandığında seçili bankanın bakiyesinden tutar otomatik düşülecektir.</p>
+                            </div>
+                            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button><button type="button" class="btn btn-success" onclick="vergiOdemeTamamla()">Ödemeyi Tamamla</button></div>
                         </div>
                     </div>
                 </div>
