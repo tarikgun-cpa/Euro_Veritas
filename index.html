@@ -15,20 +15,19 @@
             background-color: #f4f7f9; 
             font-family: 'Inter', sans-serif;
             color: #334155;
+            font-size: 0.85rem;
         }
         h2, h4 { font-weight: 700; color: #0f172a; letter-spacing: -0.5px; }
         
         .sidebar { min-height: 100vh; background-color: #1e293b; box-shadow: 2px 0 10px rgba(0,0,0,0.05); }
-        .sidebar a { color: #cbd5e1; text-decoration: none; padding: 14px 24px; display: block; border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.2s ease; font-size: 0.9rem; font-weight: 500; }
-        .sidebar a:hover { background-color: #2c3e50; color: #f39c12; padding-left: 28px; }
-        .sidebar a i { margin-right: 12px; width: 20px; text-align: center; }
-        .content-area { padding: 30px; }
+        .sidebar a { color: #cbd5e1; text-decoration: none; padding: 12px 20px; display: block; border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.2s ease; font-weight: 500; }
+        .sidebar a:hover { background-color: #2c3e50; color: #f39c12; padding-left: 24px; }
+        .sidebar a i { margin-right: 10px; width: 16px; text-align: center; }
+        .content-area { padding: 20px; }
         
-        /* Modern Kart ve Gölgeler */
-        .card { border: none !important; box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important; border-radius: 12px !important; transition: transform 0.2s ease; }
-        .card-header { background-color: transparent; border-bottom: 1px solid #f1f5f9; padding: 1.5rem; }
+        .card { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important; border-radius: 8px !important; }
+        .card-header { background-color: transparent; border-bottom: 1px solid #f1f5f9; padding: 1rem; }
         
-        /* Fintech Tablo Tasarımı */
         .table { border-collapse: separate; border-spacing: 0; width: 100%; margin-bottom: 0; }
         .table thead th { 
             background-color: #f8fafc !important; 
@@ -36,24 +35,21 @@
             font-weight: 600; 
             text-transform: uppercase; 
             font-size: 0.7rem; 
-            letter-spacing: 0.8px; 
             border-bottom: 1px solid #e2e8f0; 
-            padding: 12px 16px; 
+            padding: 8px 12px; 
             border-top: none;
         }
-        .table tbody td { vertical-align: middle; border-bottom: 1px solid #f1f5f9; padding: 12px 16px; color: #475569; font-size: 0.85rem; font-weight: 500;}
+        .table tbody td { vertical-align: middle; border-bottom: 1px solid #f1f5f9; padding: 8px 12px; font-weight: 500;}
         .table tbody tr:hover td { background-color: #f8fafc; }
         
-        /* Form ve Butonlar */
-        .form-control, .form-select { border-radius: 8px; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; font-size: 0.875rem; box-shadow: none !important; }
-        .form-control:focus, .form-select:focus { border-color: #f39c12; box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.1) !important; }
-        .btn { border-radius: 8px; font-weight: 600; font-size: 0.85rem; padding: 0.5rem 1rem; letter-spacing: 0.2px; }
+        .form-control, .form-select { border-radius: 6px; border: 1px solid #e2e8f0; padding: 0.35rem 0.75rem; font-size: 0.85rem; }
+        .form-control:focus, .form-select:focus { border-color: #f39c12; box-shadow: 0 0 0 2px rgba(243, 156, 18, 0.1) !important; }
+        .btn { border-radius: 6px; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.8rem; }
         .btn-primary { background-color: #2c3e50; border-color: #2c3e50; }
         .btn-primary:hover { background-color: #1a252f; border-color: #1a252f; }
         
-        /* Sekmeler (Tabs) */
-        .nav-tabs { border-bottom: 1px solid #e2e8f0; gap: 10px; }
-        .nav-tabs .nav-link { color: #64748b; font-weight: 600; border: none; border-bottom: 2px solid transparent; padding: 10px 15px; border-radius: 0; background: transparent; }
+        .nav-tabs { border-bottom: 1px solid #e2e8f0; gap: 5px; }
+        .nav-tabs .nav-link { color: #64748b; font-weight: 600; border: none; border-bottom: 2px solid transparent; padding: 8px 12px; border-radius: 0; background: transparent; font-size: 0.85rem;}
         .nav-tabs .nav-link.active { border-bottom: 2px solid #2c3e50; color: #2c3e50; background: transparent; }
 
         @media print {
@@ -61,6 +57,7 @@
             .sidebar, .btn, .modal-footer, .nav { display: none !important; }
             #yazdirilacak-alan, #yazdirilacak-alan * { visibility: visible; }
             #yazdirilacak-alan { position: absolute; left: 0; top: 0; width: 100%; }
+            .table tbody td, .table thead th { padding: 4px 8px; font-size: 0.7rem; }
         }
     </style>
 </head>
@@ -1100,68 +1097,64 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         if(sayfa === 'dashboard') {
             let mevcutYil = new Date().getFullYear();
             mainContent.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center mb-5">
+                <div class="d-flex justify-content-between align-items-center mb-4">
                     <div>
                         <h2 class="mb-1">Yönetici Özeti</h2>
-                        <p class="text-muted small mb-0">Şirketinizin genel finansal durumu ve nakit akışı.</p>
                     </div>
-                    <div class="d-flex align-items-center bg-white p-2 rounded-3 shadow-sm border border-light">
+                    <div class="d-flex align-items-center bg-white p-2 rounded shadow-sm border border-light">
                         <i class="fas fa-calendar-alt text-muted me-2 ps-1"></i>
-                        <select class="form-select form-select-sm border-0 bg-transparent fw-bold" id="dash_yil_secici" onchange="dashboardCiz()" style="width: 80px; cursor:pointer; outline:none; box-shadow:none;">
+                        <select class="form-select form-select-sm border-0 bg-transparent fw-bold" id="dash_yil_secici" onchange="dashboardCiz()" style="width: 80px; outline:none; box-shadow:none;">
                             <option value="${mevcutYil}">${mevcutYil}</option>
                             <option value="${mevcutYil - 1}">${mevcutYil - 1}</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="row mb-5 g-4">
-                    <!-- Kasa ve Bankalar -->
+                <div class="row mb-4 g-3">
                     <div class="col-md-4">
                         <div class="card h-100 border-top border-3" style="border-top-color: #2c3e50 !important;">
-                            <div class="card-body p-4">
-                                <div class="d-flex justify-content-between align-items-center mb-4">
-                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #2c3e50; font-size: 0.75rem; letter-spacing: 1px;">Likidite (Kasa/Banka)</h6>
-                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="fas fa-wallet text-secondary small"></i></div>
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #2c3e50; font-size: 0.7rem;">Likidite (Kasa/Banka)</h6>
+                                    <i class="fas fa-wallet text-secondary"></i>
                                 </div>
                                 <div id="dash_kasa_listesi"><span class="text-muted small">Veri bekleniyor...</span></div>
                             </div>
                         </div>
                     </div>
-                    <!-- Alacaklar -->
                     <div class="col-md-4">
                         <div class="card h-100 border-top border-3" style="border-top-color: #f39c12 !important;">
-                            <div class="card-body p-4">
-                                <div class="d-flex justify-content-between align-items-center mb-4">
-                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #f39c12; font-size: 0.75rem; letter-spacing: 1px;">Müşteri Alacakları</h6>
-                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="fas fa-arrow-down text-secondary small"></i></div>
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #f39c12; font-size: 0.7rem;">Müşteri Alacakları</h6>
+                                    <i class="fas fa-arrow-down text-secondary"></i>
                                 </div>
-                                <div id="dash_alacak_rozetler" class="d-flex flex-column gap-3"><span class="text-muted small">Tahsilat bekleyen hesap yok.</span></div>
+                                <div id="dash_alacak_rozetler" class="d-flex flex-column gap-2"><span class="text-muted small">Tahsilat bekleyen hesap yok.</span></div>
                             </div>
                         </div>
                     </div>
-                    <!-- Borçlar -->
                     <div class="col-md-4">
                         <div class="card h-100 border-top border-3" style="border-top-color: #e74c3c !important;">
-                            <div class="card-body p-4">
-                                <div class="d-flex justify-content-between align-items-center mb-4">
-                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #e74c3c; font-size: 0.75rem; letter-spacing: 1px;">Tedarikçi Borçları</h6>
-                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="fas fa-arrow-up text-secondary small"></i></div>
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #e74c3c; font-size: 0.7rem;">Tedarikçi Borçları</h6>
+                                    <i class="fas fa-arrow-up text-secondary"></i>
                                 </div>
-                                <div id="dash_borc_rozetler" class="d-flex flex-column gap-3"><span class="text-muted small">Ödeme bekleyen hesap yok.</span></div>
+                                <div id="dash_borc_rozetler" class="d-flex flex-column gap-2"><span class="text-muted small">Ödeme bekleyen hesap yok.</span></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h6 class="fw-bold text-uppercase mb-0" style="font-size: 0.75rem; letter-spacing: 1px; color:#64748b;">Aylık Finansal Performans (P&L)</h6>
+                    <div class="card-header bg-white pb-0 border-0 pt-3">
+                        <h6 class="fw-bold text-uppercase mb-0" style="font-size: 0.7rem; color:#64748b;">Aylık Finansal Performans (P&L)</h6>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0">
                                 <thead>
-                                    <tr><th class="ps-4">Dönem (Ay)</th><th class="text-end">Operasyonel Gelir</th><th class="text-end">Operasyonel Gider</th><th class="text-end pe-4">Net Kâr / Zarar</th></tr>
+                                    <tr><th class="ps-3">Dönem (Ay)</th><th class="text-end">Operasyonel Gelir</th><th class="text-end">Operasyonel Gider</th><th class="text-end pe-3">Net Kâr / Zarar</th></tr>
                                 </thead>
                                 <tbody id="dash_kar_zarar"></tbody>
                             </table>
@@ -1183,7 +1176,6 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                 
                 <div id="cariTabloGövdesi" class="mt-3"></div>
 
-                <!-- CARİ EKLEME MODALI -->
                 <div class="modal fade" id="yeniCariModal" tabindex="-1">
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content">
@@ -1226,18 +1218,22 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'faturalar') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2 class="text-dark fw-bold">Faturalar</h2>
-                    <button class="btn btn-primary shadow-sm" onclick="faturaModalAc()">
-                        <i class="fas fa-plus"></i> Yeni Fatura İşle
-                    </button>
+                    <h2>Faturalar</h2>
+                    <div>
+                        <button class="btn btn-outline-primary shadow-sm me-2" onclick="proformaUretAc()"><i class="fas fa-file-pdf"></i> Proforma Üret</button>
+                        <button class="btn btn-primary shadow-sm" onclick="faturaModalAc()"><i class="fas fa-plus"></i> Yeni Fatura İşle</button>
+                    </div>
                 </div>
                 
                 <ul class="nav nav-tabs mb-3" id="faturaTab" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active text-success fw-bold" data-bs-toggle="tab" data-bs-target="#satis" type="button"><i class="fas fa-file-export me-1"></i>Satış (Gelir)</button>
+                        <button class="nav-link active text-success fw-bold" data-bs-toggle="tab" data-bs-target="#satis" type="button">Hizmet İhracatı (0% KDV)</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link text-danger fw-bold" data-bs-toggle="tab" data-bs-target="#alim" type="button"><i class="fas fa-file-import me-1"></i>Alım (Gider)</button>
+                        <button class="nav-link text-success fw-bold" data-bs-toggle="tab" data-bs-target="#yerelsatis" type="button">Yerel Satış (KDV'li)</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link text-danger fw-bold" data-bs-toggle="tab" data-bs-target="#alim" type="button">Alım (Gider)</button>
                     </li>
                 </ul>
 
@@ -1248,7 +1244,17 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                 <thead class="table-light text-muted small">
                                     <tr><th>Fatura No</th><th>Tarih</th><th>Müşteri Ünvanı</th><th>Açıklama</th><th>Matrah</th><th>KDV</th><th class="text-end">Toplam</th><th>İşlemler</th></tr>
                                 </thead>
-                                <tbody id="satisTabloGövdesi"></tbody>
+                                <tbody id="ihracatTabloGövdesi"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="yerelsatis">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle table-sm">
+                                <thead class="table-light text-muted small">
+                                    <tr><th>Fatura No</th><th>Tarih</th><th>Müşteri Ünvanı</th><th>Açıklama</th><th>Matrah</th><th>KDV</th><th class="text-end">Toplam</th><th>İşlemler</th></tr>
+                                </thead>
+                                <tbody id="yerelSatisTabloGövdesi"></tbody>
                             </table>
                         </div>
                     </div>
@@ -1278,7 +1284,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                         <div class="col-md-12"><label class="form-label">Cari Hesap (Firma) *</label><select class="form-select" id="f_cariId" required></select></div>
                                     </div>
                                     <div class="row mb-3">
-                                        <div class="col-md-4"><label class="form-label">Fatura Yönü *</label><select class="form-select" id="f_tur"><option value="Satis">Satış (Kestiğimiz)</option><option value="Alim">Alım (Bize Gelen)</option></select></div>
+                                        <div class="col-md-4"><label class="form-label">Fatura Yönü *</label><select class="form-select" id="f_tur"><option value="Ihracat">Hizmet İhracatı</option><option value="YerelSatis">Yerel Satış</option><option value="Alim">Alım (Bize Gelen)</option></select></div>
                                         <div class="col-md-4"><label class="form-label">Fatura Numarası *</label><input type="text" class="form-control" id="f_faturaNo"></div>
                                         <div class="col-md-4"><label class="form-label">Fatura Tarihi *</label><input type="date" class="form-control" id="f_tarih"></div>
                                     </div>
@@ -1289,7 +1295,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                     <div class="row mb-3">
                                         <div class="col-md-3"><label class="form-label">Para Birimi *</label><select class="form-select" id="f_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select></div>
                                         <div class="col-md-3"><label class="form-label">Tutar (KDV Hariç) *</label><input type="number" class="form-control" id="f_tutar" onkeyup="hesaplaKdv()" onchange="hesaplaKdv()" step="0.01"></div>
-                                        <div class="col-md-4"><label class="form-label">KDV Oranı (%)</label><select class="form-select" id="f_kdvOran" onchange="hesaplaKdv()"><option value="21">21% (Standart PDV)</option><option value="7">7% (İndirimli)</option><option value="0">0% (İstisna / Yurt Dışı)</option></select></div>
+                                        <div class="col-md-4"><label class="form-label">KDV Oranı (%)</label><select class="form-select" id="f_kdvOran" onchange="hesaplaKdv()"><option value="0">0% (İhracat / Muaf)</option><option value="21">21% (Standart PDV)</option><option value="7">7% (İndirimli)</option></select></div>
                                         <div class="col-md-2 mt-3"><label class="form-label">KDV</label><input type="text" class="form-control bg-light px-1" id="f_kdvTutar" readonly></div>
                                     </div>
                                     <div class="row mb-3"><div class="col-md-8"></div><div class="col-md-4"><label class="form-label fw-bold">Genel Toplam</label><input type="text" class="form-control border-success text-success fw-bold text-end" id="f_toplam" readonly></div></div>
@@ -1311,9 +1317,9 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     </button>
                 </div>
                 
-                <h5 class="text-primary border-bottom pb-2 mb-3"><i class="fas fa-university"></i> Banka Hesapları</h5>
-                <div class="table-responsive bg-white p-3 rounded shadow-sm mb-4">
-                    <table class="table table-hover align-middle">
+                <h6 class="text-primary border-bottom pb-2 mb-3"><i class="fas fa-university"></i> Banka Hesapları</h6>
+                <div class="table-responsive bg-white p-2 rounded shadow-sm mb-4">
+                    <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr><th>Banka ve Hesap Adı</th><th>IBAN / Hesap No</th><th>Para Birimi</th><th>Güncel Bakiye</th><th>İşlemler</th></tr>
                         </thead>
@@ -1321,9 +1327,9 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     </table>
                 </div>
 
-                <h5 class="text-warning border-bottom pb-2 mb-3 mt-4"><i class="fas fa-box"></i> Nakit Kasalar</h5>
-                <div class="table-responsive bg-white p-3 rounded shadow-sm mb-4">
-                    <table class="table table-hover align-middle">
+                <h6 class="text-warning border-bottom pb-2 mb-3 mt-4"><i class="fas fa-box"></i> Nakit Kasalar</h6>
+                <div class="table-responsive bg-white p-2 rounded shadow-sm mb-4">
+                    <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr><th>Kasa Adı</th><th>Açıklama</th><th>Para Birimi</th><th>Güncel Bakiye</th><th>İşlemler</th></tr>
                         </thead>
@@ -1331,7 +1337,6 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     </table>
                 </div>
 
-                <!-- YENİ BANKA/KASA MODALI -->
                 <div class="modal fade" id="yeniBankaModal" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -1380,7 +1385,6 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     </div>
                 </div>
 
-                <!-- TAHSİLAT / ÖDEME İŞLEM MODALI -->
                 <div class="modal fade" id="islemModal" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -1427,7 +1431,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'vergiler') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2 class="text-dark fw-bold" style="color: #2c3e50;">Vergi ve Yasal Ödemeler</h2>
+                    <h2>Vergi ve Yasal Ödemeler</h2>
                     <button class="btn btn-primary shadow-sm" onclick="vergiModalAc()">
                         <i class="fas fa-plus"></i> Yeni Vergi Ekle
                     </button>
@@ -1457,7 +1461,6 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     </div>
                 </div>
 
-                <!-- YENİ/DÜZENLE VERGİ MODALI -->
                 <div class="modal fade" id="yeniVergiModal" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -1468,7 +1471,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                             <div class="modal-body">
                                 <form id="yeniVergiForm">
                                     <input type="hidden" id="v_id">
-                                    <div class="mb-3"><label class="form-label">Vergi Türü *</label><select class="form-select" id="v_tur"><option value="PDV (KDV)">PDV (KDV - %21, %7)</option><option value="Kurumlar Vergisi">Kurumlar Vergisi</option><option value="Maaş / SGK / Stopaj">Maaş / SGK / Stopaj</option><option value="Muhasebe ve Diğer Harçlar">Muhasebe ve Diğer Harçlar</option></select></div>
+                                    <div class="mb-3"><label class="form-label">Vergi Türü *</label><select class="form-select" id="v_tur"><option value="PDV (KDV)">PDV (KDV - %21, %7)</option><option value="Kurumlar Vergisi">Kurumlar Vergisi</option><option value="Maaş / SGK / Stopaj (Doprinosi)">Maaş / SGK / Stopaj (Doprinosi)</option><option value="Muhasebe ve Diğer Harçlar">Muhasebe ve Diğer Harçlar</option></select></div>
                                     <div class="mb-3"><label class="form-label">Dönem *</label><input type="month" class="form-control" id="v_donem" required></div>
                                     <div class="mb-3"><label class="form-label">Son Ödeme Tarihi *</label><input type="date" class="form-control" id="v_sonTarih" required></div>
                                     <div class="mb-3"><label class="form-label">Tutar (€) *</label><input type="number" class="form-control" id="v_tutar" step="0.01" required></div>
@@ -1479,7 +1482,6 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     </div>
                 </div>
 
-                <!-- VERGİ ÖDEME (BANKA SEÇİMİ) MODALI -->
                 <div class="modal fade" id="vergiOdeModal" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -1550,23 +1552,16 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Şirket Künyesi</h2>
                     <div>
-                        <!-- YAZDIR BUTONU BURAYA EKLENDİ -->
-                        <button class="btn btn-secondary shadow-sm me-2" onclick="window.print()">
-                            <i class="fas fa-print"></i> Yazdır
-                        </button>
-                        <button class="btn btn-primary shadow-sm" onclick="kunyeDuzenleAc()">
-                            <i class="fas fa-edit"></i> Bilgileri Düzenle
-                        </button>
+                        <button class="btn btn-outline-secondary shadow-sm me-2" onclick="window.print()"><i class="fas fa-print"></i> Yazdır</button>
+                        <button class="btn btn-primary shadow-sm" onclick="kunyeDuzenleAc()"><i class="fas fa-edit"></i> Bilgileri Düzenle</button>
                     </div>
                 </div>
 
                 <div class="card shadow-sm border-0">
                     <div class="card-body p-4" id="kunyeKarti">
-                        <!-- Bilgiler JS ile buraya gelecek -->
                     </div>
                 </div>
 
-                <!-- KÜNYE DÜZENLEME MODALI -->
                 <div class="modal fade" id="kunyeModal" tabindex="-1">
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content">
