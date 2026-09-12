@@ -9,15 +9,52 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        body { background-color: #f4f6f9; }
-        .sidebar { min-height: 100vh; background-color: #2c3e50; }
-        .sidebar a { color: #ecf0f1; text-decoration: none; padding: 15px 20px; display: block; border-bottom: 1px solid #34495e; transition: 0.3s; }
-        .sidebar a:hover { background-color: #34495e; padding-left: 25px; }
-        .sidebar a i { margin-right: 10px; width: 20px; text-align: center; }
-        .content-area { padding: 20px; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body { 
+            background-color: #f4f7f9; 
+            font-family: 'Inter', sans-serif;
+            color: #334155;
+        }
+        h2, h4 { font-weight: 700; color: #0f172a; letter-spacing: -0.5px; }
         
-        #login-container { min-height: 100vh; background-color: #2c3e50; }
-        .login-card { border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .sidebar { min-height: 100vh; background-color: #1e293b; box-shadow: 2px 0 10px rgba(0,0,0,0.05); }
+        .sidebar a { color: #cbd5e1; text-decoration: none; padding: 14px 24px; display: block; border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.2s ease; font-size: 0.9rem; font-weight: 500; }
+        .sidebar a:hover { background-color: #2c3e50; color: #f39c12; padding-left: 28px; }
+        .sidebar a i { margin-right: 12px; width: 20px; text-align: center; }
+        .content-area { padding: 30px; }
+        
+        /* Modern Kart ve Gölgeler */
+        .card { border: none !important; box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important; border-radius: 12px !important; transition: transform 0.2s ease; }
+        .card-header { background-color: transparent; border-bottom: 1px solid #f1f5f9; padding: 1.5rem; }
+        
+        /* Fintech Tablo Tasarımı */
+        .table { border-collapse: separate; border-spacing: 0; width: 100%; margin-bottom: 0; }
+        .table thead th { 
+            background-color: #f8fafc !important; 
+            color: #64748b !important; 
+            font-weight: 600; 
+            text-transform: uppercase; 
+            font-size: 0.7rem; 
+            letter-spacing: 0.8px; 
+            border-bottom: 1px solid #e2e8f0; 
+            padding: 12px 16px; 
+            border-top: none;
+        }
+        .table tbody td { vertical-align: middle; border-bottom: 1px solid #f1f5f9; padding: 12px 16px; color: #475569; font-size: 0.85rem; font-weight: 500;}
+        .table tbody tr:hover td { background-color: #f8fafc; }
+        
+        /* Form ve Butonlar */
+        .form-control, .form-select { border-radius: 8px; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; font-size: 0.875rem; box-shadow: none !important; }
+        .form-control:focus, .form-select:focus { border-color: #f39c12; box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.1) !important; }
+        .btn { border-radius: 8px; font-weight: 600; font-size: 0.85rem; padding: 0.5rem 1rem; letter-spacing: 0.2px; }
+        .btn-primary { background-color: #2c3e50; border-color: #2c3e50; }
+        .btn-primary:hover { background-color: #1a252f; border-color: #1a252f; }
+        
+        /* Sekmeler (Tabs) */
+        .nav-tabs { border-bottom: 1px solid #e2e8f0; gap: 10px; }
+        .nav-tabs .nav-link { color: #64748b; font-weight: 600; border: none; border-bottom: 2px solid transparent; padding: 10px 15px; border-radius: 0; background: transparent; }
+        .nav-tabs .nav-link.active { border-bottom: 2px solid #2c3e50; color: #2c3e50; background: transparent; }
 
         @media print {
             body * { visibility: hidden; }
@@ -224,10 +261,9 @@
     let bankalarHtml = '';
     bankaListesi.forEach(b => {
         let sembol = b.paraBirimi === 'USD' ? '$' : '€';
-        let icon = b.tur === 'Kasa' ? 'fa-box' : 'fa-university';
-        bankalarHtml += `<div class="d-flex justify-content-between align-items-center border-bottom border-secondary border-opacity-10 pb-1 mb-1">
-            <span class="text-truncate pe-2 text-muted small" style="max-width: 60%;"><i class="fas ${icon} me-2"></i>${b.hesapAdi}</span>
-            <strong class="fs-6 text-dark">${b.bakiye.toFixed(2)} ${sembol}</strong></div>`;
+        bankalarHtml += `<div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+            <span class="text-truncate text-secondary" style="font-size: 0.85rem;">${b.hesapAdi}</span>
+            <strong class="text-dark" style="font-size: 0.95rem;">${b.bakiye.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} <span class="text-muted fw-normal">${sembol}</span></strong></div>`;
     });
 
     // Cari Rozetler
@@ -235,9 +271,9 @@
     cariListesi.forEach(c => {
         let bakiye = c.bakiye || 0;
         let sembol = (c.paraBirimi === 'USD') ? '$' : '€';
-        let cariSatiri = `<div class="d-flex justify-content-between align-items-center bg-white p-2 rounded shadow-sm border border-light">
-            <span class="text-truncate fw-medium pe-2 text-secondary small" style="max-width: 65%;" title="${c.unvan}">${c.unvan}</span>
-            <strong class="small text-dark">${Math.abs(bakiye).toFixed(2)} ${sembol}</strong></div>`;
+        let cariSatiri = `<div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom border-light">
+            <span class="text-truncate text-secondary" style="font-size: 0.85rem;" title="${c.unvan}">${c.unvan}</span>
+            <strong class="text-dark" style="font-size: 0.95rem;">${Math.abs(bakiye).toLocaleString('en-US', {minimumFractionDigits: 2})} <span class="text-muted fw-normal">${sembol}</span></strong></div>`;
         if(bakiye > 0) alacakHtml += cariSatiri; else if(bakiye < 0) borcHtml += cariSatiri;
     });
 
@@ -1034,55 +1070,68 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         if(sayfa === 'dashboard') {
             let mevcutYil = new Date().getFullYear();
             mainContent.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2 class="text-dark fw-bold" style="color: #2c3e50;">Yönetici Özeti</h2>
-                    <div class="d-flex align-items-center">
-                        <label class="me-2 fw-bold text-muted small">Mali Yıl:</label>
-                        <select class="form-select form-select-sm shadow-sm" id="dash_yil_secici" onchange="dashboardCiz()" style="width: 100px;">
+                <div class="d-flex justify-content-between align-items-center mb-5">
+                    <div>
+                        <h2 class="mb-1">Yönetici Özeti</h2>
+                        <p class="text-muted small mb-0">Şirketinizin genel finansal durumu ve nakit akışı.</p>
+                    </div>
+                    <div class="d-flex align-items-center bg-white p-2 rounded-3 shadow-sm border border-light">
+                        <i class="fas fa-calendar-alt text-muted me-2 ps-1"></i>
+                        <select class="form-select form-select-sm border-0 bg-transparent fw-bold" id="dash_yil_secici" onchange="dashboardCiz()" style="width: 80px; cursor:pointer; outline:none; box-shadow:none;">
                             <option value="${mevcutYil}">${mevcutYil}</option>
                             <option value="${mevcutYil - 1}">${mevcutYil - 1}</option>
-                            <option value="${mevcutYil - 2}">${mevcutYil - 2}</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="row mb-4">
-                    <!-- Kasa ve Bankalar Listesi -->
-                    <div class="col-md-4 mb-3">
-                        <div class="card border-0 shadow-sm h-100" style="background-color: #f4f6f9; border-left: 4px solid #2c3e50 !important;">
-                            <div class="card-body p-4 text-dark">
-                                <h6 class="fw-bold mb-3 border-bottom pb-2 text-muted text-uppercase small" style="color: #2c3e50 !important;"><i class="fas fa-wallet me-2" style="color: #2c3e50;"></i>Kasa ve Bankalar</h6>
-                                <div id="dash_kasa_listesi"><span class="text-muted small">Yükleniyor...</span></div>
+                <div class="row mb-5 g-4">
+                    <!-- Kasa ve Bankalar -->
+                    <div class="col-md-4">
+                        <div class="card h-100 border-top border-3" style="border-top-color: #2c3e50 !important;">
+                            <div class="card-body p-4">
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #2c3e50; font-size: 0.75rem; letter-spacing: 1px;">Likidite (Kasa/Banka)</h6>
+                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="fas fa-wallet text-secondary small"></i></div>
+                                </div>
+                                <div id="dash_kasa_listesi"><span class="text-muted small">Veri bekleniyor...</span></div>
                             </div>
                         </div>
                     </div>
                     <!-- Alacaklar -->
-                    <div class="col-md-4 mb-3">
-                        <div class="card border-0 shadow-sm h-100" style="background-color: #fdfaf6; border-left: 4px solid #f39c12 !important;">
-                            <div class="card-body p-4 text-dark">
-                                <h6 class="fw-bold mb-3 border-bottom pb-2 text-muted text-uppercase small" style="color: #2c3e50 !important;"><i class="fas fa-hand-holding-usd me-2" style="color: #f39c12;"></i>Alacaklarımız</h6>
-                                <div id="dash_alacak_rozetler" class="d-flex flex-column gap-2"><span class="text-muted small">Yükleniyor...</span></div>
+                    <div class="col-md-4">
+                        <div class="card h-100 border-top border-3" style="border-top-color: #f39c12 !important;">
+                            <div class="card-body p-4">
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #f39c12; font-size: 0.75rem; letter-spacing: 1px;">Müşteri Alacakları</h6>
+                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="fas fa-arrow-down text-secondary small"></i></div>
+                                </div>
+                                <div id="dash_alacak_rozetler" class="d-flex flex-column gap-3"><span class="text-muted small">Tahsilat bekleyen hesap yok.</span></div>
                             </div>
                         </div>
                     </div>
                     <!-- Borçlar -->
-                    <div class="col-md-4 mb-3">
-                        <div class="card border-0 shadow-sm h-100" style="background-color: #f9fafb; border-left: 4px solid #7f8c8d !important;">
-                            <div class="card-body p-4 text-dark">
-                                <h6 class="fw-bold mb-3 border-bottom pb-2 text-muted text-uppercase small" style="color: #2c3e50 !important;"><i class="fas fa-file-invoice-dollar me-2" style="color: #7f8c8d;"></i>Borçlarımız</h6>
-                                <div id="dash_borc_rozetler" class="d-flex flex-column gap-2"><span class="text-muted small">Yükleniyor...</span></div>
+                    <div class="col-md-4">
+                        <div class="card h-100 border-top border-3" style="border-top-color: #e74c3c !important;">
+                            <div class="card-body p-4">
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #e74c3c; font-size: 0.75rem; letter-spacing: 1px;">Tedarikçi Borçları</h6>
+                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="fas fa-arrow-up text-secondary small"></i></div>
+                                </div>
+                                <div id="dash_borc_rozetler" class="d-flex flex-column gap-3"><span class="text-muted small">Ödeme bekleyen hesap yok.</span></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card border-0 shadow-sm" style="background-color: #ffffff;">
-                    <div class="card-body p-4">
-                        <h6 class="fw-bold mb-3 border-bottom pb-2 text-muted text-uppercase small"><i class="fas fa-chart-bar me-2"></i>Aylık Kâr / Zarar Analizi (Seçili Yıl)</h6>
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="fw-bold text-uppercase mb-0" style="font-size: 0.75rem; letter-spacing: 1px; color:#64748b;">Aylık Finansal Performans (P&L)</h6>
+                    </div>
+                    <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-sm table-hover align-middle mt-2">
-                                <thead class="table-light text-muted small">
-                                    <tr><th>Ay</th><th class="text-end">Satış (Gelir)</th><th class="text-end">Alım (Gider)</th><th class="text-end">Aylık Kâr/Zarar</th></tr>
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr><th class="ps-4">Dönem (Ay)</th><th class="text-end">Operasyonel Gelir</th><th class="text-end">Operasyonel Gider</th><th class="text-end pe-4">Net Kâr / Zarar</th></tr>
                                 </thead>
                                 <tbody id="dash_kar_zarar"></tbody>
                             </table>
