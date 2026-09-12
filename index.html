@@ -282,17 +282,20 @@
     let aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     let aylikVeri = Array(12).fill(null).map(() => ({ gelir: 0, gider: 0 }));
     let giderDagilimi = {};
+    let usdKur = parseFloat(document.getElementById('dash_usd_kur') ? document.getElementById('dash_usd_kur').value : 0.92) || 0.92;
 
     faturaListesi.forEach(f => {
         if(!f.tarih) return;
         let [y, m] = f.tarih.split('-');
-        if(y === seciliYil && f.paraBirimi === 'EUR') { 
+        if(y === seciliYil) { 
             let ayIndex = parseInt(m) - 1;
-            if(f.tur === 'Satis' || f.tur === 'Ihracat' || f.tur === 'YerelSatis') aylikVeri[ayIndex].gelir += f.toplamTutar;
+            let tutarEur = f.paraBirimi === 'USD' ? (f.toplamTutar * usdKur) : f.toplamTutar;
+            
+            if(f.tur === 'Satis' || f.tur === 'Ihracat' || f.tur === 'YerelSatis') aylikVeri[ayIndex].gelir += tutarEur;
             else if(f.tur === 'Alim') {
-                aylikVeri[ayIndex].gider += f.toplamTutar;
+                aylikVeri[ayIndex].gider += tutarEur;
                 let kat = f.kategori || 'Genel Gider';
-                giderDagilimi[kat] = (giderDagilimi[kat] || 0) + f.toplamTutar;
+                giderDagilimi[kat] = (giderDagilimi[kat] || 0) + tutarEur;
             }
         }
     });
@@ -393,14 +396,27 @@
         let paraBirimiRengi = birim === 'USD' ? 'background-color: #f39c12; color: #fff;' : 'background-color: #2c3e50; color: #fff;';
         let leftBorderColor = index % 2 === 0 ? '#2c3e50' : '#f39c12';
 
+        // Müşteri / Proje Bazlı Kârlılık Hesaplama
+        let cariSatis = 0; let cariAlim = 0;
+        faturaListesi.forEach(f => {
+            if(f.cariId === cari.id) {
+                if(f.tur === 'Satis' || f.tur === 'Ihracat' || f.tur === 'YerelSatis') cariSatis += f.toplamTutar;
+                else if(f.tur === 'Alim') cariAlim += f.toplamTutar;
+            }
+        });
+
         kartAlani.innerHTML += `
             <div class="col-md-4 mb-3">
                 <div class="card border-0 shadow-sm h-100 rounded-3" style="background-color: #ffffff; border-left: 4px solid ${leftBorderColor} !important;">
-                    <div class="card-body cursor-pointer position-relative" onclick="cariEkstreAc('${cari.id}')">
+                    <div class="card-body cursor-pointer position-relative pb-2" onclick="cariEkstreAc('${cari.id}')">
                         <span class="badge position-absolute top-0 end-0 m-3 px-3 py-2 shadow-sm fs-6 rounded-pill" style="${paraBirimiRengi}">${birim}</span>
                         <h6 class="fw-bold text-truncate pe-5 mb-1" style="color: #2c3e50;" title="${cari.unvan}">${cari.unvan}</h6>
                         <small class="text-muted"><i class="fas fa-globe-europe me-1" style="color: #7f8c8d;"></i>${cari.ulke}</small>
-                        <h3 class="${bRenk} mt-3 fw-bold">${bakiye.toFixed(2)} ${sembol}</h3>
+                        <h3 class="${bRenk} mt-3 mb-3 fw-bold">${bakiye.toFixed(2)} ${sembol}</h3>
+                        <div class="d-flex justify-content-between border-top pt-2 mt-2 text-muted" style="font-size:11px;">
+                            <span>Ciro: <strong class="text-success">${cariSatis.toLocaleString('en-US')} ${sembol}</strong></span>
+                            <span>Maliyet: <strong class="text-danger">${cariAlim.toLocaleString('en-US')} ${sembol}</strong></span>
+                        </div>
                     </div>
                     <div class="card-footer bg-light border-top-0 text-end py-2">
                         <button class="btn btn-sm btn-outline-secondary py-0 me-1" title="Düzenle" onclick="cariDuzenleAc('${cari.id}')"><i class="fas fa-edit"></i> Düzenle</button>
@@ -1330,12 +1346,18 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     <div>
                         <h2 class="mb-1">Yönetici Özeti</h2>
                     </div>
-                    <div class="d-flex align-items-center bg-white p-2 rounded shadow-sm border border-light">
-                        <i class="fas fa-calendar-alt text-muted me-2 ps-1"></i>
-                        <select class="form-select form-select-sm border-0 bg-transparent fw-bold" id="dash_yil_secici" onchange="dashboardCiz()" style="width: 80px; outline:none; box-shadow:none;">
-                            <option value="${mevcutYil}">${mevcutYil}</option>
-                            <option value="${mevcutYil - 1}">${mevcutYil - 1}</option>
-                        </select>
+                    <div class="d-flex gap-2">
+                        <div class="d-flex align-items-center bg-white p-1 px-2 rounded shadow-sm border border-light" title="USD/EUR Çevrim Kuru (Merkez Bankası Simülasyonu)">
+                            <i class="fas fa-euro-sign text-muted me-1"></i><small class="text-muted me-1">1$ =</small>
+                            <input type="number" id="dash_usd_kur" class="form-control form-control-sm border-0 bg-transparent fw-bold p-0 text-center" value="0.92" step="0.01" style="width: 45px; outline:none; box-shadow:none;" onchange="dashboardCiz()">
+                        </div>
+                        <div class="d-flex align-items-center bg-white p-2 rounded shadow-sm border border-light">
+                            <i class="fas fa-calendar-alt text-muted me-2 ps-1"></i>
+                            <select class="form-select form-select-sm border-0 bg-transparent fw-bold p-0 pe-3" id="dash_yil_secici" onchange="dashboardCiz()" style="width: 65px; outline:none; box-shadow:none;">
+                                <option value="${mevcutYil}">${mevcutYil}</option>
+                                <option value="${mevcutYil - 1}">${mevcutYil - 1}</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
