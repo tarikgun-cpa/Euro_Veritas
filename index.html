@@ -281,15 +281,19 @@
     // Kâr/Zarar Hesaplama
     let aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     let aylikVeri = Array(12).fill(null).map(() => ({ gelir: 0, gider: 0 }));
+    let giderDagilimi = {};
 
     faturaListesi.forEach(f => {
         if(!f.tarih) return;
         let [y, m] = f.tarih.split('-');
         if(y === seciliYil && f.paraBirimi === 'EUR') { 
             let ayIndex = parseInt(m) - 1;
-            // İhracat ve Yerel Satışlar artık gelir sayılıyor
             if(f.tur === 'Satis' || f.tur === 'Ihracat' || f.tur === 'YerelSatis') aylikVeri[ayIndex].gelir += f.toplamTutar;
-            else if(f.tur === 'Alim') aylikVeri[ayIndex].gider += f.toplamTutar;
+            else if(f.tur === 'Alim') {
+                aylikVeri[ayIndex].gider += f.toplamTutar;
+                let kat = f.kategori || 'Genel Gider';
+                giderDagilimi[kat] = (giderDagilimi[kat] || 0) + f.toplamTutar;
+            }
         }
     });
 
@@ -351,6 +355,25 @@
     } else if (document.getElementById('temettu_alani')) {
         document.getElementById('temettu_alani').innerHTML = temettuHtml;
     }
+
+    // Gider Kategorilerini Çiz
+    let kategoriHtml = '';
+    let siralama = Object.entries(giderDagilimi).sort((a,b) => b[1] - a[1]);
+    siralama.forEach(([kat, tutar]) => {
+        let yuzde = toplamGider > 0 ? ((tutar / toplamGider) * 100).toFixed(0) : 0;
+        kategoriHtml += `
+        <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+                <span class="small fw-medium" style="color:#334155;">${kat}</span>
+                <span class="small text-danger fw-bold">${tutar.toLocaleString('en-US', {minimumFractionDigits: 2})} €</span>
+            </div>
+            <div class="progress" style="height: 6px; background-color: #f1f5f9;">
+                <div class="progress-bar bg-danger" role="progressbar" style="width: ${yuzde}%" aria-valuenow="${yuzde}" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+        </div>`;
+    });
+    if(kategoriHtml === '') kategoriHtml = '<span class="text-muted small">Bu yıla ait gider verisi bulunamadı.</span>';
+    if(document.getElementById('dash_gider_kategorileri')) document.getElementById('dash_gider_kategorileri').innerHTML = kategoriHtml;
   };
 
 
@@ -516,8 +539,9 @@
       
       faturaListesi.forEach(fatura => {
           let sembol = fatura.paraBirimi === 'USD' ? '$' : '€';
-          let islemButonlari = `<button class="btn btn-sm btn-outline-primary py-0 me-1" title="Düzenle" onclick="faturaDuzenleAc('${fatura.id}')"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-outline-danger py-0" title="Sil" onclick="faturaSil('${fatura.id}', '${fatura.cariId}', '${fatura.tur}', ${fatura.toplamTutar})"><i class="fas fa-trash"></i></button>`;
-          let aciklamaT = fatura.aciklama ? `<span class="small text-muted">${fatura.aciklama}</span>` : '-';
+          let islemButonlari = `<button class="btn btn-sm btn-outline-secondary py-0 me-1" title="Kopyala" onclick="faturaKopyalaAc('${fatura.id}')"><i class="fas fa-copy"></i></button><button class="btn btn-sm btn-outline-primary py-0 me-1" title="Düzenle" onclick="faturaDuzenleAc('${fatura.id}')"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-outline-danger py-0" title="Sil" onclick="faturaSil('${fatura.id}', '${fatura.cariId}', '${fatura.tur}', ${fatura.toplamTutar})"><i class="fas fa-trash"></i></button>`;
+          let krt = fatura.kategori ? `<span class="badge bg-light text-dark border ms-1" style="font-size:10px;">${fatura.kategori}</span>` : '';
+          let aciklamaT = fatura.aciklama ? `<span class="small text-muted">${fatura.aciklama}</span> ${krt}` : krt;
           
           let html = `<tr>
                   <td>${fatura.faturaNo}</td><td>${fatura.tarih}</td><td><span class="text-truncate d-inline-block" style="max-width: 150px;">${fatura.cariUnvan}</span></td>
@@ -636,8 +660,31 @@
       document.getElementById('f_id').value = f.id; document.getElementById('f_tur').value = f.tur; document.getElementById('f_paraBirimi').value = f.paraBirimi || 'EUR';
       document.getElementById('f_faturaNo').value = f.faturaNo; document.getElementById('f_tarih').value = f.tarih; 
       document.getElementById('f_aciklama').value = f.aciklama || '';
+      document.getElementById('f_kategori').value = f.kategori || 'Genel Gider';
       document.getElementById('f_tutar').value = f.tutar; document.getElementById('f_kdvOran').value = f.kdvOran;
       window.hesaplaKdv();
+      document.querySelector("#yeniFaturaModal .modal-title").innerHTML = "Fatura Düzenle";
+      new bootstrap.Modal(document.getElementById('yeniFaturaModal')).show();
+  };
+
+  // Yeni Özellik: Fatura Kopyalama (Retainer)
+  window.faturaKopyalaAc = function(id) {
+      const f = faturaListesi.find(x => x.id === id);
+      const cariSelect = document.getElementById('f_cariId');
+      cariSelect.innerHTML = '<option value="">-- Cari Seçiniz --</option>';
+      cariListesi.forEach(c => { cariSelect.innerHTML += `<option value="${c.id}" ${c.id === f.cariId ? 'selected' : ''}>${c.unvan}</option>`; });
+
+      document.getElementById('f_id').value = ''; // Yeni Kayıt olması için ID silinir
+      document.getElementById('f_tur').value = f.tur; 
+      document.getElementById('f_paraBirimi').value = f.paraBirimi || 'EUR';
+      document.getElementById('f_faturaNo').value = ''; // Fatura no boş bırakılır
+      document.getElementById('f_tarih').value = new Date().toISOString().split('T')[0]; // Güncel Tarih atılır
+      document.getElementById('f_aciklama').value = f.aciklama || '';
+      document.getElementById('f_kategori').value = f.kategori || 'Genel Gider';
+      document.getElementById('f_tutar').value = f.tutar; 
+      document.getElementById('f_kdvOran').value = f.kdvOran;
+      window.hesaplaKdv();
+      document.querySelector("#yeniFaturaModal .modal-title").innerHTML = "<i class='fas fa-copy me-2'></i>Fatura Çoğalt (Taslak)";
       new bootstrap.Modal(document.getElementById('yeniFaturaModal')).show();
   };
 
@@ -656,6 +703,7 @@
       const cariSelect = document.getElementById('f_cariId');
       cariSelect.innerHTML = '<option value="">-- Cari Seçiniz --</option>';
       cariListesi.forEach(cari => { cariSelect.innerHTML += `<option value="${cari.id}">${cari.unvan} (${cari.grup === 'Alici' ? 'Müşteri' : 'Tedarikçi'})</option>`; });
+      document.querySelector("#yeniFaturaModal .modal-title").innerHTML = "Yeni Fatura İşle";
       new bootstrap.Modal(document.getElementById('yeniFaturaModal')).show();
   };
 
@@ -672,6 +720,7 @@
       const tutar = parseFloat(document.getElementById('f_tutar').value) || 0; const kdvOran = parseFloat(document.getElementById('f_kdvOran').value) || 0;
       const kdvTutar = parseFloat(document.getElementById('f_kdvTutar').value) || 0; const toplamTutar = parseFloat(document.getElementById('f_toplam').value) || 0;
       const aciklama = document.getElementById('f_aciklama').value || '';
+      const kategori = document.getElementById('f_kategori').value || 'Genel Gider';
 
       if(cariId === "" || faturaNo.trim() === "" || tarih === "" || tutar <= 0) { alert("Lütfen Cari, Fatura No, Tarih ve Tutar giriniz."); return; }
       const kaydetBtn = document.querySelector("#yeniFaturaModal .btn-primary"); kaydetBtn.innerHTML = "İşleniyor..."; kaydetBtn.disabled = true;
@@ -687,10 +736,10 @@
                   const eskiBakiyeIadesi = (eskiFatura.tur === 'Satis' || eskiFatura.tur === 'Ihracat' || eskiFatura.tur === 'YerelSatis') ? -eskiFatura.toplamTutar : eskiFatura.toplamTutar;
                   await updateDoc(doc(db, "cariler", eskiFatura.cariId), { bakiye: increment(eskiBakiyeIadesi) });
               }
-              await updateDoc(doc(db, "faturalar", id), { cariId: cariId, cariUnvan: secilenCari.unvan, faturaNo: faturaNo, tarih: tarih, tur: tur, paraBirimi: paraBirimi, tutar: tutar, kdvOran: kdvOran, kdvTutar: kdvTutar, toplamTutar: toplamTutar, aciklama: aciklama });
+              await updateDoc(doc(db, "faturalar", id), { cariId: cariId, cariUnvan: secilenCari.unvan, faturaNo: faturaNo, tarih: tarih, tur: tur, paraBirimi: paraBirimi, tutar: tutar, kdvOran: kdvOran, kdvTutar: kdvTutar, toplamTutar: toplamTutar, aciklama: aciklama, kategori: kategori });
               await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(yeniBakiyeDegisimi) });
           } else {
-              await addDoc(collection(db, "faturalar"), { cariId: cariId, cariUnvan: secilenCari.unvan, faturaNo: faturaNo, tarih: tarih, tur: tur, paraBirimi: paraBirimi, tutar: tutar, kdvOran: kdvOran, kdvTutar: kdvTutar, toplamTutar: toplamTutar, aciklama: aciklama, durum: 'Bekliyor', islemTarihi: serverTimestamp() });
+              await addDoc(collection(db, "faturalar"), { cariId: cariId, cariUnvan: secilenCari.unvan, faturaNo: faturaNo, tarih: tarih, tur: tur, paraBirimi: paraBirimi, tutar: tutar, kdvOran: kdvOran, kdvTutar: kdvTutar, toplamTutar: toplamTutar, aciklama: aciklama, kategori: kategori, durum: 'Bekliyor', islemTarihi: serverTimestamp() });
               await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(yeniBakiyeDegisimi) });
           }
           bootstrap.Modal.getInstance(document.getElementById('yeniFaturaModal')).hide();
@@ -1326,18 +1375,32 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     </div>
                 </div>
 
-                <div class="card">
-                    <div class="card-header bg-white pb-0 border-0 pt-3">
-                        <h6 class="fw-bold text-uppercase mb-0" style="font-size: 0.7rem; color:#64748b;">Aylık Finansal Performans (P&L)</h6>
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <div class="card h-100">
+                            <div class="card-header bg-white pb-0 border-0 pt-3">
+                                <h6 class="fw-bold text-uppercase mb-0" style="font-size: 0.7rem; color:#64748b;">Aylık Finansal Performans (P&L)</h6>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead>
+                                            <tr><th class="ps-3">Dönem (Ay)</th><th class="text-end">Operasyonel Gelir</th><th class="text-end">Operasyonel Gider</th><th class="text-end pe-3">Net Kâr / Zarar</th></tr>
+                                        </thead>
+                                        <tbody id="dash_kar_zarar"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead>
-                                    <tr><th class="ps-3">Dönem (Ay)</th><th class="text-end">Operasyonel Gelir</th><th class="text-end">Operasyonel Gider</th><th class="text-end pe-3">Net Kâr / Zarar</th></tr>
-                                </thead>
-                                <tbody id="dash_kar_zarar"></tbody>
-                            </table>
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-white pb-0 border-0 pt-3">
+                                <h6 class="fw-bold text-uppercase mb-0" style="font-size: 0.7rem; color:#64748b;">Gider Kategorileri (Bu Yıl)</h6>
+                            </div>
+                            <div class="card-body p-3 pt-4" id="dash_gider_kategorileri">
+                                <span class="text-muted small">Veri hesaplanıyor...</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1469,7 +1532,8 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                         <div class="col-md-4"><label class="form-label">Fatura Tarihi *</label><input type="date" class="form-control" id="f_tarih"></div>
                                     </div>
                                     <div class="row mb-3">
-                                        <div class="col-md-12"><label class="form-label">Açıklama (İsteğe Bağlı)</label><input type="text" class="form-control" id="f_aciklama" placeholder="Fatura detayı, proje adı vb."></div>
+                                        <div class="col-md-8"><label class="form-label">Açıklama (İsteğe Bağlı)</label><input type="text" class="form-control" id="f_aciklama" placeholder="Fatura detayı, proje adı vb."></div>
+                                        <div class="col-md-4"><label class="form-label">Kategori</label><select class="form-select" id="f_kategori"><option value="Danışmanlık Geliri">Danışmanlık Geliri</option><option value="Muhasebe / Yasal">Muhasebe / Yasal</option><option value="Maaş / SGK">Maaş / SGK</option><option value="Seyahat / Temsil">Seyahat / Temsil</option><option value="Yazılım / IT">Yazılım / IT</option><option value="Banka / Finansman">Banka / Finansman</option><option value="Genel Gider">Genel Gider</option></select></div>
                                     </div>
                                     <h6 class="mt-4 border-bottom pb-2">Tutar ve Vergi Bilgileri</h6>
                                     <div class="row mb-3">
