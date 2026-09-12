@@ -644,47 +644,72 @@
       } catch(e) { alert("Hata: " + e.message); }
   };
 
-  window.bankaEkstreAc = async function(bankaId) {
+ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       const banka = bankaListesi.find(b => b.id === bankaId);
       let birim = banka.paraBirimi === 'USD' ? '$' : '€';
       
-      let hareketler = islemListesi.filter(i => i.bankaId === bankaId);
-      
-      let hesaplananBankaBakiye = 0;
-      hareketler.forEach(h => {
-          let islemTutari = h.tur === 'Tahsilat' ? h.tutar : -h.tutar;
-          hesaplananBankaBakiye += islemTutari;
-      });
-      hesaplananBankaBakiye = parseFloat(hesaplananBankaBakiye.toFixed(2));
-      let mevcutBankaBakiye = parseFloat((banka.bakiye || 0).toFixed(2));
+      let basTarih = reRender && document.getElementById('ex_banka_bas') ? document.getElementById('ex_banka_bas').value : '';
+      let bitTarih = reRender && document.getElementById('ex_banka_bit') ? document.getElementById('ex_banka_bit').value : '';
 
-      if(hesaplananBankaBakiye !== mevcutBankaBakiye) {
-          updateDoc(doc(db, "bankalar", bankaId), { bakiye: hesaplananBankaBakiye });
-          banka.bakiye = hesaplananBankaBakiye;
+      let tamHareketler = islemListesi.filter(i => i.bankaId === bankaId);
+      
+      if(!reRender) {
+          let hesaplananBankaBakiye = 0;
+          tamHareketler.forEach(h => { hesaplananBankaBakiye += (h.tur === 'Tahsilat' ? h.tutar : -h.tutar); });
+          hesaplananBankaBakiye = parseFloat(hesaplananBankaBakiye.toFixed(2));
+          let mevcutBankaBakiye = parseFloat((banka.bakiye || 0).toFixed(2));
+          if(hesaplananBankaBakiye !== mevcutBankaBakiye) {
+              updateDoc(doc(db, "bankalar", bankaId), { bakiye: hesaplananBankaBakiye });
+              banka.bakiye = hesaplananBankaBakiye;
+          }
       }
+
+      let filtrelenmisHareketler = tamHareketler.filter(h => {
+          let dStr = h.tarih ? new Date(h.tarih.seconds * 1000).toISOString().split('T')[0] : '';
+          if(basTarih && dStr < basTarih) return false;
+          if(bitTarih && dStr > bitTarih) return false;
+          return true;
+      });
+
+      let toplamGiris = 0; let toplamCikis = 0;
 
       let html = `<div id="yazdirilacak-alan" class="p-4 bg-white shadow-sm rounded border border-light">
-          <div class="d-flex align-items-center mb-4 border-bottom pb-3">
-              <img src="Euro Veritas Consulting.jpg" style="height: 60px; margin-right: 15px;" class="d-none d-print-block">
-              <div><h4 class="mb-0 text-dark fw-bold">${banka.hesapAdi}</h4><small class="text-muted">Banka/Kasa Ekstresi</small></div>
-              <div class="ms-auto text-end"><h6 class="mb-0 text-muted small">Gerçek Bakiye</h6><h4 class="${banka.bakiye >= 0 ? 'text-success' : 'text-danger'} fw-bold mb-0">${banka.bakiye.toFixed(2)} ${birim}</h4></div>
+          <div class="d-flex justify-content-between align-items-end mb-4 border-bottom pb-3">
+              <div class="d-flex align-items-center">
+                  <img src="Euro Veritas Consulting.jpg" style="height: 60px; margin-right: 20px;" class="d-none d-print-block">
+                  <div><h4 class="mb-0 text-dark fw-bold">${banka.hesapAdi}</h4><small class="text-muted">Banka/Kasa Ekstresi</small></div>
+              </div>
+              <div class="text-end"><h6 class="mb-0 text-muted small">Güncel Kapanış Bakiyesi</h6><h4 class="${banka.bakiye >= 0 ? 'text-success' : 'text-danger'} fw-bold mb-0">${banka.bakiye.toFixed(2)} ${birim}</h4></div>
           </div>
-          <table class="table table-sm table-striped">
-              <thead class="table-dark"><tr><th>Tarih</th><th>İşlem Yönü</th><th>Cari Unvan (Kime/Kimden)</th><th>Açıklama</th><th class="text-end">Tutar</th><th class="d-print-none text-center">İptal</th></tr></thead>
+          
+          <div class="row mb-3 d-print-none bg-light p-2 rounded mx-0">
+              <div class="col-md-4"><label class="small text-muted">Başlangıç Tarihi</label><input type="date" id="ex_banka_bas" class="form-control form-control-sm" value="${basTarih}"></div>
+              <div class="col-md-4"><label class="small text-muted">Bitiş Tarihi</label><input type="date" id="ex_banka_bit" class="form-control form-control-sm" value="${bitTarih}"></div>
+              <div class="col-md-4 d-flex align-items-end"><button class="btn btn-sm btn-primary w-100" onclick="bankaEkstreAc('${bankaId}', true)"><i class="fas fa-filter"></i> Tarihe Göre Filtrele</button></div>
+          </div>
+
+          <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle">
+              <thead class="table-light text-muted small border-bottom border-dark border-2"><tr><th>Tarih</th><th>İşlem Yönü</th><th>Cari Unvan (Kime/Kimden)</th><th>Açıklama</th><th class="text-end">Giriş (+)</th><th class="text-end">Çıkış (-)</th><th class="d-print-none text-center">İptal</th></tr></thead>
               <tbody>`;
               
-      if(hareketler.length === 0) { html += `<tr><td colspan="6" class="text-center text-muted">İşlem bulunamadı.</td></tr>`; } 
+      if(filtrelenmisHareketler.length === 0) { html += `<tr><td colspan="7" class="text-center text-muted py-3">Bu tarih aralığında işlem bulunamadı.</td></tr>`; } 
       else {
-          hareketler.forEach(h => {
+          filtrelenmisHareketler.forEach(h => {
               let d = h.tarih ? new Date(h.tarih.seconds * 1000).toLocaleDateString('tr-TR') : '-';
-              let renk = h.tur === 'Tahsilat' ? 'text-success' : 'text-danger';
               let cariAdi = cariListesi.find(c => c.id === h.cariId)?.unvan || 'Silinmiş Cari';
+              let girisStr = '-'; let cikisStr = '-';
+              
+              if(h.tur === 'Tahsilat') { girisStr = `${h.tutar.toFixed(2)} ${birim}`; toplamGiris += h.tutar; }
+              else if(h.tur === 'Odeme') { cikisStr = `${h.tutar.toFixed(2)} ${birim}`; toplamCikis += h.tutar; }
+              
               let silButon = `<button class="btn btn-sm btn-outline-danger py-0" onclick="islemSil('${h.id}', '${h.cariId}', '${h.bankaId}', '${h.tur}', ${h.tutar})" title="İşlemi İptal Et"><i class="fas fa-trash"></i></button>`;
               
-              html += `<tr><td>${d}</td><td>${h.tur}</td><td>${cariAdi}</td><td>${h.aciklama}</td><td class="text-end fw-bold ${renk}">${Math.abs(h.tutar).toFixed(2)} ${birim}</td><td class="d-print-none text-center">${silButon}</td></tr>`;
+              html += `<tr><td class="small">${d}</td><td class="small text-muted">${h.tur}</td><td class="small">${cariAdi}</td><td class="small">${h.aciklama}</td><td class="text-end fw-medium text-success">${girisStr}</td><td class="text-end fw-medium text-danger">${cikisStr}</td><td class="d-print-none text-center">${silButon}</td></tr>`;
           });
       }
-      html += `</tbody></table></div>`;
+      html += `<tr class="table-light border-top border-dark border-2"><td colspan="4" class="text-end fw-bold small text-muted">DÖNEM TOPLAMI:</td><td class="text-end fw-bold text-success">${toplamGiris.toFixed(2)} ${birim}</td><td class="text-end fw-bold text-danger">${toplamCikis.toFixed(2)} ${birim}</td><td class="d-print-none"></td></tr>`;
+      html += `</tbody></table></div></div>`;
       html += `<div class="mt-3"><button class="btn btn-secondary shadow-sm" onclick="window.print()"><i class="fas fa-print"></i> Yazdır</button> <button class="btn btn-outline-danger ms-2" onclick="sayfaYukle('bankalar')">Kapat</button></div>`;
       document.getElementById('main-content').innerHTML = html;
   };
