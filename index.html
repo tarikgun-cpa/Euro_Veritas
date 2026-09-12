@@ -535,7 +535,91 @@
   };
 
   window.proformaUretAc = function() {
-      alert("Proforma Sözleşme modülü aktif ediliyor. Şirket logonuz ve banka IBAN'larınızla otomatik PDF taslakları burada oluşacak.");
+      const cariSelect = document.getElementById('p_cariId');
+      if(!cariSelect) return;
+      cariSelect.innerHTML = '<option value="">-- Müşteri Seçiniz --</option>';
+      cariListesi.forEach(c => { if(c.grup === 'Alici') cariSelect.innerHTML += `<option value="${c.id}">${c.unvan}</option>`; });
+      document.getElementById('proformaForm').reset();
+      document.getElementById('p_tarih').value = new Date().toISOString().split('T')[0];
+      new bootstrap.Modal(document.getElementById('proformaModal')).show();
+  };
+
+  window.proformaOlustur = function() {
+      const cariId = document.getElementById('p_cariId').value;
+      const tarih = document.getElementById('p_tarih').value;
+      const aciklama = document.getElementById('p_aciklama').value;
+      const tutar = parseFloat(document.getElementById('p_tutar').value) || 0;
+      const birim = document.getElementById('p_paraBirimi').value === 'USD' ? '$' : '€';
+
+      if(!cariId || !aciklama || tutar <= 0) { alert("Lütfen müşteri, açıklama ve tutar giriniz."); return; }
+
+      const cari = cariListesi.find(c => c.id === cariId);
+      const v = kunyeVerisi;
+
+      bootstrap.Modal.getInstance(document.getElementById('proformaModal')).hide();
+
+      let html = `
+      <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
+          <div class="row mb-5 border-bottom border-2 pb-4 border-dark">
+              <div class="col-6">
+                  <img src="Euro Veritas Consulting.jpg" style="max-height: 90px;" class="mb-2 d-print-block">
+              </div>
+              <div class="col-6 text-end text-muted small" style="font-size: 12px;">
+                  <h5 class="text-dark fw-bold mb-1" style="color: #2c3e50 !important;">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
+                  ${v.adres || 'Adres Girilmemiş'}<br>
+                  PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>
+                  ${v.email1 || ''} | ${v.web || ''}
+              </div>
+          </div>
+          
+          <h3 class="text-center fw-bold mb-5" style="color: #2c3e50; letter-spacing: 2px;">PROFORMA INVOICE / SÖZLEŞME</h3>
+          
+          <div class="row mb-5">
+              <div class="col-6">
+                  <h6 class="text-muted mb-1 text-uppercase" style="font-size: 11px;">Billed To / Müşteri:</h6>
+                  <strong class="fs-6 text-dark">${cari.unvan}</strong><br>
+                  <span class="text-muted small">${cari.ulke || ''} | Tax/PIB: ${cari.vergiNo || '-'}</span>
+              </div>
+              <div class="col-6 text-end">
+                  <h6 class="text-muted mb-1 text-uppercase" style="font-size: 11px;">Date / Tarih:</h6>
+                  <strong class="text-dark">${tarih.split('-').reverse().join('.')}</strong><br>
+                  <h6 class="text-muted mt-3 mb-1 text-uppercase" style="font-size: 11px;">Validity / Geçerlilik:</h6>
+                  <strong class="text-dark">30 Days / Gün</strong>
+              </div>
+          </div>
+          
+          <table class="table table-bordered border-dark mb-5">
+              <thead class="text-center" style="background-color: #f1f5f9 !important;">
+                  <tr>
+                      <th class="py-3 text-dark fw-bold" style="width: 75%;">DESCRIPTION / HİZMET AÇIKLAMASI</th>
+                      <th class="py-3 text-dark fw-bold" style="width: 25%;">AMOUNT / TUTAR</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td class="p-4 align-top text-dark fw-medium" style="min-height: 150px; white-space: pre-wrap;">${aciklama}</td>
+                      <td class="p-4 text-end fw-bold align-top fs-5 text-dark">${tutar.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</td>
+                  </tr>
+              </tbody>
+          </table>
+          
+          <div class="mt-5 pt-4 border-top border-2 border-light">
+              <h6 class="fw-bold mb-3 text-dark">Payment Details / Banka Bilgileri</h6>
+              <div class="row text-muted" style="font-size: 12px;">
+                  <div class="col-md-6 mb-2"><strong class="text-dark">Bank Name:</strong> ${v.banka || '-'}</div>
+                  <div class="col-md-6 mb-2"><strong class="text-dark">SWIFT / BIC:</strong> ${v.swift || '-'}</div>
+                  <div class="col-md-6 mb-2"><strong class="text-dark">EUR IBAN:</strong> ${v.iban || '-'}</div>
+                  <div class="col-md-6 mb-2"><strong class="text-dark">USD IBAN:</strong> ${v.usdIban || '-'}</div>
+              </div>
+          </div>
+      </div>
+      <div class="mt-4 d-print-none text-center">
+          <button class="btn btn-secondary shadow-sm px-4 me-2" onclick="window.print()"><i class="fas fa-print"></i> Yazdır / PDF Olarak Kaydet</button>
+          <button class="btn btn-outline-danger px-4" onclick="sayfaYukle('faturalar')">İptal / Geri Dön</button>
+      </div>
+      `;
+      
+      document.getElementById('main-content').innerHTML = html;
   };
 
   window.faturaDuzenleAc = function(id) {
@@ -1315,6 +1399,31 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                 </form>
                             </div>
                             <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button><button type="button" class="btn btn-primary" onclick="faturaKaydet()">Faturayı İşle</button></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PROFORMA ÜRETİCİ MODALI -->
+                <div class="modal fade" id="proformaModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title"><i class="fas fa-file-pdf me-2"></i>Proforma / Taslak Oluştur</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="proformaForm">
+                                    <div class="mb-3"><label class="form-label text-muted small mb-1">Müşteri (Alıcı) *</label><select class="form-select" id="p_cariId" required></select></div>
+                                    <div class="mb-3"><label class="form-label text-muted small mb-1">Proforma Tarihi *</label><input type="date" class="form-control" id="p_tarih" required></div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6"><label class="form-label text-muted small mb-1">Tutar *</label><input type="number" class="form-control" id="p_tutar" step="0.01" required></div>
+                                        <div class="col-md-6"><label class="form-label text-muted small mb-1">Para Birimi *</label><select class="form-select" id="p_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select></div>
+                                    </div>
+                                    <div class="mb-3"><label class="form-label text-muted small mb-1">Hizmet / Danışmanlık Açıklaması *</label><textarea class="form-control" id="p_aciklama" rows="3" placeholder="Consultancy services for..."></textarea></div>
+                                    <div class="alert alert-warning small py-2 mb-0"><i class="fas fa-info-circle"></i> Proforma taslakları cari bakiyeyi etkilemez, sadece yazdırılabilir PDF üretir.</div>
+                                </form>
+                            </div>
+                            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button><button type="button" class="btn btn-primary" onclick="proformaOlustur()">Taslağı Gör ve Yazdır</button></div>
                         </div>
                     </div>
                 </div>
