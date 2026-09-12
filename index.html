@@ -452,39 +452,32 @@
       
       faturaListesi.forEach(fatura => {
           let sembol = fatura.paraBirimi === 'USD' ? '$' : '€';
-          let islemButonlari = `
-              <button class="btn btn-sm btn-outline-primary py-0 me-1" title="Düzenle" onclick="faturaDuzenleAc('${fatura.id}')"><i class="fas fa-edit"></i></button>
-              <button class="btn btn-sm btn-outline-danger py-0" title="Sil" onclick="faturaSil('${fatura.id}', '${fatura.cariId}', '${fatura.tur}', ${fatura.toplamTutar})"><i class="fas fa-trash"></i></button>`;
+          let islemButonlari = `<button class="btn btn-sm btn-outline-primary py-0 me-1" title="Düzenle" onclick="faturaDuzenleAc('${fatura.id}')"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-outline-danger py-0" title="Sil" onclick="faturaSil('${fatura.id}', '${fatura.cariId}', '${fatura.tur}', ${fatura.toplamTutar})"><i class="fas fa-trash"></i></button>`;
+          let aciklamaT = fatura.aciklama ? `<span class="small text-muted">${fatura.aciklama}</span>` : '-';
           
           let html = `<tr>
                   <td>${fatura.faturaNo}</td><td>${fatura.tarih}</td><td><span class="text-truncate d-inline-block" style="max-width: 150px;">${fatura.cariUnvan}</span></td>
+                  <td>${aciklamaT}</td>
                   <td>${fatura.tutar.toFixed(2)} ${sembol}</td><td>${fatura.kdvTutar.toFixed(2)} ${sembol}</td>
-                  <td class="fw-bold text-dark">${fatura.toplamTutar.toFixed(2)} ${sembol}</td><td>${islemButonlari}</td></tr>`;
+                  <td class="fw-bold text-dark text-end">${fatura.toplamTutar.toFixed(2)} ${sembol}</td><td>${islemButonlari}</td></tr>`;
 
           if(fatura.tur === 'Satis') sTbody.innerHTML += html; else aTbody.innerHTML += html;
       });
-      if(sTbody.innerHTML === '') sTbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Kayıtlı satış faturası yok.</td></tr>';
-      if(aTbody.innerHTML === '') aTbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Kayıtlı alım faturası yok.</td></tr>';
+      if(sTbody.innerHTML === '') sTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kayıtlı satış faturası yok.</td></tr>';
+      if(aTbody.innerHTML === '') aTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kayıtlı alım faturası yok.</td></tr>';
   };
 
   window.faturaDuzenleAc = function(id) {
       const f = faturaListesi.find(x => x.id === id);
-      
       const cariSelect = document.getElementById('f_cariId');
       cariSelect.innerHTML = '<option value="">-- Cari Seçiniz --</option>';
       cariListesi.forEach(c => { cariSelect.innerHTML += `<option value="${c.id}" ${c.id === f.cariId ? 'selected' : ''}>${c.unvan}</option>`; });
 
-      document.getElementById('f_id').value = f.id;
-      document.getElementById('f_tur').value = f.tur;
-      document.getElementById('f_paraBirimi').value = f.paraBirimi || 'EUR';
-      document.getElementById('f_faturaNo').value = f.faturaNo;
-      document.getElementById('f_tarih').value = f.tarih;
-      document.getElementById('f_tutar').value = f.tutar;
-      document.getElementById('f_kdvOran').value = f.kdvOran;
-      
+      document.getElementById('f_id').value = f.id; document.getElementById('f_tur').value = f.tur; document.getElementById('f_paraBirimi').value = f.paraBirimi || 'EUR';
+      document.getElementById('f_faturaNo').value = f.faturaNo; document.getElementById('f_tarih').value = f.tarih; 
+      document.getElementById('f_aciklama').value = f.aciklama || '';
+      document.getElementById('f_tutar').value = f.tutar; document.getElementById('f_kdvOran').value = f.kdvOran;
       window.hesaplaKdv();
-      
-      document.querySelector("#yeniFaturaModal .modal-title").innerHTML = "Fatura Düzenle";
       new bootstrap.Modal(document.getElementById('yeniFaturaModal')).show();
   };
 
@@ -499,43 +492,29 @@
   };
 
   window.faturaModalAc = function() {
+      document.getElementById('yeniFaturaForm').reset(); document.getElementById('f_id').value = '';
       const cariSelect = document.getElementById('f_cariId');
       cariSelect.innerHTML = '<option value="">-- Cari Seçiniz --</option>';
-      cariListesi.forEach(cari => {
-          cariSelect.innerHTML += `<option value="${cari.id}">${cari.unvan} (${cari.grup === 'Alici' ? 'Müşteri' : 'Tedarikçi'})</option>`;
-      });
-      var myModal = new bootstrap.Modal(document.getElementById('yeniFaturaModal'));
-      myModal.show();
+      cariListesi.forEach(cari => { cariSelect.innerHTML += `<option value="${cari.id}">${cari.unvan} (${cari.grup === 'Alici' ? 'Müşteri' : 'Tedarikçi'})</option>`; });
+      new bootstrap.Modal(document.getElementById('yeniFaturaModal')).show();
   };
 
   window.hesaplaKdv = function() {
-      const tutar = parseFloat(document.getElementById('f_tutar').value) || 0;
-      const oran = parseFloat(document.getElementById('f_kdvOran').value) || 0;
-      const kdvTutar = tutar * (oran / 100);
-      const toplam = tutar + kdvTutar;
-      
-      document.getElementById('f_kdvTutar').value = kdvTutar.toFixed(2);
-      document.getElementById('f_toplam').value = toplam.toFixed(2);
+      const tutar = parseFloat(document.getElementById('f_tutar').value) || 0; const oran = parseFloat(document.getElementById('f_kdvOran').value) || 0;
+      const kdvTutar = tutar * (oran / 100); const toplam = tutar + kdvTutar;
+      document.getElementById('f_kdvTutar').value = kdvTutar.toFixed(2); document.getElementById('f_toplam').value = toplam.toFixed(2);
   };
 
   window.faturaKaydet = async function() {
-      const id = document.getElementById('f_id').value; 
-      const cariId = document.getElementById('f_cariId').value;
-      const faturaNo = document.getElementById('f_faturaNo').value;
-      const tarih = document.getElementById('f_tarih').value;
-      const tur = document.getElementById('f_tur').value;
-      const paraBirimi = document.getElementById('f_paraBirimi').value;
-      const tutar = parseFloat(document.getElementById('f_tutar').value) || 0;
-      const kdvOran = parseFloat(document.getElementById('f_kdvOran').value) || 0;
-      const kdvTutar = parseFloat(document.getElementById('f_kdvTutar').value) || 0;
-      const toplamTutar = parseFloat(document.getElementById('f_toplam').value) || 0;
+      const id = document.getElementById('f_id').value; const cariId = document.getElementById('f_cariId').value;
+      const faturaNo = document.getElementById('f_faturaNo').value; const tarih = document.getElementById('f_tarih').value;
+      const tur = document.getElementById('f_tur').value; const paraBirimi = document.getElementById('f_paraBirimi').value;
+      const tutar = parseFloat(document.getElementById('f_tutar').value) || 0; const kdvOran = parseFloat(document.getElementById('f_kdvOran').value) || 0;
+      const kdvTutar = parseFloat(document.getElementById('f_kdvTutar').value) || 0; const toplamTutar = parseFloat(document.getElementById('f_toplam').value) || 0;
+      const aciklama = document.getElementById('f_aciklama').value || '';
 
-      if(cariId === "" || faturaNo.trim() === "" || tarih === "" || tutar <= 0) {
-          alert("Lütfen Cari, Fatura No, Tarih ve Tutar alanlarını eksiksiz giriniz."); return;
-      }
-
-      const kaydetBtn = document.querySelector("#yeniFaturaModal .btn-primary");
-      kaydetBtn.innerHTML = "İşleniyor..."; kaydetBtn.disabled = true;
+      if(cariId === "" || faturaNo.trim() === "" || tarih === "" || tutar <= 0) { alert("Lütfen Cari, Fatura No, Tarih ve Tutar giriniz."); return; }
+      const kaydetBtn = document.querySelector("#yeniFaturaModal .btn-primary"); kaydetBtn.innerHTML = "İşleniyor..."; kaydetBtn.disabled = true;
 
       try {
           const secilenCari = cariListesi.find(c => c.id === cariId);
@@ -547,23 +526,15 @@
                   const eskiBakiyeIadesi = eskiFatura.tur === 'Satis' ? -eskiFatura.toplamTutar : eskiFatura.toplamTutar;
                   await updateDoc(doc(db, "cariler", eskiFatura.cariId), { bakiye: increment(eskiBakiyeIadesi) });
               }
-              await updateDoc(doc(db, "faturalar", id), {
-                  cariId: cariId, cariUnvan: secilenCari.unvan, faturaNo: faturaNo, tarih: tarih, tur: tur, paraBirimi: paraBirimi, tutar: tutar, kdvOran: kdvOran, kdvTutar: kdvTutar, toplamTutar: toplamTutar
-              });
+              await updateDoc(doc(db, "faturalar", id), { cariId: cariId, cariUnvan: secilenCari.unvan, faturaNo: faturaNo, tarih: tarih, tur: tur, paraBirimi: paraBirimi, tutar: tutar, kdvOran: kdvOran, kdvTutar: kdvTutar, toplamTutar: toplamTutar, aciklama: aciklama });
               await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(yeniBakiyeDegisimi) });
-
           } else {
-              await addDoc(collection(db, "faturalar"), {
-                  cariId: cariId, cariUnvan: secilenCari.unvan, faturaNo: faturaNo, tarih: tarih, tur: tur, paraBirimi: paraBirimi, tutar: tutar, kdvOran: kdvOran, kdvTutar: kdvTutar, toplamTutar: toplamTutar, durum: 'Bekliyor', islemTarihi: serverTimestamp()
-              });
+              await addDoc(collection(db, "faturalar"), { cariId: cariId, cariUnvan: secilenCari.unvan, faturaNo: faturaNo, tarih: tarih, tur: tur, paraBirimi: paraBirimi, tutar: tutar, kdvOran: kdvOran, kdvTutar: kdvTutar, toplamTutar: toplamTutar, aciklama: aciklama, durum: 'Bekliyor', islemTarihi: serverTimestamp() });
               await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(yeniBakiyeDegisimi) });
           }
-
           bootstrap.Modal.getInstance(document.getElementById('yeniFaturaModal')).hide();
-          document.getElementById('yeniFaturaForm').reset();
-          document.getElementById('f_id').value = '';
-      } catch (error) { alert("Kayıt sırasında hata oluştu: " + error.message); } 
-      finally { kaydetBtn.innerHTML = "Faturayı İşle"; kaydetBtn.disabled = false; }
+          document.getElementById('yeniFaturaForm').reset(); document.getElementById('f_id').value = '';
+      } catch (error) { alert("Hata: " + error.message); } finally { kaydetBtn.innerHTML = "Faturayı İşle"; kaydetBtn.disabled = false; }
   };
 
   // ---------------- BANKA VE KASA İŞLEMLERİ ----------------
@@ -697,7 +668,7 @@
       else {
           filtrelenmisHareketler.forEach(h => {
               let d = h.tarih ? new Date(h.tarih.seconds * 1000).toLocaleDateString('tr-TR') : '-';
-              let cariAdi = cariListesi.find(c => c.id === h.cariId)?.unvan || 'Silinmiş Cari';
+              let cariAdi = h.cariId === "VERGI_DAIRESI" ? "Vergi / Yasal Kurum" : (cariListesi.find(c => c.id === h.cariId)?.unvan || 'Silinmiş Cari');
               let girisStr = '-'; let cikisStr = '-';
               
               if(h.tur === 'Tahsilat') { girisStr = `${h.tutar.toFixed(2)} ${birim}`; toplamGiris += h.tutar; }
@@ -779,107 +750,104 @@
 
   // ---------------- VERGİ VE YASAL ÖDEME İŞLEMLERİ ----------------
   window.vergileriCiz = function() {
-      const tbody = document.getElementById('vergiTabloGövdesi');
-      if (!tbody) return;
-      tbody.innerHTML = "";
+      const bTbody = document.getElementById('bekleyenVergiTabloGövdesi');
+      const oTbody = document.getElementById('odenenVergiTabloGövdesi');
+      if (!bTbody || !oTbody) return; bTbody.innerHTML = ""; oTbody.innerHTML = "";
 
       vergiListesi.forEach(vergi => {
-          let durumBadge = vergi.durum === 'Ödendi' ? '<span class="badge bg-success">Ödendi</span>' : '<span class="badge bg-danger">Bekliyor</span>';
-          let islemButon = vergi.durum === 'Bekliyor' ? 
-              `<button class="btn btn-sm btn-outline-success" onclick="vergiOde('${vergi.id}')"><i class="fas fa-check"></i> Öde</button>` : '-';
-
-          tbody.innerHTML += `
-              <tr>
-                  <td><span class="fw-bold">${vergi.tur}</span></td>
-                  <td>${vergi.donem}</td>
-                  <td>${vergi.sonTarih}</td>
-                  <td class="fw-bold">${vergi.tutar.toFixed(2)} €</td>
-                  <td>${durumBadge}</td>
-                  <td>${islemButon}</td>
-              </tr>
-          `;
+          if(vergi.durum === 'Bekliyor') {
+              bTbody.innerHTML += `<tr><td><span class="fw-bold">${vergi.tur}</span></td><td>${vergi.donem}</td><td>${vergi.sonTarih}</td><td class="fw-bold">${vergi.tutar.toFixed(2)} €</td><td><span class="badge bg-danger">Bekliyor</span></td>
+              <td><button class="btn btn-sm btn-success py-0 me-1" onclick="vergiOdeAc('${vergi.id}')"><i class="fas fa-check"></i> Öde</button><button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="vergiDuzenleAc('${vergi.id}')"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-outline-danger py-0" onclick="vergiSil('${vergi.id}')"><i class="fas fa-trash"></i></button></td></tr>`;
+          } else {
+              let bnk = bankaListesi.find(b => b.id === vergi.odenenBankaId)?.hesapAdi || 'Belirsiz Kasa';
+              oTbody.innerHTML += `<tr><td><span class="fw-bold">${vergi.tur}</span></td><td>${vergi.donem}</td><td>${vergi.sonTarih}</td><td class="fw-bold text-success">${vergi.tutar.toFixed(2)} €</td><td><span class="badge bg-success">Ödendi</span><br><small class="text-muted">${bnk}</small></td>
+              <td><button class="btn btn-sm btn-outline-danger py-0" onclick="vergiSil('${vergi.id}', true)"><i class="fas fa-trash"></i></button></td></tr>`;
+          }
       });
+      if(bTbody.innerHTML === '') bTbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted small">Bekleyen vergi bulunmuyor.</td></tr>';
+      if(oTbody.innerHTML === '') oTbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted small">Ödenmiş vergi bulunmuyor.</td></tr>';
+  };
+
+  window.vergiModalAc = function() {
+      document.getElementById('yeniVergiForm').reset(); document.getElementById('v_id').value = '';
+      new bootstrap.Modal(document.getElementById('yeniVergiModal')).show();
+  };
+
+  window.vergiDuzenleAc = function(id) {
+      const v = vergiListesi.find(x => x.id === id);
+      document.getElementById('v_id').value = v.id; document.getElementById('v_tur').value = v.tur; document.getElementById('v_donem').value = v.donem;
+      document.getElementById('v_sonTarih').value = v.sonTarih; document.getElementById('v_tutar').value = v.tutar;
+      new bootstrap.Modal(document.getElementById('yeniVergiModal')).show();
   };
 
   window.vergiKaydet = async function() {
-      const tur = document.getElementById('v_tur').value;
-      const donem = document.getElementById('v_donem').value;
-      const sonTarih = document.getElementById('v_sonTarih').value;
-      const tutar = parseFloat(document.getElementById('v_tutar').value) || 0;
-
-      if(tur === "" || donem === "" || tutar <= 0) { alert("Lütfen alanları eksiksiz doldurun."); return; }
-
-      const btn = document.querySelector("#yeniVergiModal .btn-primary");
-      btn.disabled = true; btn.innerHTML = "Kaydediliyor...";
-
+      const id = document.getElementById('v_id').value; const tur = document.getElementById('v_tur').value; const donem = document.getElementById('v_donem').value;
+      const sonTarih = document.getElementById('v_sonTarih').value; const tutar = parseFloat(document.getElementById('v_tutar').value) || 0;
+      if(!tur || !donem || tutar <= 0) return;
       try {
-          await addDoc(collection(db, "vergiler"), {
-              tur: tur, donem: donem, sonTarih: sonTarih, tutar: tutar, durum: 'Bekliyor', islemTarihi: serverTimestamp()
-          });
+          if(id) await updateDoc(doc(db, "vergiler", id), { tur: tur, donem: donem, sonTarih: sonTarih, tutar: tutar });
+          else await addDoc(collection(db, "vergiler"), { tur: tur, donem: donem, sonTarih: sonTarih, tutar: tutar, durum: 'Bekliyor', islemTarihi: serverTimestamp() });
           bootstrap.Modal.getInstance(document.getElementById('yeniVergiModal')).hide();
-          document.getElementById('yeniVergiForm').reset();
       } catch(e) { alert("Hata: " + e.message); } 
-      finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
   };
 
-  window.vergiOde = async function(id) {
-      if(confirm("Bu vergiyi ödendi olarak işaretlemek istediğinize emin misiniz?")) {
-          try { await updateDoc(doc(db, "vergiler", id), { durum: 'Ödendi' }); } 
-          catch(e) { alert("Hata: " + e.message); }
-      }
+  window.vergiSil = async function(id, isPaid = false) {
+      if(!confirm("Kaydı silmek istediğinize emin misiniz? (Uyarı: Kayıt ödenmişse banka bakiyesi geri alınmaz, banka ekstresinden de silmelisiniz)")) return;
+      try { await deleteDoc(doc(db, "vergiler", id)); } catch(e) { alert("Hata: " + e.message); }
   };
 
-  // ---------------- GÖREVLER (TO-DO) İŞLEMLERİ ----------------
+  window.vergiOdeAc = function(id) {
+      document.getElementById('vo_vergiId').value = id;
+      const sec = document.getElementById('vo_bankaId'); sec.innerHTML = '<option value="">-- Banka / Kasa Seçin --</option>';
+      bankaListesi.forEach(b => { sec.innerHTML += `<option value="${b.id}">${b.hesapAdi} (${b.paraBirimi})</option>`; });
+      new bootstrap.Modal(document.getElementById('vergiOdeModal')).show();
+  };
+
+  window.vergiOdemeTamamla = async function() {
+      const vergiId = document.getElementById('vo_vergiId').value; const bankaId = document.getElementById('vo_bankaId').value;
+      if(!bankaId) { alert("Lütfen bir ödeme kaynağı seçin."); return; }
+      const vergi = vergiListesi.find(v => v.id === vergiId);
+      try {
+          await updateDoc(doc(db, "vergiler", vergiId), { durum: 'Ödendi', odemeTarihi: serverTimestamp(), odenenBankaId: bankaId });
+          await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(-vergi.tutar) });
+          await addDoc(collection(db, "hesapHareketleri"), { bankaId: bankaId, cariId: "VERGI_DAIRESI", tur: "Odeme", tutar: vergi.tutar, aciklama: `Vergi Ödemesi: ${vergi.tur} (${vergi.donem})`, tarih: new Date() });
+          let m = bootstrap.Modal.getInstance(document.getElementById('vergiOdeModal')); if(m) m.hide();
+      } catch(e) { alert("Hata: " + e.message); }
+  };
+  
+    // ---------------- GÖREVLER (TO-DO) İŞLEMLERİ ----------------
   window.gorevleriCiz = function() {
-      const alan = document.getElementById('gorevListesiAlani');
-      if (!alan) return;
-      alan.innerHTML = "";
-
-      if(gorevListesi.length === 0) {
-          alan.innerHTML = "<p class='text-muted'>Harika! Şu an bekleyen bir görev yok.</p>";
-          return;
-      }
-
+      const bAlan = document.getElementById('g-bekleyen'); const tAlan = document.getElementById('g-tamamlanan');
+      if (!bAlan || !tAlan) return; bAlan.innerHTML = ""; tAlan.innerHTML = "";
+      
       gorevListesi.forEach(gorev => {
           let isDone = gorev.durum === 'Tamamlandı';
-          let badgeRenk = isDone ? 'bg-success' : 'bg-warning text-dark';
-          let btnTamamla = !isDone ? 
-              `<button class="btn btn-sm btn-success me-2" onclick="gorevDurumGuncelle('${gorev.id}', 'Tamamlandı')" title="Tamamlandı İşaretle"><i class="fas fa-check"></i></button>` : '';
-
-          alan.innerHTML += `
-              <div class="card mb-2 shadow-sm ${isDone ? 'border-success' : ''}">
-                  <div class="card-body d-flex justify-content-between align-items-center p-3">
-                      <div>
-                          <h6 class="mb-1 ${isDone ? 'text-decoration-line-through text-muted' : 'fw-bold'}">${gorev.baslik}</h6>
-                          <small class="text-muted"><i class="far fa-calendar-alt"></i> Son Tarih: ${gorev.sonTarih || 'Belirtilmedi'} | ${gorev.detay || ''}</small>
-                      </div>
-                      <div class="d-flex align-items-center">
-                          <span class="badge ${badgeRenk} me-3">${gorev.durum}</span>
-                          ${btnTamamla}
-                          <button class="btn btn-sm btn-outline-danger" onclick="gorevSil('${gorev.id}')" title="Görevi Sil"><i class="fas fa-trash"></i></button>
-                      </div>
-                  </div>
-              </div>
-          `;
+          let btnTamamla = isDone ? `<button class="btn btn-sm btn-warning me-1" onclick="gorevDurumGuncelle('${gorev.id}', 'Bekliyor')" title="Geri Al"><i class="fas fa-undo"></i></button>` : `<button class="btn btn-sm btn-success me-1" onclick="gorevDurumGuncelle('${gorev.id}', 'Tamamlandı')"><i class="fas fa-check"></i></button>`;
+          let html = `<div class="card mb-2 shadow-sm ${isDone ? 'border-success' : ''}"><div class="card-body d-flex justify-content-between align-items-center p-3">
+              <div><h6 class="mb-1 ${isDone ? 'text-decoration-line-through text-muted' : 'fw-bold'}">${gorev.baslik}</h6><small class="text-muted"><i class="far fa-calendar-alt"></i> ${gorev.sonTarih || '-'} | ${gorev.detay || ''}</small></div>
+              <div class="d-flex align-items-center"><span class="badge ${isDone?'bg-success':'bg-warning text-dark'} me-3">${gorev.durum}</span>${btnTamamla}<button class="btn btn-sm btn-outline-primary me-1 py-0" onclick="gorevDuzenleAc('${gorev.id}')"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-outline-danger py-0" onclick="gorevSil('${gorev.id}')"><i class="fas fa-trash"></i></button></div></div></div>`;
+          if(isDone) tAlan.innerHTML += html; else bAlan.innerHTML += html;
       });
+      if(bAlan.innerHTML === '') bAlan.innerHTML = "<p class='text-muted small'>Bekleyen görev yok.</p>";
+      if(tAlan.innerHTML === '') tAlan.innerHTML = "<p class='text-muted small'>Tamamlanan görev yok.</p>";
+  };
+
+  window.gorevModalAc = function() { document.getElementById('yeniGorevForm').reset(); document.getElementById('g_id').value = ''; new bootstrap.Modal(document.getElementById('yeniGorevModal')).show(); };
+
+  window.gorevDuzenleAc = function(id) {
+      const g = gorevListesi.find(x => x.id === id); document.getElementById('g_id').value = g.id; document.getElementById('g_baslik').value = g.baslik;
+      document.getElementById('g_detay').value = g.detay; document.getElementById('g_sonTarih').value = g.sonTarih;
+      new bootstrap.Modal(document.getElementById('yeniGorevModal')).show();
   };
 
   window.gorevKaydet = async function() {
-      const baslik = document.getElementById('g_baslik').value;
-      if(baslik.trim() === "") { alert("Görev başlığı zorunludur."); return; }
-
-      const btn = document.querySelector("#yeniGorevModal .btn-primary");
-      btn.disabled = true; btn.innerHTML = "Ekleniyor...";
-
+      const id = document.getElementById('g_id').value; const baslik = document.getElementById('g_baslik').value;
+      if(baslik.trim() === "") return;
       try {
-          await addDoc(collection(db, "gorevler"), {
-              baslik: baslik, detay: document.getElementById('g_detay').value,
-              sonTarih: document.getElementById('g_sonTarih').value, durum: 'Bekliyor', islemTarihi: serverTimestamp()
-          });
+          if(id) await updateDoc(doc(db, "gorevler", id), { baslik: baslik, detay: document.getElementById('g_detay').value, sonTarih: document.getElementById('g_sonTarih').value });
+          else await addDoc(collection(db, "gorevler"), { baslik: baslik, detay: document.getElementById('g_detay').value, sonTarih: document.getElementById('g_sonTarih').value, durum: 'Bekliyor', islemTarihi: serverTimestamp() });
           bootstrap.Modal.getInstance(document.getElementById('yeniGorevModal')).hide();
-          document.getElementById('yeniGorevForm').reset();
       } catch(e) { alert("Hata: " + e.message); } 
-      finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
   };
 
   window.gorevDurumGuncelle = async function(id, yeniDurum) {
@@ -893,7 +861,6 @@
           catch(e) { alert("Hata: " + e.message); }
       }
   };
-
   // ---------------- ŞİRKET KÜNYESİ İŞLEMLERİ ----------------
   window.kunyeCiz = function() {
       const alan = document.getElementById('kunyeKarti');
@@ -902,6 +869,7 @@
       
       alan.innerHTML = `
           <div id="yazdirilacak-alan">
+              <div class="text-center mb-4 d-none d-print-block"><img src="Euro Veritas Consulting.jpg" style="max-height: 80px;"></div>
               <h4 class="mb-4 text-center d-none d-print-block">${v.unvan || 'ŞİRKET KÜNYESİ'}</h4>
               <div class="row">
                   <h6 class="border-bottom pb-2 text-primary"><i class="fas fa-info-circle"></i> Resmi Kimlik Bilgileri</h6>
@@ -1161,29 +1129,29 @@
                 
                 <ul class="nav nav-tabs mb-3" id="faturaTab" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active text-success fw-bold" id="satis-tab" data-bs-toggle="tab" data-bs-target="#satis" type="button" role="tab"><i class="fas fa-file-export me-1"></i>Satış (Gelir) Faturaları</button>
+                        <button class="nav-link active text-success fw-bold" data-bs-toggle="tab" data-bs-target="#satis" type="button"><i class="fas fa-file-export me-1"></i>Satış (Gelir)</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link text-danger fw-bold" id="alim-tab" data-bs-toggle="tab" data-bs-target="#alim" type="button" role="tab"><i class="fas fa-file-import me-1"></i>Alım (Gider) Faturaları</button>
+                        <button class="nav-link text-danger fw-bold" data-bs-toggle="tab" data-bs-target="#alim" type="button"><i class="fas fa-file-import me-1"></i>Alım (Gider)</button>
                     </li>
                 </ul>
 
                 <div class="tab-content bg-white p-3 rounded shadow-sm border-top-0">
-                    <div class="tab-pane fade show active" id="satis" role="tabpanel">
+                    <div class="tab-pane fade show active" id="satis">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle table-sm">
                                 <thead class="table-light text-muted small">
-                                    <tr><th>Fatura No</th><th>Tarih</th><th>Müşteri Ünvanı</th><th>Matrah</th><th>KDV</th><th>Toplam Tutar</th><th>İşlemler</th></tr>
+                                    <tr><th>Fatura No</th><th>Tarih</th><th>Müşteri Ünvanı</th><th>Açıklama</th><th>Matrah</th><th>KDV</th><th class="text-end">Toplam</th><th>İşlemler</th></tr>
                                 </thead>
                                 <tbody id="satisTabloGövdesi"></tbody>
                             </table>
                         </div>
                     </div>
-                    <div class="tab-pane fade" id="alim" role="tabpanel">
+                    <div class="tab-pane fade" id="alim">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle table-sm">
                                 <thead class="table-light text-muted small">
-                                    <tr><th>Fatura No</th><th>Tarih</th><th>Tedarikçi Ünvanı</th><th>Matrah</th><th>KDV</th><th>Toplam Tutar</th><th>İşlemler</th></tr>
+                                    <tr><th>Fatura No</th><th>Tarih</th><th>Tedarikçi Ünvanı</th><th>Açıklama</th><th>Matrah</th><th>KDV</th><th class="text-end">Toplam</th><th>İşlemler</th></tr>
                                 </thead>
                                 <tbody id="alimTabloGövdesi"></tbody>
                             </table>
@@ -1191,7 +1159,6 @@
                     </div>
                 </div>
 
-                <!-- YENİ FATURA EKLEME MODALI -->
                 <div class="modal fade" id="yeniFaturaModal" tabindex="-1">
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content">
@@ -1207,17 +1174,20 @@
                                     </div>
                                     <div class="row mb-3">
                                         <div class="col-md-4"><label class="form-label">Fatura Yönü *</label><select class="form-select" id="f_tur"><option value="Satis">Satış (Kestiğimiz)</option><option value="Alim">Alım (Bize Gelen)</option></select></div>
-                                        <div class="col-md-4"><label class="form-label">Fatura Numarası *</label><input type="text" class="form-control" id="f_faturaNo" placeholder="Örn: 2026-001"></div>
+                                        <div class="col-md-4"><label class="form-label">Fatura Numarası *</label><input type="text" class="form-control" id="f_faturaNo"></div>
                                         <div class="col-md-4"><label class="form-label">Fatura Tarihi *</label><input type="date" class="form-control" id="f_tarih"></div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-12"><label class="form-label">Açıklama (İsteğe Bağlı)</label><input type="text" class="form-control" id="f_aciklama" placeholder="Fatura detayı, proje adı vb."></div>
                                     </div>
                                     <h6 class="mt-4 border-bottom pb-2">Tutar ve Vergi Bilgileri</h6>
                                     <div class="row mb-3">
                                         <div class="col-md-3"><label class="form-label">Para Birimi *</label><select class="form-select" id="f_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select></div>
                                         <div class="col-md-3"><label class="form-label">Tutar (KDV Hariç) *</label><input type="number" class="form-control" id="f_tutar" onkeyup="hesaplaKdv()" onchange="hesaplaKdv()" step="0.01"></div>
                                         <div class="col-md-4"><label class="form-label">KDV Oranı (%)</label><select class="form-select" id="f_kdvOran" onchange="hesaplaKdv()"><option value="21">21% (Standart PDV)</option><option value="7">7% (İndirimli)</option><option value="0">0% (İstisna / Yurt Dışı)</option></select></div>
-                                        <div class="col-md-4 mt-3"><label class="form-label">KDV Tutarı</label><input type="text" class="form-control bg-light" id="f_kdvTutar" readonly></div>
+                                        <div class="col-md-2 mt-3"><label class="form-label">KDV</label><input type="text" class="form-control bg-light px-1" id="f_kdvTutar" readonly></div>
                                     </div>
-                                    <div class="row mb-3"><div class="col-md-8"></div><div class="col-md-4"><label class="form-label fw-bold">Genel Toplam</label><input type="text" class="form-control border-success text-success fw-bold" id="f_toplam" readonly></div></div>
+                                    <div class="row mb-3"><div class="col-md-8"></div><div class="col-md-4"><label class="form-label fw-bold">Genel Toplam</label><input type="text" class="form-control border-success text-success fw-bold text-end" id="f_toplam" readonly></div></div>
                                 </form>
                             </div>
                             <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button><button type="button" class="btn btn-primary" onclick="faturaKaydet()">Faturayı İşle</button></div>
@@ -1417,47 +1387,42 @@
             `;
             setTimeout(() => { if(typeof window.vergileriCiz === 'function') window.vergileriCiz(); }, 50);
         }
+        
         else if(sayfa === 'gorevler') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Görevler ve Notlar</h2>
-                    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#yeniGorevModal">
+                    <button class="btn btn-primary shadow-sm" onclick="gorevModalAc()">
                         <i class="fas fa-plus"></i> Yeni Görev Ekle
                     </button>
                 </div>
 
-                <div id="gorevListesiAlani" class="mt-3">
-                    <!-- Görev kartları buraya JS ile eklenecek -->
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item"><button class="nav-link active text-warning fw-bold" data-bs-toggle="tab" data-bs-target="#g-bekleyen" type="button">Bekleyen Görevler</button></li>
+                    <li class="nav-item"><button class="nav-link text-success fw-bold" data-bs-toggle="tab" data-bs-target="#g-tamamlanan" type="button">Tamamlananlar</button></li>
+                </ul>
+
+                <div class="tab-content bg-transparent">
+                    <div class="tab-pane fade show active" id="g-bekleyen"></div>
+                    <div class="tab-pane fade" id="g-tamamlanan"></div>
                 </div>
 
-                <!-- YENİ GÖREV MODALI -->
                 <div class="modal fade" id="yeniGorevModal" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header bg-dark text-white">
-                                <h5 class="modal-title">Yeni Görev / Not Ekle</h5>
+                                <h5 class="modal-title">Görev / Not</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
                                 <form id="yeniGorevForm">
-                                    <div class="mb-3">
-                                        <label class="form-label">Görev Başlığı *</label>
-                                        <input type="text" class="form-control" id="g_baslik" placeholder="Örn: Avukat ile oturum izni yenilemesi" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Detay / Notlar</label>
-                                        <textarea class="form-control" id="g_detay" rows="2"></textarea>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Son Tarih</label>
-                                        <input type="date" class="form-control" id="g_sonTarih">
-                                    </div>
+                                    <input type="hidden" id="g_id">
+                                    <div class="mb-3"><label class="form-label">Görev Başlığı *</label><input type="text" class="form-control" id="g_baslik" required></div>
+                                    <div class="mb-3"><label class="form-label">Detay / Notlar</label><textarea class="form-control" id="g_detay" rows="2"></textarea></div>
+                                    <div class="mb-3"><label class="form-label">Son Tarih</label><input type="date" class="form-control" id="g_sonTarih"></div>
                                 </form>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                                <button type="button" class="btn btn-primary" onclick="gorevKaydet()">Kaydet</button>
-                            </div>
+                            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button><button type="button" class="btn btn-primary" onclick="gorevKaydet()">Kaydet</button></div>
                         </div>
                     </div>
                 </div>
