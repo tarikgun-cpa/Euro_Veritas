@@ -530,6 +530,11 @@
     cariListesi.forEach((cari, index) => {
         let bakiye = cari.bakiye || 0;
         let bRenk = bakiye < 0 ? 'text-danger' : (bakiye > 0 ? 'text-success' : 'text-dark');
+        
+        let bDurum = "Bakiye Yok";
+        if (bakiye > 0) bDurum = "Tahsil Edilecek (Alacağımız)";
+        else if (bakiye < 0) bDurum = "Ödenecek (Borcumuz)";
+
         let birim = cari.paraBirimi || 'EUR';
         let sembol = birim === 'USD' ? '$' : '€';
         
@@ -545,17 +550,27 @@
             }
         });
 
+        // Hasılat veya Maliyet Görünümü
+        let analizHtml = '';
+        if(cari.grup === 'Alici') {
+            analizHtml = `<span>Hasılat (Ciro): <strong class="text-success">${cariSatis.toLocaleString('en-US', {minimumFractionDigits: 2})} ${sembol}</strong></span>`;
+        } else {
+            analizHtml = `<span>Maliyet (Gider): <strong class="text-danger">${cariAlim.toLocaleString('en-US', {minimumFractionDigits: 2})} ${sembol}</strong></span>`;
+        }
+
         kartAlani.innerHTML += `
             <div class="col-md-4 mb-3">
                 <div class="card border-0 shadow-sm h-100 rounded-3" style="background-color: #ffffff; border-left: 4px solid ${leftBorderColor} !important;">
                     <div class="card-body cursor-pointer position-relative pb-2" onclick="cariEkstreAc('${cari.id}')">
                         <span class="badge position-absolute top-0 end-0 m-3 px-3 py-2 shadow-sm fs-6 rounded-pill" style="${paraBirimiRengi}">${birim}</span>
                         <h6 class="fw-bold text-truncate pe-5 mb-1" style="color: #2c3e50;" title="${cari.unvan}">${cari.unvan}</h6>
-                        <small class="text-muted"><i class="fas fa-globe-europe me-1" style="color: #7f8c8d;"></i>${cari.ulke}</small>
-                        <h3 class="${bRenk} mt-3 mb-3 fw-bold">${bakiye.toFixed(2)} ${sembol}</h3>
-                        <div class="d-flex justify-content-between border-top pt-2 mt-2 text-muted" style="font-size:11px;">
-                            <span>Ciro: <strong class="text-success">${cariSatis.toLocaleString('en-US')} ${sembol}</strong></span>
-                            <span>Maliyet: <strong class="text-danger">${cariAlim.toLocaleString('en-US')} ${sembol}</strong></span>
+                        <small class="text-muted"><i class="fas fa-globe-europe me-1" style="color: #7f8c8d;"></i>${cari.ulke} | ${cari.grup === 'Alici' ? 'Müşteri' : 'Tedarikçi'}</small>
+                        <div class="mt-3 mb-2">
+                            <span class="small text-muted d-block mb-1">${bDurum}</span>
+                            <h3 class="${bRenk} mb-0 fw-bold">${Math.abs(bakiye).toLocaleString('en-US', {minimumFractionDigits: 2})} ${sembol}</h3>
+                        </div>
+                        <div class="d-flex justify-content-between border-top pt-2 mt-3 text-muted" style="font-size:11px;">
+                            ${analizHtml}
                         </div>
                     </div>
                     <div class="card-footer bg-light border-top-0 text-end py-2">
