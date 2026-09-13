@@ -113,6 +113,7 @@
             <a href="#" onclick="sayfaYukle('bankalar')"><i class="fas fa-university"></i> Banka Hesapları</a>
             <a href="#" onclick="sayfaYukle('vergiler')"><i class="fas fa-landmark"></i> Vergi Ödemeleri</a>
             <a href="#" onclick="sayfaYukle('gorevler')"><i class="fas fa-tasks"></i> Görevler</a>
+            <a href="#" onclick="sayfaYukle('raporlar')"><i class="fas fa-file-invoice"></i> Finansal Raporlar</a>
             <a href="#" onclick="sayfaYukle('kunye')"><i class="fas fa-building"></i> Şirket Künyesi</a>
             <a href="#" onclick="sayfaYukle('ai_asistan')" class="text-warning fw-bold"><i class="fas fa-robot"></i> AI Mevzuat Asistanı</a>
             <a href="#" class="mt-5 text-warning" onclick="cikisYap()"><i class="fas fa-sign-out-alt"></i> Güvenli Çıkış</a>
@@ -1193,7 +1194,11 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
           <div class="d-flex justify-content-between align-items-end mb-4 border-bottom pb-3">
               <div class="d-flex align-items-center">
                   <img src="Euro Veritas Consulting.jpg" style="height: 60px; margin-right: 20px;" class="d-none d-print-block">
-                  <div><h4 class="mb-0 text-dark fw-bold">${banka.hesapAdi}</h4><small class="text-muted">Banka/Kasa Ekstresi</small></div>
+                  <div>
+                      <h4 class="mb-0 text-dark fw-bold">${banka.hesapAdi}</h4>
+                      <small class="text-muted">Banka/Kasa Ekstresi</small>
+                      ${banka.tur === 'Banka' ? '<br><small class="text-muted d-block mt-1" style="font-size:11px;"><strong>IBAN:</strong> ' + (banka.iban || '-') + ' | <strong>Yerel Hesap:</strong> ' + (banka.yerelHesap || '-') + '</small>' : ''}
+                  </div>
               </div>
               <div class="text-end"><h6 class="mb-0 text-muted small">Güncel Kapanış Bakiyesi</h6><h4 class="${banka.bakiye >= 0 ? 'text-success' : 'text-danger'} fw-bold mb-0">${banka.bakiye.toFixed(2)} ${birim}</h4></div>
           </div>
@@ -1501,6 +1506,126 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
           catch(e) { alert("Hata: " + e.message); }
       }
   };
+
+  // ---------------- RAPORLAMA VE AI ANALİZ İŞLEMLERİ ----------------
+  window.raporUret = function() {
+      let bas = document.getElementById('r_bas').value;
+      let bit = document.getElementById('r_bit').value;
+      if(!bas || !bit) { alert("Lütfen tarih aralığı seçin."); return; }
+
+      let fSatis = 0, fAlim = 0, nakitGiris = 0, nakitCikis = 0;
+      let usdKur = document.getElementById('dash_usd_kur') ? parseFloat(document.getElementById('dash_usd_kur').value) : 0.92;
+
+      // Faturaları Süz (Gelir Tablosu)
+      faturaListesi.forEach(f => {
+          if(f.tarih >= bas && f.tarih <= bit && f.durum !== 'Iptal') {
+              let tutarEur = f.paraBirimi === 'USD' ? (f.toplamTutar * usdKur) : f.toplamTutar;
+              if(f.tur === 'Satis' || f.tur === 'Ihracat' || f.tur === 'YerelSatis') fSatis += tutarEur;
+              else if(f.tur === 'Alim') fAlim += tutarEur;
+          }
+      });
+
+      // Banka İşlemlerini Süz (Nakit Akışı)
+      islemListesi.forEach(i => {
+          let dStr = i.tarih ? new Date(i.tarih.seconds * 1000).toISOString().split('T')[0] : '';
+          if(dStr >= bas && dStr <= bit) {
+              let b = bankaListesi.find(x => x.id === i.bankaId);
+              let birim = b ? b.paraBirimi : 'EUR';
+              let tutarEur = birim === 'USD' ? (i.tutar * usdKur) : i.tutar;
+              if(i.tur === 'Tahsilat') nakitGiris += tutarEur;
+              else if(i.tur === 'Odeme') nakitCikis += tutarEur;
+          }
+      });
+
+      let netKar = fSatis - fAlim;
+      let netNakit = nakitGiris - nakitCikis;
+      let v = kunyeVerisi;
+
+      let html = `
+      <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light">
+          <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 80px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6 text-end text-muted small">
+                  <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
+                  Rapor Dönemi: <strong>${bas.split('-').reverse().join('.')} - ${bit.split('-').reverse().join('.')}</strong>
+              </div>
+          </div>
+          <h4 class="text-center fw-bold mb-5" style="color: #2c3e50;">KONSOLİDE FİNANSAL RAPOR</h4>
+          
+          <div class="row mb-4">
+              <div class="col-md-6 mb-4">
+                  <h6 class="fw-bold text-primary border-bottom pb-2"><i class="fas fa-chart-line me-2"></i>Gelir Tablosu (P&L)</h6>
+                  <table class="table table-sm table-borderless">
+                      <tr><td class="text-muted">Toplam Satış (Hasılat):</td><td class="text-end text-success fw-bold">${fSatis.toLocaleString('en-US', {minimumFractionDigits: 2})} €</td></tr>
+                      <tr><td class="text-muted border-bottom">Toplam Alım (Maliyet):</td><td class="text-end text-danger fw-bold border-bottom">-${fAlim.toLocaleString('en-US', {minimumFractionDigits: 2})} €</td></tr>
+                      <tr class="table-light"><td class="fw-bold">Net Kâr / Zarar:</td><td class="text-end fw-bold ${netKar >= 0 ? 'text-success' : 'text-danger'} fs-6">${netKar.toLocaleString('en-US', {minimumFractionDigits: 2})} €</td></tr>
+                  </table>
+              </div>
+              <div class="col-md-6 mb-4">
+                  <h6 class="fw-bold text-info border-bottom pb-2"><i class="fas fa-water me-2"></i>Nakit Akış (Cash Flow)</h6>
+                  <table class="table table-sm table-borderless">
+                      <tr><td class="text-muted">Toplam Tahsilat (Giriş):</td><td class="text-end text-success fw-bold">${nakitGiris.toLocaleString('en-US', {minimumFractionDigits: 2})} €</td></tr>
+                      <tr><td class="text-muted border-bottom">Toplam Ödeme (Çıkış):</td><td class="text-end text-danger fw-bold border-bottom">-${nakitCikis.toLocaleString('en-US', {minimumFractionDigits: 2})} €</td></tr>
+                      <tr class="table-light"><td class="fw-bold">Net Nakit Pozisyonu:</td><td class="text-end fw-bold ${netNakit >= 0 ? 'text-success' : 'text-danger'} fs-6">${netNakit.toLocaleString('en-US', {minimumFractionDigits: 2})} €</td></tr>
+                  </table>
+              </div>
+          </div>
+
+          <div class="mt-4 p-4 bg-light rounded" id="ai_rapor_analiz_kutusu" style="border: 1px dashed #cbd5e1;">
+              <div class="text-center d-print-none">
+                  <i class="fas fa-robot fa-3x text-warning mb-3 opacity-75"></i>
+                  <h6 class="fw-bold text-dark">Yönetici Özeti Gerekiyor Mu?</h6>
+                  <p class="mb-3 text-muted small">Yapay Zeka asistanınız bu rakamları analiz ederek size stratejik bir finansal rapor metni hazırlayabilir.</p>
+                  <button class="btn btn-warning fw-bold px-4 shadow-sm" onclick="aiRaporAnalizEt(${fSatis}, ${fAlim}, ${netKar}, ${nakitGiris}, ${nakitCikis}, ${netNakit}, '${bas}', '${bit}')">
+                      <i class="fas fa-magic me-2"></i> AI Analizi Oluştur ve Rapora Ekle
+                  </button>
+              </div>
+          </div>
+      </div>
+      <div class="mt-4 text-center d-print-none">
+          <button class="btn btn-secondary shadow-sm px-4" onclick="window.print()"><i class="fas fa-print me-2"></i> Çıktı Al / PDF Kaydet</button>
+      </div>
+      `;
+      document.getElementById('rapor_sonuc_alani').innerHTML = html;
+  };
+
+  window.aiRaporAnalizEt = async function(satis, alim, kar, giris, cikis, nakit, bas, bit) {
+      const apiKey = localStorage.getItem("ev_gemini_api_key");
+      if(!apiKey) { alert("Yapay Zeka API anahtarınız girilmemiş. Lütfen AI Mevzuat Asistanı sekmesinden anahtarı bir kez kaydedin."); return; }
+
+      const kutu = document.getElementById('ai_rapor_analiz_kutusu');
+      kutu.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x text-primary mb-3"></i><p class="text-muted fw-bold">Finansal verileriniz analiz ediliyor...</p></div>';
+
+      const prompt = `Sen Euro Veritas şirketinin CFO'su ve Finansal Danışmanısın. Aşağıdaki verileri inceleyerek, şirket ortaklarına sunulmak üzere profesyonel, kısa ve net bir finansal analiz (Yönetici Özeti) yaz. Rakamları yorumla, Kârlılık (P&L) ile Nakit Akışı (Cash Flow) arasındaki farka dikkat çek ve şirketin gidişatı hakkında 2 cümlelik somut bir tavsiye ver. Gereksiz uzatma. HTML veya Markdown kullanma, düz metin yaz ama önemli yerlerde bold etiketini (<b>) kullan.
+      
+      Dönem: ${bas} / ${bit}
+      Kestiğimiz Faturalar (Ciro): ${satis} EUR
+      Gider Faturaları: ${alim} EUR
+      Kağıt Üstündeki Kâr: ${kar} EUR
+      Kasaya Giren Nakit: ${giris} EUR
+      Kasadan Çıkan Nakit: ${cikis} EUR
+      Nakit Akışı (Gerçek Kalan): ${nakit} EUR`;
+
+      try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=`+apiKey, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+          });
+          const data = await response.json();
+          if(data.error) throw new Error(data.error.message);
+
+          let cevap = data.candidates[0].content.parts[0].text;
+          cevap = cevap.replace(/\n/g, '<br>');
+          
+          kutu.innerHTML = `
+              <h6 class="fw-bold text-dark border-bottom pb-2 mb-3"><i class="fas fa-robot text-warning me-2 d-print-none"></i>Yönetim Kurulu Finansal Özeti</h6>
+              <div style="font-size: 13px; color: #334155; line-height: 1.6;">${cevap}</div>
+          `;
+      } catch(e) { 
+          kutu.innerHTML = `<div class="alert alert-danger mb-0">AI Hatası: ${e.message}</div>`;
+      }
+  };
+
   // ---------------- ŞİRKET KÜNYESİ İŞLEMLERİ ----------------
   window.kunyeCiz = function() {
       const alan = document.getElementById('kunyeKarti');
@@ -2211,6 +2336,42 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
             setTimeout(() => { if(typeof window.vergileriCiz === 'function') window.vergileriCiz(); }, 50);
         }
         
+        else if(sayfa === 'raporlar') {
+            mainContent.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Finansal Analiz ve Raporlama</h2>
+                </div>
+                <div class="card shadow-sm border-0 mb-4 d-print-none">
+                    <div class="card-body bg-light rounded">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label text-muted small mb-1 fw-bold">Başlangıç Tarihi</label>
+                                <input type="date" id="r_bas" class="form-control shadow-sm">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label text-muted small mb-1 fw-bold">Bitiş Tarihi</label>
+                                <input type="date" id="r_bit" class="form-control shadow-sm">
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-primary w-100 shadow-sm fw-bold" onclick="raporUret()"><i class="fas fa-filter me-2"></i> Verileri Süz ve Raporla</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="rapor_sonuc_alani">
+                    <div class="text-center text-muted mt-5 py-5 border rounded bg-white" style="border-style: dashed !important;">
+                        <i class="fas fa-file-invoice-dollar fa-3x mb-3 text-secondary opacity-50"></i>
+                        <h5>Rapor Dönemi Seçin</h5>
+                        <p class="small">Belirli bir tarih aralığındaki kârlılık ve nakit akışı raporlarını süzmek için yukarıdan tarih seçin.</p>
+                    </div>
+                </div>
+            `;
+            let bugun = new Date();
+            let ilkGun = new Date(bugun.getFullYear(), bugun.getMonth(), 1).toISOString().split('T')[0];
+            let sonGun = bugun.toISOString().split('T')[0];
+            setTimeout(() => { document.getElementById('r_bas').value = ilkGun; document.getElementById('r_bit').value = sonGun; }, 50);
+        }
+
         else if(sayfa === 'gorevler') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
