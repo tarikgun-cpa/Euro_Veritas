@@ -1470,7 +1470,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
                 <!-- KAYAR BANT (BORSA TICKER) -->
                 <div class="ticker-wrap d-print-none">
-                    <button class="ticker-btn" onclick="notEkle()"><i class="fas fa-edit me-1"></i> ÖNEMLİ NOT</button>
+                    <button class="ticker-btn" onclick="notEkleAc()"><i class="fas fa-edit me-1"></i> ÖNEMLİ NOT</button>
                     <div class="ticker-content">
                         <div class="ticker-text" id="dash_ticker_text">
                             <!-- JS ile otomatik doldurulacak -->
@@ -1478,37 +1478,68 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     </div>
                 </div>
 
+                <!-- TICKER NOT YÖNETİM MODALI -->
+                <div class="modal fade" id="notlarModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content border-0 shadow-lg">
+                            <div class="modal-header bg-warning text-dark border-0">
+                                <h6 class="modal-title fw-bold"><i class="fas fa-edit me-2"></i>Kayar Şerit Notları</h6>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body p-4">
+                                <div class="input-group mb-4 shadow-sm rounded">
+                                    <input type="text" id="yeni_not_input" class="form-control border-warning" placeholder="Yeni bir not yazın...">
+                                    <button class="btn btn-dark fw-bold px-4" onclick="yeniNotKaydet()">Ekle</button>
+                                </div>
+                                <h6 class="text-muted small fw-bold text-uppercase mb-3">Aktif Notlar</h6>
+                                <ul class="list-group list-group-flush" id="notlar_listesi"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="row mb-4 g-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="card h-100 shadow-sm dash-card border-top border-3" style="border-top-color: #2c3e50 !important;">
-                            <div class="card-body p-4">
+                            <div class="card-body p-3">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #2c3e50; font-size: 0.75rem; letter-spacing: 0.5px;">Likidite (Kasa/Banka)</h6>
-                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="fas fa-wallet text-secondary small"></i></div>
+                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #2c3e50; font-size: 0.7rem; letter-spacing: 0.5px;">Likidite</h6>
+                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;"><i class="fas fa-wallet text-secondary small"></i></div>
                                 </div>
                                 <div id="dash_kasa_listesi"><span class="text-muted small">Veri bekleniyor...</span></div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="card h-100 shadow-sm dash-card border-top border-3" style="border-top-color: #f39c12 !important;">
-                            <div class="card-body p-4">
+                            <div class="card-body p-3">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #f39c12; font-size: 0.75rem; letter-spacing: 0.5px;">Müşteri Alacakları</h6>
-                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="fas fa-arrow-down text-secondary small"></i></div>
+                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #f39c12; font-size: 0.7rem; letter-spacing: 0.5px;">Alacaklar</h6>
+                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;"><i class="fas fa-arrow-down text-secondary small"></i></div>
                                 </div>
-                                <div id="dash_alacak_rozetler" class="d-flex flex-column gap-2"><span class="text-muted small">Tahsilat bekleyen hesap yok.</span></div>
+                                <div id="dash_alacak_rozetler" class="d-flex flex-column gap-2"><span class="text-muted small">Tahsilat bekleyen yok.</span></div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="card h-100 shadow-sm dash-card border-top border-3" style="border-top-color: #e74c3c !important;">
-                            <div class="card-body p-4">
+                            <div class="card-body p-3">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #e74c3c; font-size: 0.75rem; letter-spacing: 0.5px;">Tedarikçi Borçları</h6>
-                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="fas fa-arrow-up text-secondary small"></i></div>
+                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #e74c3c; font-size: 0.7rem; letter-spacing: 0.5px;">Borçlar</h6>
+                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;"><i class="fas fa-arrow-up text-secondary small"></i></div>
                                 </div>
-                                <div id="dash_borc_rozetler" class="d-flex flex-column gap-2"><span class="text-muted small">Ödeme bekleyen hesap yok.</span></div>
+                                <div id="dash_borc_rozetler" class="d-flex flex-column gap-2"><span class="text-muted small">Ödeme bekleyen yok.</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card h-100 shadow-sm dash-card border-top border-3" style="border-top-color: #10b981 !important;">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="fw-bold text-uppercase mb-0" style="color: #10b981; font-size: 0.7rem; letter-spacing: 0.5px;">Kâr & Temettü</h6>
+                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;"><i class="fas fa-coins text-secondary small"></i></div>
+                                </div>
+                                <div id="dash_temettu_alani"><span class="text-muted small">Hesaplanıyor...</span></div>
                             </div>
                         </div>
                     </div>
@@ -1612,13 +1643,13 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                 
                 <ul class="nav nav-tabs mb-3" id="faturaTab" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active text-success fw-bold" data-bs-toggle="tab" data-bs-target="#satis" type="button">Hizmet İhracatı (0% KDV)</button>
+                        <button class="nav-link active text-success fw-bold fatura-tab-btn" data-tur="Ihracat" data-bs-toggle="tab" data-bs-target="#satis" type="button">Hizmet İhracatı (0% KDV)</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link text-success fw-bold" data-bs-toggle="tab" data-bs-target="#yerelsatis" type="button">Yerel Satış (KDV'li)</button>
+                        <button class="nav-link text-success fw-bold fatura-tab-btn" data-tur="YerelSatis" data-bs-toggle="tab" data-bs-target="#yerelsatis" type="button">Yerel Satış (KDV'li)</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link text-danger fw-bold" data-bs-toggle="tab" data-bs-target="#alim" type="button">Alım (Gider)</button>
+                        <button class="nav-link text-danger fw-bold fatura-tab-btn" data-tur="Alim" data-bs-toggle="tab" data-bs-target="#alim" type="button">Alım (Gider)</button>
                     </li>
                 </ul>
 
