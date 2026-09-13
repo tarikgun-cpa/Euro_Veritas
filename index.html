@@ -100,23 +100,33 @@
 </div>
 
 <!-- ANA UYGULAMA -->
-<div class="container-fluid d-none" id="app-container">
+<div class="container-fluid d-none position-relative" id="app-container">
+    
+    <!-- ÜST SAĞ KÖŞE DİL SEÇİCİ -->
+    <div class="position-absolute d-print-none" style="top: 15px; right: 25px; z-index: 1050;">
+        <select class="form-select form-select-sm shadow-sm border-0 fw-bold text-secondary bg-white" id="app-lang" onchange="dilDegistir(this.value)">
+            <option value="tr">🇹🇷 Türkçe</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="mne">🇲🇪 Crnogorski</option>
+        </select>
+    </div>
+
     <div class="row">
         <!-- Sol Menü -->
         <div class="col-md-2 p-0 sidebar shadow">
             <div class="p-3 text-center border-bottom border-secondary mb-3" style="background-color: #ffffff;">
                 <img src="Euro Veritas Consulting.jpg" alt="Euro Veritas Logo" style="max-width: 100%; height: auto; border-radius: 8px;">
             </div>
-            <a href="#" onclick="sayfaYukle('dashboard')"><i class="fas fa-chart-line"></i> Yönetici Özeti</a>
-            <a href="#" onclick="sayfaYukle('faturalar')"><i class="fas fa-file-invoice-dollar"></i> Faturalar</a>
-            <a href="#" onclick="sayfaYukle('cariler')"><i class="fas fa-users"></i> Cari Hesaplar</a>
-            <a href="#" onclick="sayfaYukle('bankalar')"><i class="fas fa-university"></i> Banka Hesapları</a>
-            <a href="#" onclick="sayfaYukle('vergiler')"><i class="fas fa-landmark"></i> Vergi Ödemeleri</a>
-            <a href="#" onclick="sayfaYukle('gorevler')"><i class="fas fa-tasks"></i> Görevler</a>
-            <a href="#" onclick="sayfaYukle('raporlar')"><i class="fas fa-file-invoice"></i> Finansal Raporlar</a>
-            <a href="#" onclick="sayfaYukle('kunye')"><i class="fas fa-building"></i> Şirket Künyesi</a>
-            <a href="#" onclick="sayfaYukle('ai_asistan')" class="text-warning fw-bold"><i class="fas fa-robot"></i> AI Mevzuat Asistanı</a>
-            <a href="#" class="mt-5 text-warning" onclick="cikisYap()"><i class="fas fa-sign-out-alt"></i> Güvenli Çıkış</a>
+            <a href="#" onclick="sayfaYukle('dashboard')" class="menu-link" data-page="dashboard"><i class="fas fa-chart-line"></i> <span data-i18n="menu_dashboard">Yönetici Özeti</span></a>
+            <a href="#" onclick="sayfaYukle('faturalar')" class="menu-link" data-page="faturalar"><i class="fas fa-file-invoice-dollar"></i> <span data-i18n="menu_invoices">Faturalar</span></a>
+            <a href="#" onclick="sayfaYukle('cariler')" class="menu-link" data-page="cariler"><i class="fas fa-users"></i> <span data-i18n="menu_currents">Cari Hesaplar</span></a>
+            <a href="#" onclick="sayfaYukle('bankalar')" class="menu-link" data-page="bankalar"><i class="fas fa-university"></i> <span data-i18n="menu_banks">Banka Hesapları</span></a>
+            <a href="#" onclick="sayfaYukle('vergiler')" class="menu-link" data-page="vergiler"><i class="fas fa-landmark"></i> <span data-i18n="menu_taxes">Vergi Ödemeleri</span></a>
+            <a href="#" onclick="sayfaYukle('gorevler')" class="menu-link" data-page="gorevler"><i class="fas fa-tasks"></i> <span data-i18n="menu_tasks">Görevler</span></a>
+            <a href="#" onclick="sayfaYukle('raporlar')" class="menu-link" data-page="raporlar"><i class="fas fa-file-invoice"></i> <span data-i18n="menu_reports">Finansal Raporlar</span></a>
+            <a href="#" onclick="sayfaYukle('kunye')" class="menu-link" data-page="kunye"><i class="fas fa-building"></i> <span data-i18n="menu_company">Şirket Künyesi</span></a>
+            <a href="#" onclick="sayfaYukle('ai_asistan')" class="text-warning fw-bold menu-link" data-page="ai_asistan"><i class="fas fa-robot"></i> <span data-i18n="menu_ai">AI Mevzuat Asistanı</span></a>
+            <a href="#" class="mt-5 text-warning" onclick="cikisYap()"><i class="fas fa-sign-out-alt"></i> <span data-i18n="menu_logout">Güvenli Çıkış</span></a>
         </div>
 
         <!-- Ana İçerik Alanı -->
@@ -164,6 +174,7 @@
           document.getElementById('app-container').classList.remove('d-none');
           
           sayfaYukle('dashboard');
+          setTimeout(() => { window.dilDegistir(aktifDil); }, 100);
 
           // CARİLERİ DİNLE (NaN Oto-Düzeltme Eklendi)
           cariDinleyici = onSnapshot(collection(db, "cariler"), (snapshot) => {
@@ -272,6 +283,46 @@
   window.cikisYap = async function() {
       await signOut(auth);
       document.getElementById('login-email').value = ""; document.getElementById('login-password').value = "";
+  };
+
+  // ---------------- ÇOKLU DİL (i18n) SİSTEMİ ----------------
+  const dict = {
+      tr: {
+          menu_dashboard: "Yönetici Özeti", menu_invoices: "Faturalar", menu_currents: "Cari Hesaplar", menu_banks: "Banka Hesapları", menu_taxes: "Vergi Ödemeleri", menu_tasks: "Görevler", menu_reports: "Finansal Raporlar", menu_company: "Şirket Künyesi", menu_ai: "AI Mevzuat Asistanı", menu_logout: "Güvenli Çıkış",
+          head_dashboard: "Yönetici Özeti", head_invoices: "Faturalar", head_currents: "Cari Hesaplar", head_banks: "Banka ve Kasa Hesapları", head_taxes: "Vergi ve Yasal Ödemeler", head_tasks: "Görevler ve Notlar", head_reports: "Finansal Analiz ve Raporlama", head_company: "Şirket Künyesi", head_ai: "AI Mevzuat Asistanı",
+          btn_new_current: "Yeni Cari Ekle", btn_new_invoice: "Yeni Fatura İşle", btn_new_proforma: "Yeni Proforma (Taslak)", btn_new_bank: "Yeni Hesap Ekle", btn_new_tax: "Yeni Vergi Ekle", btn_new_task: "Yeni Görev Ekle"
+      },
+      en: {
+          menu_dashboard: "Executive Summary", menu_invoices: "Invoices", menu_currents: "Current Accounts", menu_banks: "Bank Accounts", menu_taxes: "Tax Payments", menu_tasks: "Tasks", menu_reports: "Financial Reports", menu_company: "Company Profile", menu_ai: "AI Assistant", menu_logout: "Secure Logout",
+          head_dashboard: "Executive Summary", head_invoices: "Invoices", head_currents: "Current Accounts", head_banks: "Bank & Cash Accounts", head_taxes: "Taxes & Legal Payments", head_tasks: "Tasks & Notes", head_reports: "Financial Analysis & Reporting", head_company: "Company Profile", head_ai: "AI Legal Assistant",
+          btn_new_current: "Add New Account", btn_new_invoice: "Add New Invoice", btn_new_proforma: "New Proforma (Draft)", btn_new_bank: "Add New Bank/Cash", btn_new_tax: "Add New Tax", btn_new_task: "Add New Task"
+      },
+      mne: {
+          menu_dashboard: "Izvršni Sažetak", menu_invoices: "Fakture", menu_currents: "Tekući Računi", menu_banks: "Bankovni Računi", menu_taxes: "Poreska Plaćanja", menu_tasks: "Zadaci", menu_reports: "Finansijski Izvještaji", menu_company: "Profil Kompanije", menu_ai: "AI Asistent", menu_logout: "Sigurna Odjava",
+          head_dashboard: "Izvršni Sažetak", head_invoices: "Fakture", head_currents: "Tekući Računi", head_banks: "Bankovni i Gotovinski Računi", head_taxes: "Porezi i Pravna Plaćanja", head_tasks: "Zadaci i Bilješke", head_reports: "Finansijska Analiza i Izvještavanje", head_company: "Profil Kompanije", head_ai: "AI Pravni Asistent",
+          btn_new_current: "Dodaj Novi Račun", btn_new_invoice: "Dodaj Novu Fakturu", btn_new_proforma: "Nova Proforma (Nacrt)", btn_new_bank: "Dodaj Novi Račun", btn_new_tax: "Dodaj Novi Porez", btn_new_task: "Dodaj Novi Zadatak"
+      }
+  };
+
+  let aktifDil = localStorage.getItem('ev_lang') || 'tr';
+
+  // Çeviri çağırma fonksiyonu
+  window.t = function(key) { return dict[aktifDil][key] || key; };
+
+  // Dili değiştiren ve arayüzü güncelleyen fonksiyon
+  window.dilDegistir = function(dilKodu) {
+      aktifDil = dilKodu;
+      localStorage.setItem('ev_lang', dilKodu);
+      
+      // Statik HTML etiketlerini (menüleri) çevir
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+          let k = el.getAttribute('data-i18n');
+          if (dict[aktifDil][k]) el.innerText = dict[aktifDil][k];
+      });
+
+      // Aktif sayfayı yeniden yükle ki başlıklar çevrilsin
+      let aktifSayfa = window.suankiSayfa || 'dashboard';
+      sayfaYukle(aktifSayfa); 
   };
 
 
@@ -1803,6 +1854,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 <script>
     // SAYFA YÜKLEME FONKSİYONU
     window.sayfaYukle = function(sayfa) {
+        window.suankiSayfa = sayfa; // O anki sayfayı hafızada tutuyoruz
         const mainContent = document.getElementById('main-content');
         
         if(sayfa === 'dashboard') {
@@ -1810,7 +1862,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
-                        <h2 class="mb-1 text-dark fw-bold" style="letter-spacing: -0.5px;">Yönetici Özeti</h2>
+                        <h2 class="mb-1 text-dark fw-bold" style="letter-spacing: -0.5px;">${t('head_dashboard')}</h2>
                     </div>
                     <div class="d-flex gap-2">
                         <div class="d-flex align-items-center bg-white p-1 px-2 rounded shadow-sm border border-light" title="USD/EUR Çevrim Kuru (Merkez Bankası Simülasyonu)">
@@ -1951,9 +2003,9 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'cariler') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Cari Hesaplar</h2>
+                    <h2>${t('head_currents')}</h2>
                     <button class="btn btn-primary shadow-sm" onclick="yeniCariAc()">
-                        <i class="fas fa-plus"></i> Yeni Cari Ekle
+                        <i class="fas fa-plus"></i> ${t('btn_new_current')}
                     </button>
                 </div>
                 
@@ -2028,10 +2080,10 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'faturalar') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Faturalar</h2>
+                    <h2>${t('head_invoices')}</h2>
                     <div>
-                        <button class="btn btn-outline-info shadow-sm me-2" onclick="proformaAc()"><i class="fas fa-file-alt"></i> Yeni Proforma (Taslak)</button>
-                        <button class="btn btn-primary shadow-sm" onclick="faturaModalAc()"><i class="fas fa-plus"></i> Yeni Fatura İşle</button>
+                        <button class="btn btn-outline-info shadow-sm me-2" onclick="proformaAc()"><i class="fas fa-file-alt"></i> ${t('btn_new_proforma')}</button>
+                        <button class="btn btn-primary shadow-sm" onclick="faturaModalAc()"><i class="fas fa-plus"></i> ${t('btn_new_invoice')}</button>
                     </div>
                 </div>
                 
@@ -2139,13 +2191,13 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'bankalar') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Banka ve Kasa Hesapları</h2>
+                    <h2>${t('head_banks')}</h2>
                     <div>
                         <button class="btn btn-info text-white shadow-sm me-2" onclick="kurFarkiModalAc()">
                             <i class="fas fa-exchange-alt"></i> Kur Farkı İşle
                         </button>
                         <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#yeniBankaModal">
-                            <i class="fas fa-plus"></i> Yeni Hesap Ekle
+                            <i class="fas fa-plus"></i> ${t('btn_new_bank')}
                         </button>
                     </div>
                 </div>
@@ -2310,13 +2362,13 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'vergiler') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Vergi ve Yasal Ödemeler</h2>
+                    <h2>${t('head_taxes')}</h2>
                     <div>
                         <button class="btn btn-warning shadow-sm fw-bold me-2" onclick="doprinosiOtomatikEkle()">
                             <i class="fas fa-bolt"></i> Aylık Doprinosi (SGK) Ekle
                         </button>
                         <button class="btn btn-primary shadow-sm" onclick="vergiModalAc()">
-                            <i class="fas fa-plus"></i> Yeni Vergi Ekle
+                            <i class="fas fa-plus"></i> ${t('btn_new_tax')}
                         </button>
                     </div>
                 </div>
@@ -2392,7 +2444,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'raporlar') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Finansal Analiz ve Raporlama</h2>
+                    <h2>${t('head_reports')}</h2>
                 </div>
                 <div class="card shadow-sm border-0 mb-4 d-print-none">
                     <div class="card-body bg-light rounded">
@@ -2428,9 +2480,9 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'gorevler') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Görevler ve Notlar</h2>
+                    <h2>${t('head_tasks')}</h2>
                     <button class="btn btn-primary shadow-sm" onclick="gorevModalAc()">
-                        <i class="fas fa-plus"></i> Yeni Görev Ekle
+                        <i class="fas fa-plus"></i> ${t('btn_new_task')}
                     </button>
                 </div>
 
@@ -2470,7 +2522,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'kunye') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Şirket Künyesi</h2>
+                    <h2>${t('head_company')}</h2>
                     <div>
                         <button class="btn btn-outline-secondary shadow-sm me-2" onclick="window.print()"><i class="fas fa-print"></i> Yazdır</button>
                         <button class="btn btn-primary shadow-sm" onclick="kunyeDuzenleAc()"><i class="fas fa-edit"></i> Bilgileri Düzenle</button>
@@ -2557,7 +2609,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
             
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2 class="text-dark fw-bold"><i class="fas fa-robot text-warning me-2"></i>AI Mevzuat Asistanı</h2>
+                    <h2 class="text-dark fw-bold"><i class="fas fa-robot text-warning me-2"></i>${t('head_ai')}</h2>
                 </div>
 
                 <!-- API KEY GİRİŞ ALANI -->
