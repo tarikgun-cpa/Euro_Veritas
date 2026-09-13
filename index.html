@@ -525,10 +525,30 @@
   window.tabloyuCiz = function() {
     const alan = document.getElementById('cariTabloGövdesi');
     if (!alan) return; 
+
+    // Filtre Değerlerini DOM'dan Al
+    let aramaMetni = document.getElementById('cariArama') ? document.getElementById('cariArama').value.toLowerCase() : '';
+    let grupFiltre = document.getElementById('cariGrupFiltre') ? document.getElementById('cariGrupFiltre').value : 'Hepsi';
+    let bolgeFiltre = document.getElementById('cariBolgeFiltre') ? document.getElementById('cariBolgeFiltre').value : 'Hepsi';
+
     alan.innerHTML = '<div class="row" id="cariKartlari"></div>';
     const kartAlani = document.getElementById('cariKartlari');
+    let gosterilenCariSayisi = 0;
 
     cariListesi.forEach((cari, index) => {
+        // Arama ve Filtreleme Kontrolü
+        let cariUnvan = cari.unvan ? cari.unvan.toLowerCase() : '';
+        let cariVergiNo = cari.vergiNo ? cari.vergiNo.toLowerCase() : '';
+        
+        let aramaUyuyor = aramaMetni === '' || cariUnvan.includes(aramaMetni) || cariVergiNo.includes(aramaMetni);
+        let grupUyuyor = grupFiltre === 'Hepsi' || cari.grup === grupFiltre;
+        let bolgeUyuyor = bolgeFiltre === 'Hepsi' || cari.bolge === bolgeFiltre;
+
+        // Şartları sağlamıyorsa bu kartı ekrana basma (döngüde sonrakine geç)
+        if (!aramaUyuyor || !grupUyuyor || !bolgeUyuyor) return;
+        
+        gosterilenCariSayisi++;
+
         let bakiye = cari.bakiye || 0;
         let bRenk = bakiye < 0 ? 'text-danger' : (bakiye > 0 ? 'text-success' : 'text-dark');
         
@@ -542,7 +562,6 @@
         let paraBirimiRengi = birim === 'USD' ? 'background-color: #f39c12; color: #fff;' : 'background-color: #2c3e50; color: #fff;';
         let leftBorderColor = index % 2 === 0 ? '#2c3e50' : '#f39c12';
 
-        // Müşteri / Proje Bazlı Kârlılık Hesaplama
         let cariSatis = 0; let cariAlim = 0;
         faturaListesi.forEach(f => {
             if(f.cariId === cari.id) {
@@ -551,7 +570,6 @@
             }
         });
 
-        // Hasılat veya Maliyet Görünümü
         let analizHtml = '';
         if(cari.grup === 'Alici') {
             analizHtml = `<span>Hasılat (Ciro): <strong class="text-success">${cariSatis.toLocaleString('en-US', {minimumFractionDigits: 2})} ${sembol}</strong></span>`;
@@ -565,7 +583,7 @@
                     <div class="card-body cursor-pointer position-relative pb-2" onclick="cariEkstreAc('${cari.id}')">
                         <span class="badge position-absolute top-0 end-0 m-3 px-3 py-2 shadow-sm fs-6 rounded-pill" style="${paraBirimiRengi}">${birim}</span>
                         <h6 class="fw-bold text-truncate pe-5 mb-1" style="color: #2c3e50;" title="${cari.unvan}">${cari.unvan}</h6>
-                        <small class="text-muted"><i class="fas fa-globe-europe me-1" style="color: #7f8c8d;"></i>${cari.ulke} | ${cari.grup === 'Alici' ? 'Müşteri' : 'Tedarikçi'}</small>
+                        <small class="text-muted"><i class="fas fa-globe-europe me-1" style="color: #7f8c8d;"></i>${cari.ulke} | ${cari.grup === 'Alici' ? 'Müşteri' : 'Tedarikçi'} (${cari.bolge === 'Yerli' ? 'Yerli' : 'Yabancı'})</small>
                         <div class="mt-3 mb-2">
                             <span class="small text-muted d-block mb-1">${bDurum}</span>
                             <h3 class="${bRenk} mb-0 fw-bold">${Math.abs(bakiye).toLocaleString('en-US', {minimumFractionDigits: 2})} ${sembol}</h3>
@@ -581,6 +599,14 @@
                 </div>
             </div>`;
     });
+
+    // Eğer filtreleme sonucunda hiç cari kalmazsa uyarı mesajı göster
+    if (gosterilenCariSayisi === 0) {
+        kartAlani.innerHTML = `<div class="col-12 text-center text-muted py-5 border rounded bg-light border-dashed">
+            <i class="fas fa-search fa-2x mb-3 text-secondary opacity-50"></i>
+            <h6>Aradığınız kriterlere uygun cari hesap bulunamadı.</h6>
+        </div>`;
+    }
   };
 
   window.cariSil = async function(id) {
@@ -1929,6 +1955,33 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     <button class="btn btn-primary shadow-sm" onclick="yeniCariAc()">
                         <i class="fas fa-plus"></i> Yeni Cari Ekle
                     </button>
+                </div>
+                
+                <!-- ARAMA VE FİLTRELEME ALANI -->
+                <div class="row mb-3 d-print-none bg-white p-3 rounded shadow-sm border-light border">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small fw-bold">Unvan veya Vergi No Ara</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="cariArama" class="form-control border-start-0 ps-0" placeholder="Aramaya başlayın..." onkeyup="tabloyuCiz()">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small fw-bold">Cari Türü</label>
+                        <select id="cariGrupFiltre" class="form-select" onchange="tabloyuCiz()">
+                            <option value="Hepsi">Tümü (Müşteri ve Tedarikçiler)</option>
+                            <option value="Alici">Sadece Müşteriler (Alıcı)</option>
+                            <option value="Satici">Sadece Tedarikçiler (Satıcı)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small fw-bold">Bölge</label>
+                        <select id="cariBolgeFiltre" class="form-select" onchange="tabloyuCiz()">
+                            <option value="Hepsi">Tümü (Yerli ve Yabancı)</option>
+                            <option value="Yerli">Yerli Firmalar (Karadağ)</option>
+                            <option value="Yabanci">Yabancı Firmalar</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <div id="cariTabloGövdesi" class="mt-3"></div>
