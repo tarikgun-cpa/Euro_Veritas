@@ -152,6 +152,7 @@
   let islemListesi = [];
   let aiGecmisListesi = [];
   
+  let proformaListesi = [];
   let cariDinleyici = null; 
   let faturaDinleyici = null; 
 
@@ -185,6 +186,14 @@
               faturaListesi.sort((a,b) => new Date(b.tarih) - new Date(a.tarih));
               if (document.getElementById('satisTabloGövdesi')) { window.faturalariCiz(); }
               if (typeof window.dashboardCiz === 'function') { window.dashboardCiz(); }
+          });
+
+          // PROFORMALARI DİNLE
+          onSnapshot(collection(db, "proformalar"), (snapshot) => {
+              proformaListesi = [];
+              snapshot.forEach((docSnap) => { proformaListesi.push({ id: docSnap.id, ...docSnap.data() }); });
+              proformaListesi.sort((a,b) => new Date(b.tarih) - new Date(a.tarih));
+              if (document.getElementById('proformaTabloGövdesi')) { window.faturalariCiz(); }
           });
 
           // BANKALARI DİNLE (NaN Oto-Düzeltme Eklendi)
@@ -633,7 +642,17 @@
         if(h.tutar > 0) { borcStr = `${h.tutar.toFixed(2)} ${birim}`; toplamBorc += h.tutar; } 
         else if(h.tutar < 0) { alacakStr = `${Math.abs(h.tutar).toFixed(2)} ${birim}`; toplamAlacak += Math.abs(h.tutar); } 
 
-        let silButon = h.tipKodu === 'islem' ? `<button class="btn btn-sm btn-outline-danger py-0" onclick="islemSil('${h.id}', '${cariId}', '${h.bankaId}', '${h.orijinalTur}', ${h.mutlakTutar})" title="Banka işlemini sil"><i class="fas fa-trash"></i></button>` : `<span class="badge bg-light text-muted fw-normal">Fatura sekmesinden silin</span>`;
+        let silButon = '';
+        if(h.tipKodu === 'islem') {
+            silButon = `
+                <button class="btn btn-sm btn-outline-secondary py-0 me-1" onclick="makbuzYazdir('${h.id}', '${cariId}', '${h.bankaId}', '${h.orijinalTur}', ${h.mutlakTutar}, '${h.tarih}', '${encodeURIComponent(h.aciklama)}', 'ENG')" title="İngilizce Makbuz"><i class="fas fa-file-invoice-dollar"></i> EN</button>
+                <button class="btn btn-sm btn-outline-secondary py-0 me-1" onclick="makbuzYazdir('${h.id}', '${cariId}', '${h.bankaId}', '${h.orijinalTur}', ${h.mutlakTutar}, '${h.tarih}', '${encodeURIComponent(h.aciklama)}', 'MNE')" title="Karadağca Makbuz"><i class="fas fa-file-invoice-dollar"></i> MNE</button>
+                <button class="btn btn-sm btn-outline-danger py-0" onclick="islemSil('${h.id}', '${cariId}', '${h.bankaId}', '${h.orijinalTur}', ${h.mutlakTutar})" title="İşlemi sil"><i class="fas fa-trash"></i></button>
+            `;
+        } else {
+            silButon = `<span class="badge bg-light text-muted fw-normal">Faturadan silin</span>`;
+        }
+
         let bakiyeRenk = yuruyenBakiye >= 0 ? 'text-success' : 'text-danger';
         
         html += `<tr><td class="small">${h.tarih}</td><td class="small text-muted">${h.tip}</td><td class="small">${h.aciklama}</td><td class="text-end fw-medium text-dark">${borcStr}</td><td class="text-end fw-medium text-dark">${alacakStr}</td><td class="text-end fw-bold ${bakiyeRenk}">${Math.abs(yuruyenBakiye).toFixed(2)} ${birim}</td><td class="d-print-none text-center">${silButon}</td></tr>`;
@@ -644,6 +663,57 @@
     html += `</tbody></table></div></div>`;
     html += `<div class="mt-3"><button class="btn btn-secondary shadow-sm" onclick="window.print()"><i class="fas fa-print"></i> Yazdır</button> <button class="btn btn-outline-danger ms-2" onclick="sayfaYukle('cariler')">Kapat</button></div>`;
     document.getElementById('main-content').innerHTML = html;
+  };
+
+  window.makbuzYazdir = function(islemId, cariId, bankaId, tur, tutar, tarih, aciklamaEncoded, dil) {
+      const cari = cariListesi.find(c => c.id === cariId) || {unvan: 'Bilinmeyen Cari'};
+      const banka = bankaListesi.find(b => b.id === bankaId) || {paraBirimi: 'EUR'};
+      const aciklama = decodeURIComponent(aciklamaEncoded);
+      const v = kunyeVerisi;
+      const birim = banka.paraBirimi === 'USD' ? '$' : '€';
+      
+      let t_baslik = dil === 'MNE' ? 'GOTOVINSKA PRIZNANICA' : 'CASH RECEIPT';
+      let t_tarih = dil === 'MNE' ? 'Datum:' : 'Date:';
+      let t_no = dil === 'MNE' ? 'Broj Priznanice:' : 'Receipt No:';
+      let t_kime = tur === 'Tahsilat' ? (dil === 'MNE' ? 'Uplaćeno od (Kupac):' : 'Received From (Customer):') : (dil === 'MNE' ? 'Isplaćeno za (Dobavljač):' : 'Paid To (Supplier):');
+      let t_tutar = dil === 'MNE' ? 'Iznos:' : 'Amount:';
+      let t_aciklama = dil === 'MNE' ? 'Svrha plaćanja:' : 'Description:';
+      let t_imza = dil === 'MNE' ? 'Potpis ovlašćenog lica:' : 'Authorized Signature:';
+
+      let html = `
+      <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 148mm; max-width: 210mm; margin: auto;">
+          <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 90px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6 text-end text-muted small" style="font-size: 12px;">
+                  <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
+                  ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
+              </div>
+          </div>
+          <h3 class="text-center fw-bold mb-4" style="color: #2c3e50; letter-spacing: 2px;">${t_baslik}</h3>
+          
+          <div class="p-4 bg-light rounded" style="border: 1px solid #cbd5e1;">
+              <div class="row mb-3">
+                  <div class="col-6"><span class="text-muted small text-uppercase">${t_no}</span><br><strong class="fs-6">${islemId.substring(0,8).toUpperCase()}</strong></div>
+                  <div class="col-6 text-end"><span class="text-muted small text-uppercase">${t_tarih}</span><br><strong class="fs-6">${tarih}</strong></div>
+              </div>
+              <div class="mb-3">
+                  <span class="text-muted small text-uppercase">${t_kime}</span><br><strong class="fs-5 text-dark">${cari.unvan}</strong>
+              </div>
+              <div class="mb-3">
+                  <span class="text-muted small text-uppercase">${t_aciklama}</span><br><strong class="fs-6 text-dark">${aciklama || '-'}</strong>
+              </div>
+              <div class="mt-4 pt-3 border-top border-secondary d-flex justify-content-between align-items-center">
+                  <div><span class="text-muted small text-uppercase">${t_tutar}</span><br><strong class="fs-3 ${tur==='Tahsilat'?'text-success':'text-danger'}">${tutar.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</strong></div>
+                  <div class="text-center pt-4" style="width: 200px; border-bottom: 1px solid #333;"><span class="text-muted small">${t_imza}</span></div>
+              </div>
+          </div>
+      </div>
+      <div class="mt-4 d-print-none text-center">
+          <button class="btn btn-secondary shadow-sm px-4 me-2" onclick="window.print()"><i class="fas fa-print"></i> Yazdır / PDF Olarak Kaydet</button>
+          <button class="btn btn-outline-danger px-4" onclick="cariEkstreAc('${cariId}')">Geri Dön</button>
+      </div>
+      `;
+      document.getElementById('main-content').innerHTML = html;
   };
   window.cariDuzenleAc = function(id) {
       const c = cariListesi.find(x => x.id === id);
@@ -681,6 +751,7 @@
       const iTbody = document.getElementById('ihracatTabloGövdesi');
       const yTbody = document.getElementById('yerelSatisTabloGövdesi');
       const aTbody = document.getElementById('alimTabloGövdesi');
+      const pTbody = document.getElementById('proformaTabloGövdesi');
       if (!iTbody || !yTbody || !aTbody) return; 
       iTbody.innerHTML = ""; yTbody.innerHTML = ""; aTbody.innerHTML = "";
       
@@ -703,81 +774,130 @@
       if(iTbody.innerHTML === '') iTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kayıtlı hizmet ihracatı faturası yok.</td></tr>';
       if(yTbody.innerHTML === '') yTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kayıtlı yerel satış faturası yok.</td></tr>';
       if(aTbody.innerHTML === '') aTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Kayıtlı alım faturası yok.</td></tr>';
+
+      if (pTbody) {
+          pTbody.innerHTML = "";
+          proformaListesi.forEach(p => {
+              let sembol = p.paraBirimi === 'USD' ? '$' : '€';
+              let islemButonlari = `<button class="btn btn-sm btn-outline-info py-0 me-1" title="Yazdır" onclick="proformaYazdir('${p.id}')"><i class="fas fa-print"></i></button><button class="btn btn-sm btn-outline-primary py-0 me-1" title="Düzenle" onclick="proformaAc('${p.id}')"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-outline-danger py-0" title="Sil" onclick="proformaSil('${p.id}')"><i class="fas fa-trash"></i></button>`;
+              
+              let html = `<tr><td>${p.tarih}</td><td><span class="text-truncate d-inline-block" style="max-width: 150px;">${p.cariUnvan}</span></td>
+                      <td><span class="small text-muted">${p.aciklama}</span> <span class="badge bg-light text-dark border ms-1" style="font-size:10px;">${p.dil || 'ENG'}</span></td>
+                      <td class="fw-bold text-dark text-end">${p.tutar.toFixed(2)} ${sembol}</td><td>${islemButonlari}</td></tr>`;
+              pTbody.innerHTML += html;
+          });
+          if(pTbody.innerHTML === '') pTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Kayıtlı proforma bulunmuyor.</td></tr>';
+      }
   };
 
-  window.proformaUretAc = function() {
+  window.proformaAc = function(id) {
       const cariSelect = document.getElementById('p_cariId');
       if(!cariSelect) return;
       cariSelect.innerHTML = '<option value="">-- Müşteri Seçiniz --</option>';
       cariListesi.forEach(c => { if(c.grup === 'Alici') cariSelect.innerHTML += `<option value="${c.id}">${c.unvan}</option>`; });
-      document.getElementById('proformaForm').reset();
-      document.getElementById('p_tarih').value = new Date().toISOString().split('T')[0];
+      
+      if(id) {
+          const p = proformaListesi.find(x => x.id === id);
+          document.getElementById('p_id').value = p.id;
+          document.getElementById('p_cariId').value = p.cariId;
+          document.getElementById('p_tarih').value = p.tarih;
+          document.getElementById('p_tutar').value = p.tutar;
+          document.getElementById('p_paraBirimi').value = p.paraBirimi;
+          document.getElementById('p_aciklama').value = p.aciklama;
+          document.getElementById('p_dil').value = p.dil || 'ENG';
+      } else {
+          document.getElementById('proformaForm').reset();
+          document.getElementById('p_id').value = '';
+          document.getElementById('p_tarih').value = new Date().toISOString().split('T')[0];
+      }
       new bootstrap.Modal(document.getElementById('proformaModal')).show();
   };
 
-  window.proformaOlustur = function() {
+  window.proformaKaydet = async function() {
+      const id = document.getElementById('p_id').value;
       const cariId = document.getElementById('p_cariId').value;
       const tarih = document.getElementById('p_tarih').value;
-      const aciklama = document.getElementById('p_aciklama').value;
       const tutar = parseFloat(document.getElementById('p_tutar').value) || 0;
-      const birim = document.getElementById('p_paraBirimi').value === 'USD' ? '$' : '€';
+      const paraBirimi = document.getElementById('p_paraBirimi').value;
+      const aciklama = document.getElementById('p_aciklama').value;
+      const dil = document.getElementById('p_dil').value;
 
       if(!cariId || !aciklama || tutar <= 0) { alert("Lütfen müşteri, açıklama ve tutar giriniz."); return; }
-
       const cari = cariListesi.find(c => c.id === cariId);
-      const v = kunyeVerisi;
 
-      bootstrap.Modal.getInstance(document.getElementById('proformaModal')).hide();
+      let data = { cariId, cariUnvan: cari.unvan, tarih, tutar, paraBirimi, aciklama, dil, islemTarihi: serverTimestamp() };
+
+      try {
+          if(id) { await updateDoc(doc(db, "proformalar", id), data); }
+          else { await addDoc(collection(db, "proformalar"), data); }
+          bootstrap.Modal.getInstance(document.getElementById('proformaModal')).hide();
+      } catch(e) { alert("Hata: " + e.message); }
+  };
+
+  window.proformaSil = async function(id) {
+      if(!confirm("Bu proformayı kalıcı olarak silmek istediğinize emin misiniz?")) return;
+      try { await deleteDoc(doc(db, "proformalar", id)); } catch(e) { alert("Hata: " + e.message); }
+  };
+
+  window.proformaYazdir = function(id) {
+      const p = proformaListesi.find(x => x.id === id);
+      const cari = cariListesi.find(c => c.id === p.cariId);
+      const v = kunyeVerisi;
+      const birim = p.paraBirimi === 'USD' ? '$' : '€';
+      
+      let dil = p.dil || 'ENG';
+      let t_baslik = dil === 'MNE' ? 'PREDRAČUN (PROFORMA)' : 'PROFORMA INVOICE';
+      let t_kime = dil === 'MNE' ? 'Kupac:' : 'Billed To:';
+      let t_tarih = dil === 'MNE' ? 'Datum:' : 'Date:';
+      let t_vade = dil === 'MNE' ? 'Rok važenja:' : 'Validity:';
+      let t_vadeGun = dil === 'MNE' ? '30 Dana' : '30 Days';
+      let t_desc = dil === 'MNE' ? 'OPIS USLUGA' : 'DESCRIPTION';
+      let t_amt = dil === 'MNE' ? 'IZNOS' : 'AMOUNT';
+      let t_pay = dil === 'MNE' ? 'Podaci za plaćanje' : 'Payment Details';
+      let t_bank = dil === 'MNE' ? 'Ime banke:' : 'Bank Name:';
+      let t_pdv1 = dil === 'MNE' ? 'PDV nije obračunat u skladu sa članom 42 Zakona o PDV-u.' : 'VAT is not calculated in accordance with Article 42 of the VAT Law.';
 
       let html = `
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
           <div class="row mb-5 border-bottom border-2 pb-4 border-dark">
-              <div class="col-6">
-                  <img src="Euro Veritas Consulting.jpg" style="max-height: 140px; object-fit: contain;" class="mb-2 d-print-block">
-              </div>
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 140px; object-fit: contain;" class="mb-2 d-print-block"></div>
               <div class="col-6 text-end text-muted small" style="font-size: 12px;">
-                  <h5 class="text-dark fw-bold mb-1" style="color: #2c3e50 !important;">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
-                  ${v.adres || 'Adres Girilmemiş'}<br>
-                  PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>
-                  ${v.email1 || ''} | ${v.web || ''}
+                  <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
+                  ${v.adres || 'Adres Girilmemiş'}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''} | ${v.web || ''}
               </div>
           </div>
           
-          <h3 class="text-center fw-bold mb-5" style="color: #2c3e50; letter-spacing: 2px;">PROFORMA INVOICE</h3>
+          <h3 class="text-center fw-bold mb-5" style="color: #2c3e50; letter-spacing: 2px;">${t_baslik}</h3>
           
           <div class="row mb-5">
               <div class="col-6">
-                  <h6 class="text-muted mb-1 text-uppercase" style="font-size: 11px;">Billed To / Müşteri:</h6>
-                  <strong class="fs-6 text-dark">${cari.unvan}</strong><br>
-                  <span class="text-muted small">${cari.ulke || ''} | Tax/PIB: ${cari.vergiNo || '-'}</span>
+                  <h6 class="text-muted mb-1 text-uppercase" style="font-size: 11px;">${t_kime}</h6>
+                  <strong class="fs-6 text-dark">${cari.unvan}</strong><br><span class="text-muted small">${cari.ulke || ''} | Tax/PIB: ${cari.vergiNo || '-'}</span>
               </div>
               <div class="col-6 text-end">
-                  <h6 class="text-muted mb-1 text-uppercase" style="font-size: 11px;">Date / Tarih:</h6>
-                  <strong class="text-dark">${tarih.split('-').reverse().join('.')}</strong><br>
-                  <h6 class="text-muted mt-3 mb-1 text-uppercase" style="font-size: 11px;">Validity / Geçerlilik:</h6>
-                  <strong class="text-dark">30 Days / Gün</strong>
+                  <h6 class="text-muted mb-1 text-uppercase" style="font-size: 11px;">${t_tarih}</h6>
+                  <strong class="text-dark">${p.tarih.split('-').reverse().join('.')}</strong><br>
+                  <h6 class="text-muted mt-3 mb-1 text-uppercase" style="font-size: 11px;">${t_vade}</h6>
+                  <strong class="text-dark">${t_vadeGun}</strong>
               </div>
           </div>
           
           <table class="table table-bordered border-dark mb-5">
               <thead class="text-center" style="background-color: #f1f5f9 !important;">
-                  <tr>
-                      <th class="py-3 text-dark fw-bold" style="width: 75%;">DESCRIPTION / HİZMET AÇIKLAMASI</th>
-                      <th class="py-3 text-dark fw-bold" style="width: 25%;">AMOUNT / TUTAR</th>
-                  </tr>
+                  <tr><th class="py-3 text-dark fw-bold" style="width: 75%;">${t_desc}</th><th class="py-3 text-dark fw-bold" style="width: 25%;">${t_amt}</th></tr>
               </thead>
               <tbody>
                   <tr>
-                      <td class="p-4 align-top text-dark fw-medium" style="min-height: 150px; white-space: pre-wrap;">${aciklama}</td>
-                      <td class="p-4 text-end fw-bold align-top fs-5 text-dark">${tutar.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</td>
+                      <td class="p-4 align-top text-dark fw-medium" style="min-height: 150px; white-space: pre-wrap;">${p.aciklama}</td>
+                      <td class="p-4 text-end fw-bold align-top fs-5 text-dark">${p.tutar.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</td>
                   </tr>
               </tbody>
           </table>
           
           <div class="mt-5 pt-4 border-top border-2 border-light">
-              <h6 class="fw-bold mb-3 text-dark">Payment Details / Banka Bilgileri</h6>
+              <h6 class="fw-bold mb-3 text-dark">${t_pay}</h6>
               <div class="row text-muted" style="font-size: 12px;">
-                  <div class="col-md-6 mb-2"><strong class="text-dark">Bank Name:</strong> ${v.banka || '-'}</div>
+                  <div class="col-md-6 mb-2"><strong class="text-dark">${t_bank}</strong> ${v.banka || '-'}</div>
                   <div class="col-md-6 mb-2"><strong class="text-dark">SWIFT / BIC:</strong> ${v.swift || '-'}</div>
                   <div class="col-md-6 mb-2"><strong class="text-dark">EUR IBAN:</strong> ${v.iban || '-'}</div>
                   <div class="col-md-6 mb-2"><strong class="text-dark">USD IBAN:</strong> ${v.usdIban || '-'}</div>
@@ -785,16 +905,14 @@
           </div>
           
           <div class="mt-5 p-3 bg-light rounded text-center" style="border: 1px dashed #cbd5e1;">
-              <strong class="text-dark d-block mb-1" style="font-size: 11px;">PDV nije obračunat u skladu sa članom 42 Zakona o PDV-u.</strong>
-              <span class="text-muted" style="font-size: 10px;">VAT is not calculated in accordance with Article 42 of the VAT Law.</span>
+              <strong class="text-dark d-block mb-1" style="font-size: 11px;">${t_pdv1}</strong>
           </div>
       </div>
       <div class="mt-4 d-print-none text-center">
-          <button class="btn btn-secondary shadow-sm px-4 me-2" onclick="window.print()"><i class="fas fa-print"></i> Yazdır / PDF Olarak Kaydet</button>
+          <button class="btn btn-secondary shadow-sm px-4 me-2" onclick="window.print()"><i class="fas fa-print"></i> Yazdır / PDF</button>
           <button class="btn btn-outline-danger px-4" onclick="sayfaYukle('faturalar')">İptal / Geri Dön</button>
       </div>
       `;
-      
       document.getElementById('main-content').innerHTML = html;
   };
 
@@ -1719,7 +1837,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Faturalar</h2>
                     <div>
-                        <button class="btn btn-outline-primary shadow-sm me-2" onclick="proformaUretAc()"><i class="fas fa-file-pdf"></i> Proforma Üret</button>
+                        <button class="btn btn-outline-info shadow-sm me-2" onclick="proformaAc()"><i class="fas fa-file-alt"></i> Yeni Proforma (Taslak)</button>
                         <button class="btn btn-primary shadow-sm" onclick="faturaModalAc()"><i class="fas fa-plus"></i> Yeni Fatura İşle</button>
                     </div>
                 </div>
@@ -1734,41 +1852,27 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     <li class="nav-item" role="presentation">
                         <button class="nav-link text-danger fw-bold fatura-tab-btn" data-tur="Alim" data-bs-toggle="tab" data-bs-target="#alim" type="button">Alım (Gider)</button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link text-info fw-bold fatura-tab-btn" data-tur="Proforma" data-bs-toggle="tab" data-bs-target="#proformalar" type="button">Proformalar</button>
+                    </li>
                 </ul>
 
                 <div class="tab-content bg-white p-3 rounded shadow-sm border-top-0">
                     <div class="tab-pane fade show active" id="satis">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle table-sm">
-                                <thead class="table-light text-muted small">
-                                    <tr><th>Fatura No</th><th>Tarih</th><th>Müşteri Ünvanı</th><th>Açıklama</th><th>Matrah</th><th>KDV</th><th class="text-end">Toplam</th><th>İşlemler</th></tr>
-                                </thead>
-                                <tbody id="ihracatTabloGövdesi"></tbody>
-                            </table>
-                        </div>
+                        <div class="table-responsive"><table class="table table-hover align-middle table-sm"><thead class="table-light text-muted small"><tr><th>Fatura No</th><th>Tarih</th><th>Müşteri Ünvanı</th><th>Açıklama</th><th>Matrah</th><th>KDV</th><th class="text-end">Toplam</th><th>İşlemler</th></tr></thead><tbody id="ihracatTabloGövdesi"></tbody></table></div>
                     </div>
                     <div class="tab-pane fade" id="yerelsatis">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle table-sm">
-                                <thead class="table-light text-muted small">
-                                    <tr><th>Fatura No</th><th>Tarih</th><th>Müşteri Ünvanı</th><th>Açıklama</th><th>Matrah</th><th>KDV</th><th class="text-end">Toplam</th><th>İşlemler</th></tr>
-                                </thead>
-                                <tbody id="yerelSatisTabloGövdesi"></tbody>
-                            </table>
-                        </div>
+                        <div class="table-responsive"><table class="table table-hover align-middle table-sm"><thead class="table-light text-muted small"><tr><th>Fatura No</th><th>Tarih</th><th>Müşteri Ünvanı</th><th>Açıklama</th><th>Matrah</th><th>KDV</th><th class="text-end">Toplam</th><th>İşlemler</th></tr></thead><tbody id="yerelSatisTabloGövdesi"></tbody></table></div>
                     </div>
                     <div class="tab-pane fade" id="alim">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle table-sm">
-                                <thead class="table-light text-muted small">
-                                    <tr><th>Fatura No</th><th>Tarih</th><th>Tedarikçi Ünvanı</th><th>Açıklama</th><th>Matrah</th><th>KDV</th><th class="text-end">Toplam</th><th>İşlemler</th></tr>
-                                </thead>
-                                <tbody id="alimTabloGövdesi"></tbody>
-                            </table>
-                        </div>
+                        <div class="table-responsive"><table class="table table-hover align-middle table-sm"><thead class="table-light text-muted small"><tr><th>Fatura No</th><th>Tarih</th><th>Tedarikçi Ünvanı</th><th>Açıklama</th><th>Matrah</th><th>KDV</th><th class="text-end">Toplam</th><th>İşlemler</th></tr></thead><tbody id="alimTabloGövdesi"></tbody></table></div>
+                    </div>
+                    <div class="tab-pane fade" id="proformalar">
+                        <div class="table-responsive"><table class="table table-hover align-middle table-sm"><thead class="table-light text-muted small"><tr><th>Tarih</th><th>Müşteri Ünvanı</th><th>Açıklama / Dil</th><th class="text-end">Tutar</th><th>İşlemler</th></tr></thead><tbody id="proformaTabloGövdesi"></tbody></table></div>
                     </div>
                 </div>
 
+                <!-- FATURA MODALI -->
                 <div class="modal fade" id="yeniFaturaModal" tabindex="-1">
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content">
@@ -1814,23 +1918,25 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                 <div class="modal fade" id="proformaModal" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
-                            <div class="modal-header bg-primary text-white">
-                                <h5 class="modal-title"><i class="fas fa-file-pdf me-2"></i>Proforma / Taslak Oluştur</h5>
+                            <div class="modal-header bg-info text-white">
+                                <h5 class="modal-title"><i class="fas fa-file-pdf me-2"></i>Proforma / Taslak Kaydı</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
                                 <form id="proformaForm">
+                                    <input type="hidden" id="p_id">
                                     <div class="mb-3"><label class="form-label text-muted small mb-1">Müşteri (Alıcı) *</label><select class="form-select" id="p_cariId" required></select></div>
                                     <div class="mb-3"><label class="form-label text-muted small mb-1">Proforma Tarihi *</label><input type="date" class="form-control" id="p_tarih" required></div>
                                     <div class="row mb-3">
                                         <div class="col-md-6"><label class="form-label text-muted small mb-1">Tutar *</label><input type="number" class="form-control" id="p_tutar" step="0.01" required></div>
                                         <div class="col-md-6"><label class="form-label text-muted small mb-1">Para Birimi *</label><select class="form-select" id="p_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select></div>
                                     </div>
-                                    <div class="mb-3"><label class="form-label text-muted small mb-1">Hizmet / Danışmanlık Açıklaması *</label><textarea class="form-control" id="p_aciklama" rows="3" placeholder="Consultancy services for..."></textarea></div>
-                                    <div class="alert alert-warning small py-2 mb-0"><i class="fas fa-info-circle"></i> Proforma taslakları cari bakiyeyi etkilemez, sadece yazdırılabilir PDF üretir.</div>
+                                    <div class="mb-3"><label class="form-label text-muted small mb-1">Hizmet / Danışmanlık Açıklaması *</label><textarea class="form-control" id="p_aciklama" rows="2" placeholder="Consultancy services for..."></textarea></div>
+                                    <div class="mb-3"><label class="form-label text-muted small mb-1">Yazdırma Dili *</label><select class="form-select" id="p_dil"><option value="ENG">İngilizce (English)</option><option value="MNE">Karadağca (Crnogorski)</option></select></div>
+                                    <div class="alert alert-warning small py-2 mb-0"><i class="fas fa-info-circle"></i> Proformalar sistem bakiyesini etkilemez. Kaydettikten sonra listeden düzenleyebilir veya yazdırabilirsiniz.</div>
                                 </form>
                             </div>
-                            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button><button type="button" class="btn btn-primary" onclick="proformaOlustur()">Taslağı Gör ve Yazdır</button></div>
+                            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button><button type="button" class="btn btn-info text-white" onclick="proformaKaydet()">Taslağı Kaydet</button></div>
                         </div>
                     </div>
                 </div>
