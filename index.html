@@ -883,6 +883,8 @@
       document.getElementById('c_unvan').value = c.unvan; document.getElementById('c_paraBirimi').value = c.paraBirimi || 'EUR';
       document.getElementById('c_grup').value = c.grup; document.getElementById('c_bolge').value = c.bolge;
       document.getElementById('c_ulke').value = c.ulke; document.getElementById('c_vergiNo').value = c.vergiNo;
+      if(document.getElementById('c_bankaAdi')) document.getElementById('c_bankaAdi').value = c.bankaAdi || '';
+      if(document.getElementById('c_sube')) document.getElementById('c_sube').value = c.sube || '';
       document.getElementById('c_iban').value = c.iban; document.getElementById('c_bic').value = c.bic;
       document.getElementById('c_email').value = c.email;
       
@@ -925,7 +927,10 @@
       const data = {
           unvan: unvan, paraBirimi: document.getElementById('c_paraBirimi').value, grup: document.getElementById('c_grup').value,
           bolge: document.getElementById('c_bolge').value, ulke: document.getElementById('c_ulke').value, 
-          vergiNo: document.getElementById('c_vergiNo').value, iban: document.getElementById('c_iban').value, 
+          vergiNo: document.getElementById('c_vergiNo').value, 
+          bankaAdi: document.getElementById('c_bankaAdi')?.value || '',
+          sube: document.getElementById('c_sube')?.value || '',
+          iban: document.getElementById('c_iban').value, 
           bic: document.getElementById('c_bic').value, email: document.getElementById('c_email').value,
           
           // İK Verileri
@@ -1834,24 +1839,26 @@
       bankaListesi.forEach((banka, index) => {
           let bakiye = banka.bakiye || 0;
           let isKasa = banka.tur === 'Kasa';
+          let isDebit = banka.tur === 'Debit Kart';
           
           let hesapNoGosterimi = '-';
           if (!isKasa) {
               let nolar = [];
               if (banka.iban) nolar.push(`<span class="text-muted small">IBAN:</span> ${banka.iban}`);
-              if (banka.yerelHesap) nolar.push(`<span class="text-muted small">Yerel:</span> ${banka.yerelHesap}`);
+              if (banka.yerelHesap) nolar.push(`<span class="text-muted small">Yerel/Kart No:</span> ${banka.yerelHesap}`);
               hesapNoGosterimi = nolar.length > 0 ? nolar.join('<br>') : '-';
           }
           
-          let leftBorderColor = isKasa ? '#f39c12' : '#2c3e50';
-          let iconColor = isKasa ? '#f39c12' : '#2c3e50';
+          let leftBorderColor = isKasa ? '#f39c12' : (isDebit ? '#3498db' : '#2c3e50');
+          let iconColor = isKasa ? '#f39c12' : (isDebit ? '#3498db' : '#2c3e50');
+          let iconClass = isKasa ? 'fa-box' : (isDebit ? 'fa-credit-card' : 'fa-university');
 
           let html = `
               <tr class="cursor-pointer bg-white shadow-sm rounded mb-2" onclick="if(event.target.tagName !== 'BUTTON' && event.target.tagName !== 'I') bankaEkstreAc('${banka.id}')">
                   <td class="ps-3 py-3" style="border-left: 4px solid ${leftBorderColor};">
                       <div class="d-flex align-items-center">
-                          <div class="me-3 fs-3" style="color: ${iconColor};"><i class="fas ${isKasa ? 'fa-box' : 'fa-university'}"></i></div>
-                          <div><span class="fw-bold" style="color: #2c3e50;">${banka.hesapAdi}</span><br><small class="text-muted">${banka.bankaAdi || (isKasa ? 'Nakit Kasa' : '')}</small></div>
+                          <div class="me-3 fs-3" style="color: ${iconColor};"><i class="fas ${iconClass}"></i></div>
+                          <div><span class="fw-bold" style="color: #2c3e50;">${banka.hesapAdi}</span><br><small class="text-muted">${banka.bankaAdi || (isKasa ? 'Nakit Kasa' : (isDebit ? 'Debit Kart' : ''))}</small></div>
                       </div>
                   </td>
                   <td class="py-3">${hesapNoGosterimi}</td>
@@ -1868,7 +1875,7 @@
           if(isKasa) kTbody.innerHTML += html;
           else bTbody.innerHTML += html;
       });
-      if(bTbody.innerHTML === '') bTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Banka hesabı eklenmemiş.</td></tr>';
+      if(bTbody.innerHTML === '') bTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Banka veya Debit Kart hesabı eklenmemiş.</td></tr>';
       if(kTbody.innerHTML === '') kTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Kasa hesabı eklenmemiş.</td></tr>';
   };
 
@@ -2772,6 +2779,10 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
                                     <h6 class="mt-4 border-bottom pb-2">Banka ve İletişim</h6>
                                     <div class="row mb-3">
+                                        <div class="col-md-6"><label class="form-label">Banka Adı</label><input type="text" class="form-control" id="c_bankaAdi" placeholder="Örn: CKB Banka / Hipotekarna"></div>
+                                        <div class="col-md-6"><label class="form-label">Şube Bilgisi</label><input type="text" class="form-control" id="c_sube" placeholder="Örn: Podgorica Merkez Şube"></div>
+                                    </div>
+                                    <div class="row mb-3">
                                         <div class="col-md-6"><label class="form-label">IBAN</label><input type="text" class="form-control" id="c_iban"></div>
                                         <div class="col-md-6"><label class="form-label">BIC / SWIFT</label><input type="text" class="form-control" id="c_bic"></div>
                                     </div>
@@ -3170,7 +3181,11 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                     <div class="row mb-3">
                                         <div class="col-md-6">
                                             <label class="form-label">Hesap Türü *</label>
-                                            <select class="form-select" id="b_tur"><option value="Banka">Banka Hesabı</option><option value="Kasa">Nakit Kasa</option></select>
+                                            <select class="form-select" id="b_tur">
+                                                <option value="Banka">Banka Hesabı</option>
+                                                <option value="Debit Kart">Debit Kart (Banka Kartı)</option>
+                                                <option value="Kasa">Nakit Kasa</option>
+                                            </select>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Para Birimi *</label>
