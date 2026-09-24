@@ -570,7 +570,7 @@
                   let farkGun = Math.ceil((bitisTarihi - bugun) / (1000 * 60 * 60 * 24));
                   
                   if(farkGun <= 0) izinUyarisi = `<div class="mt-2 small text-danger fw-bold"><i class="fas fa-exclamation-triangle"></i> Çalışma İzni Süresi Bitti!</div>`;
-                  else if(farkGun <= 45) izinUyarisi = `<div class="mt-2 small text-danger fw-bold"><i class="fas fa-passport"></i> İzin Bitişine: ${farkGun} Gün Kaldı</div>`;
+                  else if(farkGun <= 45) izinUyarisi = `<div class="mt-2 small text-danger fw-bold"><i class="fas fa-passport"></i> İzin Bitişine: ${farkGun} Gün Kaldı (Yenileme Gerekli)</div>`;
                   else izinUyarisi = `<div class="mt-2 small text-success"><i class="fas fa-check-circle"></i> İzin Geçerlilik: ${farkGun} Gün</div>`;
               }
 
@@ -580,10 +580,10 @@
                       <div class="card-body">
                           <div class="d-flex justify-content-between mb-2">
                               <h6 class="fw-bold text-truncate" style="color: #2c3e50; max-width:70%;" title="${c.unvan}">${c.unvan}</h6>
-                              <span class="badge ${c.grup === 'Ortak' ? 'bg-primary' : 'bg-success'} text-white border" style="font-size:10px;">${c.grup === 'Ortak' ? 'Şirket Ortağı' : 'Çalışan'}</span>
+                              <span class="badge ${c.grup === 'Ortak' ? 'bg-primary' : 'bg-success'} text-white border" style="font-size:10px;">${c.grup === 'Ortak' ? 'Şirket Ortağı' : 'Çalışan / İcra Direktörü'}</span>
                           </div>
                           <small class="text-muted d-block mb-1"><i class="fas fa-id-card me-1"></i> Kimlik / Pasaport: <strong class="text-dark">${c.vergiNo || '-'}</strong></small>
-                          <small class="text-muted d-block mb-3"><i class="fas fa-globe me-1"></i> Uyruk: <strong class="text-dark">${c.uyruk_ik === 'Yabanci' ? 'Yabancı (Oturum İzni)' : 'Karadağlı (Yerli)'}</strong></small>
+                          <small class="text-muted d-block mb-3"><i class="fas fa-globe me-1"></i> Uyruk: <strong class="text-dark">${c.uyruk_ik === 'Yabanci' ? 'Yabancı (Oturum İzni)' : 'Karadağ Vatandaşı'}</strong></small>
                           
                           <div class="bg-light p-2 rounded border border-light">
                               <div class="d-flex justify-content-between small mb-1"><span>Aylık Net Maaş:</span> <strong class="text-dark">${c.netMaas || 0} ${birim}</strong></div>
@@ -598,7 +598,7 @@
                       </div>
                       <div class="card-footer bg-white border-top-0 text-end">
                           <button class="btn btn-sm btn-outline-secondary py-0 me-1" onclick="cariDuzenleAc('${c.id}')"><i class="fas fa-edit"></i> Düzenle</button>
-                          <button class="btn btn-sm btn-outline-success py-0" onclick="cariEkstreAc('${c.id}')"><i class="fas fa-wallet"></i> Maaş Hesabı</button>
+                          <button class="btn btn-sm btn-outline-success py-0" onclick="cariEkstreAc('${c.id}')"><i class="fas fa-wallet"></i> Maaş Ekstresi / Öde</button>
                       </div>
                   </div>
               </div>`;
@@ -2195,7 +2195,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
             `;
             setTimeout(() => { if(typeof window.ikCiz === 'function') window.ikCiz(); }, 50);
         }
-        
+
         else if(sayfa === 'faturalar') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
