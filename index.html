@@ -945,7 +945,7 @@
       } catch (e) { alert("Hata: " + e.message); }
   };
 
-  // ---------------- BORDRO VE MAAŞ GEÇMİŞİ FONKSİYONLARI ----------------
+// ---------------- BORDRO VE MAAŞ GEÇMİŞİ FONKSİYONLARI ----------------
 
   // Seçilen Ay/Döneme Göre O Ay Geçerli Maaşı Bunan Yardımcı Fonksiyon
   window.getGecerliMaas = function(cari, donemStr) {
@@ -975,11 +975,13 @@
       document.getElementById('bo_donem').value = donemDefault;
       document.getElementById('bo_tarih').value = bugun.toISOString().split('T')[0];
 
-      // Bankaları doldur
+      // Bankaları detaylı hesap nolarıyla doldur
       const bSelect = document.getElementById('bo_bankaId');
       bSelect.innerHTML = '<option value="">-- Ödenmedi (Sadece Bordro Kaydet) --</option>';
       bankaListesi.forEach(b => {
-          bSelect.innerHTML += `<option value="${b.id}">${b.hesapAdi} (${b.paraBirimi})</option>`;
+          let nolar = b.yerelHesap || b.iban || '';
+          let detayStr = b.hesapAdi + (nolar ? ` - ${nolar}` : '');
+          bSelect.innerHTML += `<option value="${b.id}">${detayStr} (${b.paraBirimi})</option>`;
       });
 
       window.boDonemDegisti();
@@ -1012,6 +1014,29 @@
       const bruto = netMaas + doprinosi;
       const banka = bankaListesi.find(b => b.id === bankaId);
 
+      let bankaDetayStr = '';
+      let islemId = '';
+
+      // Eğer banka/kasa seçildiyse ödemeyi gerçekleştir ve hareket id'sini al
+      if(bankaId && netMaas > 0) {
+          let nolar = banka.yerelHesap || banka.iban || '';
+          bankaDetayStr = `${banka.hesapAdi}${nolar ? ' (' + nolar + ')' : ''}`;
+
+          const islemRef = await addDoc(collection(db, "hesapHareketleri"), {
+              bankaId: bankaId,
+              cariId: cariId,
+              tur: 'Odeme',
+              tutar: netMaas,
+              aciklama: `Maaş Ödemesi - ${donem} Bordrosu`,
+              tarih: new Date(tarih)
+          });
+
+          islemId = islemRef.id;
+
+          await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(-netMaas) });
+          await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(netMaas) });
+      }
+
       const data = {
           cariId: cariId,
           cariUnvan: c.unvan,
@@ -1022,30 +1047,16 @@
           brutoMaas: bruto,
           bankaId: bankaId || '',
           bankaAdi: banka ? banka.hesapAdi : '',
+          bankaDetay: bankaDetayStr,
+          islemId: islemId,
           durum: bankaId ? 'Ödendi' : 'Bekliyor',
           olusturmaTarihi: serverTimestamp()
       };
 
       try {
-          const docRef = await addDoc(collection(db, "bordrolar"), data);
-
-          // Eğer ödemenin yapılacağı banka seçildiyse kasa çıkışı ve hareket kaydı ekle
-          if(bankaId && netMaas > 0) {
-              await addDoc(collection(db, "hesapHareketleri"), {
-                  bankaId: bankaId,
-                  cariId: cariId,
-                  tur: 'Odeme',
-                  tutar: netMaas,
-                  aciklama: `Maaş Ödemesi - ${donem} Bordrosu`,
-                  tarih: new Date(tarih)
-              });
-
-              await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(-netMaas) });
-              await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(netMaas) });
-          }
-
+          await addDoc(collection(db, "bordrolar"), data);
           bootstrap.Modal.getInstance(document.getElementById('bordroModal')).hide();
-          alert("Bordro başarıyla oluşturuldu ve kaydedildi.");
+          alert("Bordro başarıyla oluşturuldu ve banka/kasa ödemesi kaydedildi.");
       } catch(e) { alert("Hata: " + e.message); }
   };
 
@@ -1060,7 +1071,7 @@
       }
 
       bordroListesi.forEach(b => {
-          let bnkHtml = b.bankaAdi ? `<span class="badge bg-success">Ödendi (${b.bankaAdi})</span>` : `<span class="badge bg-warning text-dark">Ödenmedi / Bekliyor</span>`;
+          let bnkHtml = b.bankaDetay ? `<span class="badge bg-success">Ödendi (${b.bankaDetay})</span>` : (b.bankaAdi ? `<span class="badge bg-success">Ödendi (${b.bankaAdi})</span>` : `<span class="badge bg-warning text-dark">Ödenmedi / Bekliyor</span>`);
           tbody.innerHTML += `
               <tr>
                   <td><strong>${b.donem}</strong></td>
@@ -1084,6 +1095,8 @@
       const c = cariListesi.find(x => x.id === b.cariId) || { vergiNo: '-', iseGirisTarihi: '-', uyruk_ik: 'Yerli' };
       const v = kunyeVerisi;
 
+      let odemeKanalStr = b.bankaDetay || b.bankaAdi || 'Nije isplaćeno / Ödenmedi';
+
       let html = `
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
           <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
@@ -1105,6 +1118,10 @@
                   <div class="col-6 mb-2 text-end"><span class="text-muted small text-uppercase">Datum Obračuna / Tarih:</span><br><strong class="fs-6 text-dark">${b.tarih}</strong></div>
                   <div class="col-6"><span class="text-muted small text-uppercase">PIB / Pasport / JMBG:</span><br><strong>${c.vergiNo || '-'}</strong></div>
                   <div class="col-6 text-end"><span class="text-muted small text-uppercase">Datum Zaposlenja / Giriş Tarihi:</span><br><strong>${c.iseGirisTarihi || '-'}</strong></div>
+                  <div class="col-12 mt-2 pt-2 border-top">
+                      <span class="text-muted small text-uppercase">Način isplate / Ödeme Hesabı ve Kanalı:</span><br>
+                      <strong class="text-dark"><i class="fas fa-university me-1 text-primary"></i> ${odemeKanalStr}</strong>
+                  </div>
               </div>
           </div>
 
@@ -1138,10 +1155,23 @@
   };
 
   window.bordroSil = async function(bordroId) {
-      if(!confirm("Bu bordroyu silmek istediğinize emin misiniz?")) return;
+      if(!confirm("Bu bordroyu silmek istediğinize emin misiniz? Yapılan banka/kasa ödemesi hesaba otomatik olarak geri iade edilecektir.")) return;
       try {
+          const b = bordroListesi.find(x => x.id === bordroId);
+          if(b) {
+              // 1. Banka/Kasa Hesap Hareketini Sil
+              if(b.islemId) {
+                  await deleteDoc(doc(db, "hesapHareketleri", b.islemId));
+              }
+              // 2. Banka ve Cari Bakiyelerini İade Et
+              if(b.bankaId && b.netMaas > 0 && b.durum === 'Ödendi') {
+                  await updateDoc(doc(db, "bankalar", b.bankaId), { bakiye: increment(b.netMaas) });
+                  await updateDoc(doc(db, "cariler", b.cariId), { bakiye: increment(-b.netMaas) });
+              }
+          }
+          // 3. Bordro Belgesini Sil
           await deleteDoc(doc(db, "bordrolar", bordroId));
-          alert("Bordro kaydı silindi.");
+          alert("Bordro kaydı ve ilgili banka ödeme hareketi silinerek bakiyeler iade edildi.");
       } catch(e) { alert("Hata: " + e.message); }
   };
 
@@ -1159,7 +1189,9 @@
       const bSelect = document.getElementById('kp_bankaId');
       bSelect.innerHTML = '<option value="">-- Banka / Kasa Hesabı Seçin * --</option>';
       bankaListesi.forEach(b => {
-          bSelect.innerHTML += `<option value="${b.id}">${b.hesapAdi} (${b.paraBirimi})</option>`;
+          let nolar = b.yerelHesap || b.iban || '';
+          let detayStr = b.hesapAdi + (nolar ? ` - ${nolar}` : '');
+          bSelect.innerHTML += `<option value="${b.id}">${detayStr} (${b.paraBirimi})</option>`;
       });
 
       window.kpHesapla();
@@ -1189,6 +1221,25 @@
       const stopajTutar = brutTutar * 0.15;
       const netTutar = brutTutar - stopajTutar;
 
+      let bankaDetayStr = '';
+      if(banka) {
+          let nolar = banka.yerelHesap || banka.iban || '';
+          bankaDetayStr = `${banka.hesapAdi}${nolar ? ' (' + nolar + ')' : ''}`;
+      }
+
+      // Bankadan Ödeme Çıkışı yap ve Hesap Hareketlerine İşle
+      const islemRef = await addDoc(collection(db, "hesapHareketleri"), {
+          bankaId: bankaId,
+          cariId: cariId,
+          tur: 'Odeme',
+          tutar: netTutar,
+          aciklama: `Kâr Payı (Dividenda) Ödemesi - Net`,
+          tarih: new Date(tarih)
+      });
+
+      await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(-netTutar) });
+      await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(netTutar) });
+
       const data = {
           cariId: cariId,
           cariUnvan: c.unvan,
@@ -1198,26 +1249,14 @@
           netTutar: netTutar,
           bankaId: bankaId,
           bankaAdi: banka.hesapAdi,
+          bankaDetay: bankaDetayStr,
+          islemId: islemRef.id,
           aciklama: aciklama,
           olusturmaTarihi: serverTimestamp()
       };
 
       try {
           await addDoc(collection(db, "karPayilari"), data);
-
-          // Bankadan Ödeme Çıkışı yap ve Hesap Hareketlerine İşle
-          await addDoc(collection(db, "hesapHareketleri"), {
-              bankaId: bankaId,
-              cariId: cariId,
-              tur: 'Odeme',
-              tutar: netTutar,
-              aciklama: `Kâr Payı (Dividenda) Ödemesi - Net`,
-              tarih: new Date(tarih)
-          });
-
-          await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(-netTutar) });
-          await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(netTutar) });
-
           bootstrap.Modal.getInstance(document.getElementById('karPayiModal')).hide();
           alert("Kâr Payı ödemesi başarıyla kaydedildi ve banka bakiyesinden düşüldü.");
       } catch(e) { alert("Hata: " + e.message); }
@@ -1241,7 +1280,7 @@
                   <td class="fw-bold">${(k.brutTutar || 0).toFixed(2)} €</td>
                   <td class="text-danger">-${(k.stopajTutar || 0).toFixed(2)} €</td>
                   <td class="text-success fw-bold">${(k.netTutar || 0).toFixed(2)} €</td>
-                  <td><span class="badge bg-primary">${k.bankaAdi || '-'}</span></td>
+                  <td><span class="badge bg-primary">${k.bankaDetay || k.bankaAdi || '-'}</span></td>
                   <td class="text-end">
                       <button class="btn btn-sm btn-outline-warning text-dark py-0 me-1" onclick="karPayiGoster('${k.id}')"><i class="fas fa-print"></i> Pusula</button>
                       <button class="btn btn-sm btn-outline-danger py-0" onclick="karPayiSil('${k.id}')"><i class="fas fa-trash"></i> Sil</button>
@@ -1276,7 +1315,7 @@
               <div class="row">
                   <div class="col-6 mb-2"><span class="text-muted small text-uppercase">Osnivač / Şirket Ortağı:</span><br><strong class="fs-6 text-dark">${k.cariUnvan}</strong></div>
                   <div class="col-6 mb-2 text-end"><span class="text-muted small text-uppercase">PIB / Kimlik No:</span><br><strong class="fs-6 text-dark">${c.vergiNo || '-'}</strong></div>
-                  <div class="col-12"><span class="text-muted small text-uppercase">Isplaćeno preko banke / Ödenen Banka:</span><br><strong>${k.bankaAdi || '-'}</strong></div>
+                  <div class="col-12"><span class="text-muted small text-uppercase">Isplaćeno preko banke / Ödenen Banka ve Hesap:</span><br><strong>${k.bankaDetay || k.bankaAdi || '-'}</strong></div>
               </div>
           </div>
 
@@ -1295,6 +1334,10 @@
               </tbody>
           </table>
 
+          <div class="alert alert-light border small text-muted mb-5">
+              <i class="fas fa-info-circle me-1"></i> Ova dobit se isplaćuje u skladu sa Zakonom o porezu na dobit pravnih lica Crne Gore (Član 29 - Porez po odbitku 15%).
+          </div>
+
           <div class="mt-5 pt-4 row text-center">
               <div class="col-6"><div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2"><strong class="small text-dark">Za Kompaniju / Şirket Yetkilisi</strong></div></div>
               <div class="col-6"><div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2"><strong class="small text-dark">Primalac dividende / Ortak İmza</strong></div></div>
@@ -1309,10 +1352,23 @@
   };
 
   window.karPayiSil = async function(karPayiId) {
-      if(!confirm("Bu kâr payı kaydını silmek istediğinize emin misiniz?")) return;
+      if(!confirm("Bu kâr payı kaydını silmek istediğinize emin misiniz? Yapılan banka/kasa ödemesi hesaba otomatik olarak geri iade edilecektir.")) return;
       try {
+          const k = karPayiListesi.find(x => x.id === karPayiId);
+          if(k) {
+              // 1. Banka/Kasa Hesap Hareketini Sil
+              if(k.islemId) {
+                  await deleteDoc(doc(db, "hesapHareketleri", k.islemId));
+              }
+              // 2. Banka ve Cari Bakiyelerini İade Et
+              if(k.bankaId && k.netTutar > 0) {
+                  await updateDoc(doc(db, "bankalar", k.bankaId), { bakiye: increment(k.netTutar) });
+                  await updateDoc(doc(db, "cariler", k.cariId), { bakiye: increment(-k.netTutar) });
+              }
+          }
+          // 3. Kâr Payı Belgesini Sil
           await deleteDoc(doc(db, "karPayilari", karPayiId));
-          alert("Kâr payı kaydı silindi.");
+          alert("Kâr payı kaydı ve ilgili banka hareketi silindi, bakiyeler iade edildi.");
       } catch(e) { alert("Hata: " + e.message); }
   };
 
