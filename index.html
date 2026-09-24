@@ -114,6 +114,7 @@
             <a href="#" onclick="sayfaYukle('vergiler')"><i class="fas fa-landmark"></i> Vergi Ödemeleri</a>
             <a href="#" onclick="sayfaYukle('gorevler')"><i class="fas fa-tasks"></i> Görevler</a>
             <a href="#" onclick="sayfaYukle('raporlar')"><i class="fas fa-file-invoice"></i> Finansal Raporlar</a>
+            <a href="#" onclick="sayfaYukle('ik')" class="text-info fw-bold"><i class="fas fa-id-badge"></i> İnsan Kaynakları</a>
             <a href="#" onclick="sayfaYukle('kunye')"><i class="fas fa-building"></i> Şirket Künyesi</a>
             <a href="#" onclick="sayfaYukle('ai_asistan')" class="text-warning fw-bold"><i class="fas fa-robot"></i> AI Mevzuat Asistanı</a>
             <a href="#" class="mt-5 text-warning" onclick="cikisYap()"><i class="fas fa-sign-out-alt"></i> Güvenli Çıkış</a>
@@ -177,6 +178,7 @@
                   cariListesi.push({ id: docSnap.id, ...data }); 
               });
               if (document.getElementById('cariTabloGövdesi')) { window.tabloyuCiz(); }
+              if (document.getElementById('ikTabloGövdesi')) { window.ikCiz(); }
               if (typeof window.dashboardCiz === 'function') { window.dashboardCiz(); }
           });
 
@@ -521,12 +523,97 @@
       el.innerHTML = serit;
   };
 
-  // ---------------- CARİ İŞLEMLERİ ----------------
+// ---------------- CARİ VE İNSAN KAYNAKLARI (HR) İŞLEMLERİ ----------------
+
+  // İK Form Alanlarını Gizle / Göster
+  window.ikAlanlariGoster = function() {
+      let grup = document.getElementById('c_grup');
+      let hrDiv = document.getElementById('hr_fields');
+      if(hrDiv && grup) { hrDiv.style.display = (grup.value === 'Calisan' || grup.value === 'Ortak') ? 'block' : 'none'; }
+      if(typeof window.uyrukDegisti === 'function') window.uyrukDegisti();
+  };
+
+  // Yabancı Uyruk Form Alanlarını Gizle / Göster
+  window.uyrukDegisti = function() {
+      let uyruk = document.getElementById('c_uyruk_ik');
+      let yabanciDiv = document.getElementById('yabanci_fields');
+      if(yabanciDiv && uyruk) { yabanciDiv.style.display = (uyruk.value === 'Yabanci') ? 'flex' : 'none'; }
+  };
+
+  // Çalışan Ekle Butonuna Tıklandığında Cari Modalını Aç (Grubu Çalışan Seçerek)
+  window.yeniCalisanAc = function() {
+      window.yeniCariAc();
+      setTimeout(() => {
+          let grupS = document.getElementById('c_grup');
+          if(grupS) { grupS.value = 'Calisan'; window.ikAlanlariGoster(); }
+          document.querySelector("#yeniCariModal .modal-title").innerHTML = "<i class='fas fa-id-badge me-2'></i>Yeni Personel / Ortak Ekle";
+      }, 100);
+  };
+
+  // İnsan Kaynakları Sayfasındaki Kartları Çizme
+  window.ikCiz = function() {
+      const alan = document.getElementById('ikTabloGövdesi');
+      if (!alan) return;
+      let html = '<div class="row">';
+      let varMi = false;
+      
+      cariListesi.forEach(c => {
+          if(c.grup === 'Calisan' || c.grup === 'Ortak') {
+              varMi = true;
+              let birim = c.paraBirimi === 'USD' ? '$' : '€';
+              
+              // Karadağ Yabancı Çalışma İzni (Boravak) Süre Kontrolü
+              let izinUyarisi = '';
+              if(c.uyruk_ik === 'Yabanci' && c.calismaIzniBitis) {
+                  let bitisTarihi = new Date(c.calismaIzniBitis);
+                  let bugun = new Date();
+                  let farkGun = Math.ceil((bitisTarihi - bugun) / (1000 * 60 * 60 * 24));
+                  
+                  if(farkGun <= 0) izinUyarisi = `<div class="mt-2 small text-danger fw-bold"><i class="fas fa-exclamation-triangle"></i> Çalışma İzni Süresi Bitti!</div>`;
+                  else if(farkGun <= 45) izinUyarisi = `<div class="mt-2 small text-danger fw-bold"><i class="fas fa-passport"></i> İzin Bitişine: ${farkGun} Gün Kaldı</div>`;
+                  else izinUyarisi = `<div class="mt-2 small text-success"><i class="fas fa-check-circle"></i> İzin Geçerlilik: ${farkGun} Gün</div>`;
+              }
+
+              html += `
+              <div class="col-md-4 mb-3">
+                  <div class="card border-0 shadow-sm h-100 rounded-3" style="border-left: 4px solid ${c.grup === 'Ortak' ? '#8b5cf6' : '#10b981'} !important;">
+                      <div class="card-body">
+                          <div class="d-flex justify-content-between mb-2">
+                              <h6 class="fw-bold text-truncate" style="color: #2c3e50; max-width:70%;" title="${c.unvan}">${c.unvan}</h6>
+                              <span class="badge ${c.grup === 'Ortak' ? 'bg-primary' : 'bg-success'} text-white border" style="font-size:10px;">${c.grup === 'Ortak' ? 'Şirket Ortağı' : 'Çalışan'}</span>
+                          </div>
+                          <small class="text-muted d-block mb-1"><i class="fas fa-id-card me-1"></i> Kimlik / Pasaport: <strong class="text-dark">${c.vergiNo || '-'}</strong></small>
+                          <small class="text-muted d-block mb-3"><i class="fas fa-globe me-1"></i> Uyruk: <strong class="text-dark">${c.uyruk_ik === 'Yabanci' ? 'Yabancı (Oturum İzni)' : 'Karadağlı (Yerli)'}</strong></small>
+                          
+                          <div class="bg-light p-2 rounded border border-light">
+                              <div class="d-flex justify-content-between small mb-1"><span>Aylık Net Maaş:</span> <strong class="text-dark">${c.netMaas || 0} ${birim}</strong></div>
+                              <div class="d-flex justify-content-between small"><span>Doprinosi (SGK):</span> <strong class="text-danger">${c.doprinosi || 0} ${birim}</strong></div>
+                          </div>
+                          ${izinUyarisi}
+                          
+                          <div class="mt-3 pt-3 border-top d-flex justify-content-between">
+                              <span class="small text-muted">Bakiye (Maaş/Avans):</span>
+                              <h6 class="mb-0 fw-bold ${c.bakiye > 0 ? 'text-success' : (c.bakiye < 0 ? 'text-danger' : 'text-dark')}">${Math.abs(c.bakiye || 0).toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</h6>
+                          </div>
+                      </div>
+                      <div class="card-footer bg-white border-top-0 text-end">
+                          <button class="btn btn-sm btn-outline-secondary py-0 me-1" onclick="cariDuzenleAc('${c.id}')"><i class="fas fa-edit"></i> Düzenle</button>
+                          <button class="btn btn-sm btn-outline-success py-0" onclick="cariEkstreAc('${c.id}')"><i class="fas fa-wallet"></i> Maaş Hesabı</button>
+                      </div>
+                  </div>
+              </div>`;
+          }
+      });
+      
+      if(!varMi) html = `<div class="col-12 text-center py-5 text-muted border rounded bg-white" style="border-style:dashed !important;"><i class="fas fa-users-slash fa-3x mb-3 opacity-50"></i><h5>Kayıtlı Çalışan veya Ortak Yok</h5><p class="small">Karadağ şirketinizdeki maaş, SGK (Doprinosi) ve oturum izni sürelerini takip etmek için personel ekleyin.</p></div>`;
+      html += '</div>';
+      alan.innerHTML = html;
+  };
+
   window.tabloyuCiz = function() {
     const alan = document.getElementById('cariTabloGövdesi');
     if (!alan) return; 
 
-    // Filtre Değerlerini DOM'dan Al
     let aramaMetni = document.getElementById('cariArama') ? document.getElementById('cariArama').value.toLowerCase() : '';
     let grupFiltre = document.getElementById('cariGrupFiltre') ? document.getElementById('cariGrupFiltre').value : 'Hepsi';
     let bolgeFiltre = document.getElementById('cariBolgeFiltre') ? document.getElementById('cariBolgeFiltre').value : 'Hepsi';
@@ -536,7 +623,6 @@
     let gosterilenCariSayisi = 0;
 
     cariListesi.forEach((cari, index) => {
-        // Arama ve Filtreleme Kontrolü
         let cariUnvan = cari.unvan ? cari.unvan.toLowerCase() : '';
         let cariVergiNo = cari.vergiNo ? cari.vergiNo.toLowerCase() : '';
         
@@ -544,7 +630,6 @@
         let grupUyuyor = grupFiltre === 'Hepsi' || cari.grup === grupFiltre;
         let bolgeUyuyor = bolgeFiltre === 'Hepsi' || cari.bolge === bolgeFiltre;
 
-        // Şartları sağlamıyorsa bu kartı ekrana basma (döngüde sonrakine geç)
         if (!aramaUyuyor || !grupUyuyor || !bolgeUyuyor) return;
         
         gosterilenCariSayisi++;
@@ -562,6 +647,11 @@
         let paraBirimiRengi = birim === 'USD' ? 'background-color: #f39c12; color: #fff;' : 'background-color: #2c3e50; color: #fff;';
         let leftBorderColor = index % 2 === 0 ? '#2c3e50' : '#f39c12';
 
+        let grupMetni = 'Müşteri (Alıcı)';
+        if(cari.grup === 'Satici') grupMetni = 'Tedarikçi (Satıcı)';
+        else if(cari.grup === 'Ortak') grupMetni = 'Şirket Ortağı';
+        else if(cari.grup === 'Calisan') grupMetni = 'Çalışan / Personel';
+
         let cariSatis = 0; let cariAlim = 0;
         faturaListesi.forEach(f => {
             if(f.cariId === cari.id) {
@@ -573,8 +663,10 @@
         let analizHtml = '';
         if(cari.grup === 'Alici') {
             analizHtml = `<span>Hasılat (Ciro): <strong class="text-success">${cariSatis.toLocaleString('en-US', {minimumFractionDigits: 2})} ${sembol}</strong></span>`;
-        } else {
+        } else if (cari.grup === 'Satici') {
             analizHtml = `<span>Maliyet (Gider): <strong class="text-danger">${cariAlim.toLocaleString('en-US', {minimumFractionDigits: 2})} ${sembol}</strong></span>`;
+        } else {
+             analizHtml = `<span>Maaş / Kâr Payı Ekstresi: Açmak İçin Tıklayın</span>`;
         }
 
         kartAlani.innerHTML += `
@@ -583,7 +675,7 @@
                     <div class="card-body cursor-pointer position-relative pb-2" onclick="cariEkstreAc('${cari.id}')">
                         <span class="badge position-absolute top-0 end-0 m-3 px-3 py-2 shadow-sm fs-6 rounded-pill" style="${paraBirimiRengi}">${birim}</span>
                         <h6 class="fw-bold text-truncate pe-5 mb-1" style="color: #2c3e50;" title="${cari.unvan}">${cari.unvan}</h6>
-                        <small class="text-muted"><i class="fas fa-globe-europe me-1" style="color: #7f8c8d;"></i>${cari.ulke} | ${cari.grup === 'Alici' ? 'Müşteri' : 'Tedarikçi'} (${cari.bolge === 'Yerli' ? 'Yerli' : 'Yabancı'})</small>
+                        <small class="text-muted"><i class="fas fa-globe-europe me-1" style="color: #7f8c8d;"></i>${cari.ulke} | ${grupMetni}</small>
                         <div class="mt-3 mb-2">
                             <span class="small text-muted d-block mb-1">${bDurum}</span>
                             <h3 class="${bRenk} mb-0 fw-bold">${Math.abs(bakiye).toLocaleString('en-US', {minimumFractionDigits: 2})} ${sembol}</h3>
@@ -600,17 +692,16 @@
             </div>`;
     });
 
-    // Eğer filtreleme sonucunda hiç cari kalmazsa uyarı mesajı göster
     if (gosterilenCariSayisi === 0) {
         kartAlani.innerHTML = `<div class="col-12 text-center text-muted py-5 border rounded bg-light border-dashed">
             <i class="fas fa-search fa-2x mb-3 text-secondary opacity-50"></i>
-            <h6>Aradığınız kriterlere uygun cari hesap bulunamadı.</h6>
+            <h6>Aradığınız kriterlere uygun kayıt bulunamadı.</h6>
         </div>`;
     }
   };
 
   window.cariSil = async function(id) {
-      if(!confirm("Bu cari hesabı silmek istediğinize emin misiniz?")) return;
+      if(!confirm("Bu hesabı silmek istediğinize emin misiniz?")) return;
       try { await deleteDoc(doc(db, "cariler", id)); } 
       catch(e) { alert("Hata: " + e.message); }
   };
@@ -618,7 +709,8 @@
   window.yeniCariAc = function() {
       document.getElementById('yeniCariForm').reset();
       document.getElementById('c_id').value = '';
-      document.querySelector("#yeniCariModal .modal-title").innerHTML = "Yeni Cari Kart Oluştur";
+      if(typeof window.ikAlanlariGoster === 'function') window.ikAlanlariGoster();
+      document.querySelector("#yeniCariModal .modal-title").innerHTML = "Yeni Cari / Şahıs Kartı";
       new bootstrap.Modal(document.getElementById('yeniCariModal')).show();
   };
 
@@ -656,7 +748,7 @@
         <div class="d-flex justify-content-between align-items-end mb-4 border-bottom pb-3">
             <div class="d-flex align-items-center">
                 <img src="Euro Veritas Consulting.jpg" style="height: 110px; margin-right: 25px; object-fit: contain;" class="d-none d-print-block">
-                <div><h4 class="mb-0 text-dark fw-bold" style="color: #2c3e50;">${cari.unvan}</h4><small class="text-muted">Cari Hesap Ekstresi</small></div>
+                <div><h4 class="mb-0 text-dark fw-bold" style="color: #2c3e50;">${cari.unvan}</h4><small class="text-muted">Cari / Maaş Hesap Ekstresi</small></div>
             </div>
             <div class="text-end"><h6 class="mb-0 text-muted small">Güncel Kapanış Bakiyesi</h6><h4 class="${cari.bakiye >= 0 ? 'text-success' : 'text-danger'} fw-bold mb-0">${Math.abs(cari.bakiye).toFixed(2)} ${birim}</h4></div>
         </div>
@@ -703,7 +795,7 @@
     if(gosterilenKayit === 0) { html += `<tr><td colspan="7" class="text-center text-muted py-3">Bu tarih aralığında hareket bulunamadı.</td></tr>`; } 
     html += `<tr class="border-top border-dark border-2" style="background-color: #f4f6f9;"><td colspan="3" class="text-end fw-bold small text-muted">DÖNEM TOPLAMI:</td><td class="text-end fw-bold text-dark">${toplamBorc.toFixed(2)} ${birim}</td><td class="text-end fw-bold text-dark">${toplamAlacak.toFixed(2)} ${birim}</td><td></td><td class="d-print-none"></td></tr>`;
     html += `</tbody></table></div></div>`;
-    html += `<div class="mt-3"><button class="btn btn-secondary shadow-sm" onclick="window.print()"><i class="fas fa-print"></i> Yazdır</button> <button class="btn btn-outline-danger ms-2" onclick="sayfaYukle('cariler')">Kapat</button></div>`;
+    html += `<div class="mt-3"><button class="btn btn-secondary shadow-sm" onclick="window.print()"><i class="fas fa-print"></i> Yazdır</button> <button class="btn btn-outline-danger ms-2" onclick="sayfaYukle('${cari.grup==='Calisan'||cari.grup==='Ortak'?'ik':'cariler'}')">Kapat</button></div>`;
     document.getElementById('main-content').innerHTML = html;
   };
 
@@ -717,7 +809,7 @@
       let t_baslik = dil === 'MNE' ? 'GOTOVINSKA PRIZNANICA' : 'CASH RECEIPT';
       let t_tarih = dil === 'MNE' ? 'Datum:' : 'Date:';
       let t_no = dil === 'MNE' ? 'Broj Priznanice:' : 'Receipt No:';
-      let t_kime = tur === 'Tahsilat' ? (dil === 'MNE' ? 'Uplaćeno od (Kupac):' : 'Received From (Customer):') : (dil === 'MNE' ? 'Isplaćeno za (Dobavljač):' : 'Paid To (Supplier):');
+      let t_kime = tur === 'Tahsilat' ? (dil === 'MNE' ? 'Uplaćeno od:' : 'Received From:') : (dil === 'MNE' ? 'Isplaćeno za:' : 'Paid To:');
       let t_tutar = dil === 'MNE' ? 'Iznos:' : 'Amount:';
       let t_aciklama = dil === 'MNE' ? 'Svrha plaćanja:' : 'Description:';
       let t_imza = dil === 'MNE' ? 'Potpis ovlašćenog lica:' : 'Authorized Signature:';
@@ -757,6 +849,7 @@
       `;
       document.getElementById('main-content').innerHTML = html;
   };
+
   window.cariDuzenleAc = function(id) {
       const c = cariListesi.find(x => x.id === id);
       document.getElementById('c_id').value = c.id;
@@ -765,19 +858,37 @@
       document.getElementById('c_ulke').value = c.ulke; document.getElementById('c_vergiNo').value = c.vergiNo;
       document.getElementById('c_iban').value = c.iban; document.getElementById('c_bic').value = c.bic;
       document.getElementById('c_email').value = c.email;
-      document.querySelector("#yeniCariModal .modal-title").innerHTML = "Cari Düzenle";
+      
+      // İK Bilgileri Doldurma
+      if(document.getElementById('c_netMaas')) document.getElementById('c_netMaas').value = c.netMaas || '';
+      if(document.getElementById('c_doprinosi')) document.getElementById('c_doprinosi').value = c.doprinosi || '';
+      if(document.getElementById('c_uyruk_ik')) document.getElementById('c_uyruk_ik').value = c.uyruk_ik || 'Yerli';
+      if(document.getElementById('c_calismaIzniNo')) document.getElementById('c_calismaIzniNo').value = c.calismaIzniNo || '';
+      if(document.getElementById('c_calismaIzniBitis')) document.getElementById('c_calismaIzniBitis').value = c.calismaIzniBitis || '';
+      
+      if(typeof window.ikAlanlariGoster === 'function') window.ikAlanlariGoster();
+
+      document.querySelector("#yeniCariModal .modal-title").innerHTML = "Kartı Düzenle";
       new bootstrap.Modal(document.getElementById('yeniCariModal')).show();
   };
 
   window.cariKaydet = async function() {
       const id = document.getElementById('c_id').value; 
       const unvan = document.getElementById('c_unvan').value;
-      if(unvan.trim() === "") { alert("Ünvan zorunludur."); return; }
+      if(unvan.trim() === "") { alert("Ünvan / Ad Soyad zorunludur."); return; }
+      
       const data = {
           unvan: unvan, paraBirimi: document.getElementById('c_paraBirimi').value, grup: document.getElementById('c_grup').value,
           bolge: document.getElementById('c_bolge').value, ulke: document.getElementById('c_ulke').value, 
           vergiNo: document.getElementById('c_vergiNo').value, iban: document.getElementById('c_iban').value, 
-          bic: document.getElementById('c_bic').value, email: document.getElementById('c_email').value
+          bic: document.getElementById('c_bic').value, email: document.getElementById('c_email').value,
+          
+          // İK Verileri
+          netMaas: parseFloat(document.getElementById('c_netMaas')?.value) || 0,
+          doprinosi: parseFloat(document.getElementById('c_doprinosi')?.value) || 0,
+          uyruk_ik: document.getElementById('c_uyruk_ik')?.value || 'Yerli',
+          calismaIzniNo: document.getElementById('c_calismaIzniNo')?.value || '',
+          calismaIzniBitis: document.getElementById('c_calismaIzniBitis')?.value || ''
       };
       
       try {
@@ -1957,7 +2068,6 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     </button>
                 </div>
                 
-                <!-- ARAMA VE FİLTRELEME ALANI -->
                 <div class="row mb-3 d-print-none bg-white p-3 rounded shadow-sm border-light border">
                     <div class="col-md-4">
                         <label class="form-label text-muted small fw-bold">Unvan veya Vergi No Ara</label>
@@ -1972,6 +2082,8 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                             <option value="Hepsi">Tümü (Müşteri ve Tedarikçiler)</option>
                             <option value="Alici">Sadece Müşteriler (Alıcı)</option>
                             <option value="Satici">Sadece Tedarikçiler (Satıcı)</option>
+                            <option value="Ortak">Şirket Ortağı</option>
+                            <option value="Calisan">Çalışan / Personel</option>
                         </select>
                     </div>
                     <div class="col-md-4">
@@ -1990,24 +2102,65 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content">
                             <div class="modal-header bg-dark text-white">
-                                <h5 class="modal-title">Yeni Cari Kart Oluştur</h5>
+                                <h5 class="modal-title">Yeni Cari / Şahıs Kartı</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
                                 <form id="yeniCariForm">
                                     <input type="hidden" id="c_id"> 
                                     <div class="row mb-3">
-                                        <div class="col-md-12"><label class="form-label">Ünvan *</label><input type="text" class="form-control" id="c_unvan" required></div>
+                                        <div class="col-md-12"><label class="form-label">Ünvan / Ad Soyad *</label><input type="text" class="form-control" id="c_unvan" required></div>
                                     </div>
                                     <div class="col-md-12 mb-3"><label class="form-label">Para Birimi *</label><select class="form-select" id="c_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select></div>
                                     <div class="row mb-3">
-                                        <div class="col-md-6"><label class="form-label">Cari Grubu *</label><select class="form-select" id="c_grup"><option value="Alici">Alıcı</option><option value="Satici">Satıcı</option></select></div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Grubu *</label>
+                                            <select class="form-select" id="c_grup" onchange="if(typeof window.ikAlanlariGoster === 'function') window.ikAlanlariGoster()">
+                                                <option value="Alici">Müşteri (Alıcı)</option>
+                                                <option value="Satici">Tedarikçi (Satıcı)</option>
+                                                <option value="Ortak">Şirket Ortağı</option>
+                                                <option value="Calisan">Çalışan / Personel</option>
+                                            </select>
+                                        </div>
                                         <div class="col-md-6"><label class="form-label">Bölge *</label><select class="form-select" id="c_bolge"><option value="Yerli">Yerli (Karadağ)</option><option value="Yabanci">Yabancı (Yurt Dışı)</option></select></div>
                                     </div>
                                     <div class="row mb-3">
                                         <div class="col-md-6"><label class="form-label">Ülke</label><input type="text" class="form-control" id="c_ulke" value="Montenegro"></div>
-                                        <div class="col-md-6"><label class="form-label">Vergi No / PIB *</label><input type="text" class="form-control" id="c_vergiNo"></div>
+                                        <div class="col-md-6"><label class="form-label">Vergi No / PIB / Kimlik No *</label><input type="text" class="form-control" id="c_vergiNo"></div>
                                     </div>
+                                    
+                                    <!-- YENİ İNSAN KAYNAKLARI ALANI (SADECE ÇALIŞAN SEÇİLİNCE GÖRÜNÜR) -->
+                                    <div id="hr_fields" style="display: none; background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed #cbd5e1; margin-bottom: 15px;">
+                                        <h6 class="text-info fw-bold mb-3"><i class="fas fa-id-card me-1"></i> İnsan Kaynakları & Maaş Bilgileri</h6>
+                                        <div class="row mb-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label small text-muted">Çalışan Uyruğu</label>
+                                                <select class="form-select form-select-sm" id="c_uyruk_ik" onchange="if(typeof window.uyrukDegisti === 'function') window.uyrukDegisti()">
+                                                    <option value="Yerli">Karadağ Vatandaşı (Yerli)</option>
+                                                    <option value="Yabanci">Yabancı (Oturum / Çalışma İzni)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small text-muted">Aylık Net Maaş (€)</label>
+                                                <input type="number" class="form-control form-control-sm" id="c_netMaas" step="0.01" placeholder="Örn: 600.00">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small text-muted">Doprinosi (SGK) (€)</label>
+                                                <input type="number" class="form-control form-control-sm" id="c_doprinosi" step="0.01" placeholder="Örn: 125.00">
+                                            </div>
+                                        </div>
+                                        <div class="row" id="yabanci_fields" style="display: none;">
+                                            <div class="col-md-6">
+                                                <label class="form-label small text-muted">Çalışma Kartı No / Dozvola No</label>
+                                                <input type="text" class="form-control form-control-sm" id="c_calismaIzniNo" placeholder="Kart üzerindeki numara">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small text-danger fw-bold">Çalışma İzni Bitiş Tarihi</label>
+                                                <input type="date" class="form-control form-control-sm border-danger" id="c_calismaIzniBitis">
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <h6 class="mt-4 border-bottom pb-2">Banka ve İletişim</h6>
                                     <div class="row mb-3">
                                         <div class="col-md-6"><label class="form-label">IBAN</label><input type="text" class="form-control" id="c_iban"></div>
@@ -2025,6 +2178,24 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
             `;
             setTimeout(() => { if(typeof window.tabloyuCiz === 'function') window.tabloyuCiz(); }, 50);
         }
+        else if(sayfa === 'ik') {
+            mainContent.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>İnsan Kaynakları (HR) ve Maaşlar</h2>
+                    <button class="btn btn-primary shadow-sm" onclick="yeniCalisanAc()">
+                        <i class="fas fa-user-plus"></i> Yeni Çalışan / Ortak Ekle
+                    </button>
+                </div>
+                
+                <div class="alert alert-info border-0 shadow-sm small py-2 d-print-none">
+                    <i class="fas fa-info-circle me-1"></i> Çalışanlarınızın maaş ödemelerini ve ortakların kâr payı çıkışlarını <b>Banka Hesapları</b> sayfasından veya buradaki maaş öde tuşuyla Cari Ekstre üzerinden <b>Ödeme (Çıkış)</b> yaparak gerçekleştirebilirsiniz.
+                </div>
+                
+                <div id="ikTabloGövdesi" class="mt-4"></div>
+            `;
+            setTimeout(() => { if(typeof window.ikCiz === 'function') window.ikCiz(); }, 50);
+        }
+        
         else if(sayfa === 'faturalar') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
