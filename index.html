@@ -575,6 +575,13 @@
                   else izinUyarisi = `<div class="mt-2 small text-success"><i class="fas fa-check-circle"></i> İzin Geçerlilik: ${farkGun} Gün</div>`;
               }
 
+              let ozelButon = '';
+              if(c.grup === 'Calisan') {
+                  ozelButon = `<button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="maasBordrosuYazdir('${c.id}')" title="Resmi Maaş Bordrosu (Obračun Zarade)"><i class="fas fa-file-invoice"></i> Bordro</button>`;
+              } else if(c.grup === 'Ortak') {
+                  ozelButon = `<button class="btn btn-sm btn-outline-warning text-dark py-0 me-1" onclick="karPayiPusulasiYazdir('${c.id}')" title="Kâr Payı Pusulası (Obračun Dividende)"><i class="fas fa-coins"></i> Kâr Payı</button>`;
+              }
+
               html += `
               <div class="col-md-4 mb-3">
                   <div class="card border-0 shadow-sm h-100 rounded-3" style="border-left: 4px solid ${c.grup === 'Ortak' ? '#8b5cf6' : '#10b981'} !important;">
@@ -598,8 +605,9 @@
                           </div>
                       </div>
                       <div class="card-footer bg-white border-top-0 text-end">
+                          ${ozelButon}
                           <button class="btn btn-sm btn-outline-secondary py-0 me-1" onclick="cariDuzenleAc('${c.id}')"><i class="fas fa-edit"></i> Düzenle</button>
-                          <button class="btn btn-sm btn-outline-success py-0" onclick="cariEkstreAc('${c.id}')"><i class="fas fa-wallet"></i> Maaş Ekstresi</button>
+                          <button class="btn btn-sm btn-outline-success py-0" onclick="cariEkstreAc('${c.id}')"><i class="fas fa-wallet"></i> Ekstre</button>
                       </div>
                   </div>
               </div>`;
@@ -897,6 +905,140 @@
           else { data.bakiye = 0; data.olusturmaTarihi = serverTimestamp(); await addDoc(collection(db, "cariler"), data); }
           bootstrap.Modal.getInstance(document.getElementById('yeniCariModal')).hide();
       } catch (e) { alert("Hata: " + e.message); }
+  };
+
+  // ---------------- MAAŞ BORDROSU (OBRAČUN ZARADE) YAZDIRMA ----------------
+  window.maasBordrosuYazdir = function(cariId) {
+      const c = cariListesi.find(x => x.id === cariId);
+      if(!c) return;
+      const v = kunyeVerisi;
+      const birim = c.paraBirimi === 'USD' ? '$' : '€';
+      const netMaas = c.netMaas || 0;
+      const doprinosi = c.doprinosi || 0;
+      const brutoMaas = netMaas + doprinosi;
+      const bugun = new Date();
+      const ayYil = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, '0')}`;
+
+      let html = `
+      <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
+          <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 90px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6 text-end text-muted small" style="font-size: 12px;">
+                  <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
+                  ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
+              </div>
+          </div>
+
+          <div class="text-center mb-4">
+              <h3 class="fw-bold mb-1" style="color: #2c3e50; letter-spacing: 1px;">OBRAČUNSKI LIST ZARADE</h3>
+              <span class="text-muted fw-bold">MAAŞ BORDROSU / PAYROLL STATEMENT - ${ayYil}</span>
+          </div>
+
+          <div class="p-3 bg-light rounded mb-4" style="border: 1px solid #cbd5e1;">
+              <div class="row">
+                  <div class="col-6 mb-2"><span class="text-muted small text-uppercase">Zaposleni / Çalışan:</span><br><strong class="fs-6 text-dark">${c.unvan}</strong></div>
+                  <div class="col-6 mb-2 text-end"><span class="text-muted small text-uppercase">Pozicija / Görev:</span><br><strong class="fs-6 text-dark">${c.grup === 'Ortak' ? 'Izvršni Direktor / Ortak' : 'Zaposleni / Personel'}</strong></div>
+                  <div class="col-6"><span class="text-muted small text-uppercase">PIB / Pasport / JMBG:</span><br><strong>${c.vergiNo || '-'}</strong></div>
+                  <div class="col-6 text-end"><span class="text-muted small text-uppercase">Status / Uyruk:</span><br><strong>${c.uyruk_ik === 'Yabanci' ? 'Strani državljanin (Yabancı)' : 'Crnogorski državljanin (Yerli)'}</strong></div>
+              </div>
+          </div>
+
+          <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">FINANSIJSKI DETALJI / MAAŞ VE PRİM DETAYLARI</h6>
+          <table class="table table-bordered border-dark mb-4">
+              <thead style="background-color: #f1f5f9;">
+                  <tr><th>Opis / Açıklama</th><th class="text-end">Iznos / Tutar</th></tr>
+              </thead>
+              <tbody>
+                  <tr><td>Ukupna Bruto Zarada (Brüt Maaş Maliyeti)</td><td class="text-end fw-bold">${brutoMaas.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</td></tr>
+                  <tr><td>Doprinosi za obavezno socijalno osiguranje (SGK / Doprinosi Primi)</td><td class="text-end text-danger">-${doprinosi.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</td></tr>
+                  <tr><td>Porez na dohodak fizickih lica (Porez na dohodak / Gelir Vergisi Muafiyeti)</td><td class="text-end text-muted">0.00 ${birim}</td></tr>
+                  <tr class="table-success border-top border-dark border-2">
+                      <td class="fw-bold fs-6 text-dark">NETO ZARADA ZA ISPLATU (NET ÖDENECEK MAAŞ)</td>
+                      <td class="text-end fw-bold fs-5 text-success">${netMaas.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</td>
+                  </tr>
+              </tbody>
+          </table>
+
+          <div class="mt-5 pt-5 row text-center">
+              <div class="col-6"><div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2"><strong class="small text-dark">Potpis poslodavca / İşveren İmza</strong></div></div>
+              <div class="col-6"><div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2"><strong class="small text-dark">Potpis zaposlenog / Çalışan İmza</strong></div></div>
+          </div>
+      </div>
+      <div class="mt-4 d-print-none text-center">
+          <button class="btn btn-secondary shadow-sm px-4 me-2" onclick="window.print()"><i class="fas fa-print me-1"></i> Çıktı Al / PDF Kaydet</button>
+          <button class="btn btn-outline-danger px-4" onclick="sayfaYukle('ik')">Geri Dön</button>
+      </div>
+      `;
+      document.getElementById('main-content').innerHTML = html;
+  };
+
+  // ---------------- KÂR PAYI HESAP PUSULASI (OBRAČUN DIVIDENDE) YAZDIRMA ----------------
+  window.karPayiPusulasiYazdir = function(cariId) {
+      const c = cariListesi.find(x => x.id === cariId);
+      if(!c) return;
+      const v = kunyeVerisi;
+      const birim = c.paraBirimi === 'USD' ? '$' : '€';
+      const tutar = prompt("Lütfen Dağıtılacak Brüt Kâr Payı Tutarını (€) Giriniz:", "1000");
+      if(!tutar || isNaN(parseFloat(tutar)) || parseFloat(tutar) <= 0) return;
+      
+      const brutoDividenda = parseFloat(tutar);
+      const stopajVergisi = brutoDividenda * 0.15; // %15 Karadağ Stopaj Vergisi
+      const netoDividenda = brutoDividenda - stopajVergisi;
+      const bugun = new Date().toLocaleDateString('tr-TR');
+
+      let html = `
+      <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
+          <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 90px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6 text-end text-muted small" style="font-size: 12px;">
+                  <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
+                  ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
+              </div>
+          </div>
+
+          <div class="text-center mb-4">
+              <h3 class="fw-bold mb-1" style="color: #2c3e50; letter-spacing: 1px;">OBRAČUN I ISPLATA DIVIDENDE / DOBITI</h3>
+              <span class="text-muted fw-bold">KÂR PAYI HESAP PUSULASI / DIVIDEND DISTRIBUTION STATEMENT - ${bugun}</span>
+          </div>
+
+          <div class="p-3 bg-light rounded mb-4" style="border: 1px solid #cbd5e1;">
+              <div class="row">
+                  <div class="col-6 mb-2"><span class="text-muted small text-uppercase">Osnivač / Şirket Ortağı:</span><br><strong class="fs-6 text-dark">${c.unvan}</strong></div>
+                  <div class="col-6 mb-2 text-end"><span class="text-muted small text-uppercase">PIB / Kimlik No:</span><br><strong class="fs-6 text-dark">${c.vergiNo || '-'}</strong></div>
+                  <div class="col-12"><span class="text-muted small text-uppercase">Banka / IBAN:</span><br><strong>${c.iban || v.iban || '-'}</strong></div>
+              </div>
+          </div>
+
+          <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">FINANSIJSKI PRORAČUN / HESAPLAMA DETAYLARI</h6>
+          <table class="table table-bordered border-dark mb-4">
+              <thead style="background-color: #f1f5f9;">
+                  <tr><th>Opis / Açıklama</th><th class="text-end">Iznos / Tutar</th></tr>
+              </thead>
+              <tbody>
+                  <tr><td>Bruto Odobrena Dividenda (Dağıtılan Brüt Kâr Payı)</td><td class="text-end fw-bold">${brutoDividenda.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</td></tr>
+                  <tr><td>Porez po odbitku na dividendu - 15% (Karadağ Stopaj Vergisi Kesintisi)</td><td class="text-end text-danger">-${stopajVergisi.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</td></tr>
+                  <tr class="table-success border-top border-dark border-2">
+                      <td class="fw-bold fs-6 text-dark">NETO DIVIDENDA ZA ISPLATU (NET HESABA YATACAK KÂR PAYI)</td>
+                      <td class="text-end fw-bold fs-5 text-success">${netoDividenda.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</td>
+                  </tr>
+              </tbody>
+          </table>
+
+          <div class="alert alert-light border small text-muted mb-5">
+              <i class="fas fa-info-circle me-1"></i> Ova dobit se isplaćuje u skladu sa Zakonom o porezu na dobit pravnih lica Crne Gore (Član 29 - Porez po odbitku 15%).
+          </div>
+
+          <div class="mt-5 pt-4 row text-center">
+              <div class="col-6"><div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2"><strong class="small text-dark">Za Kompaniju / Şirket Yetkilisi</strong></div></div>
+              <div class="col-6"><div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2"><strong class="small text-dark">Primalac dividende / Ortak İmza</strong></div></div>
+          </div>
+      </div>
+      <div class="mt-4 d-print-none text-center">
+          <button class="btn btn-secondary shadow-sm px-4 me-2" onclick="window.print()"><i class="fas fa-print me-1"></i> Çıktı Al / PDF Kaydet</button>
+          <button class="btn btn-outline-danger px-4" onclick="sayfaYukle('ik')">Geri Dön</button>
+      </div>
+      `;
+      document.getElementById('main-content').innerHTML = html;
   };
 
 
