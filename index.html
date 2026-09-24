@@ -19,11 +19,11 @@
         }
         h2, h4 { font-weight: 700; color: #0f172a; letter-spacing: -0.5px; }
         
-        .sidebar { min-height: 100vh; background-color: #1e293b; box-shadow: 2px 0 10px rgba(0,0,0,0.05); }
-        .sidebar a { color: #cbd5e1; text-decoration: none; padding: 12px 20px; display: block; border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.2s ease; font-weight: 500; }
-        .sidebar a:hover { background-color: #2c3e50; color: #f39c12; padding-left: 24px; }
-        .sidebar a i { margin-right: 10px; width: 16px; text-align: center; }
-        .content-area { padding: 20px; }
+        .sidebar { min-height: 100vh; background-color: #1e293b; box-shadow: 2px 0 10px rgba(0,0,0,0.05); width: 200px; flex: 0 0 200px; }
+        .sidebar a { color: #cbd5e1; text-decoration: none; padding: 10px 14px; display: block; border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.2s ease; font-weight: 500; font-size: 0.8rem; }
+        .sidebar a:hover { background-color: #2c3e50; color: #f39c12; padding-left: 18px; }
+        .sidebar a i { margin-right: 8px; width: 16px; text-align: center; }
+        .content-area { padding: 20px; flex: 1; max-width: calc(100% - 200px); }
         
         .card { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important; border-radius: 8px !important; }
         .card-header { background-color: transparent; border-bottom: 1px solid #f1f5f9; padding: 1rem; }
@@ -101,11 +101,11 @@
 
 <!-- ANA UYGULAMA -->
 <div class="container-fluid d-none" id="app-container">
-    <div class="row">
+    <div class="d-flex">
         <!-- Sol Menü -->
-        <div class="col-md-2 p-0 sidebar shadow">
-            <div class="p-3 text-center border-bottom border-secondary mb-3" style="background-color: #ffffff;">
-                <img src="Euro Veritas Consulting.jpg" alt="Euro Veritas Logo" style="max-width: 100%; height: auto; border-radius: 8px;">
+        <div class="p-0 sidebar shadow">
+            <div class="p-2 text-center border-bottom border-secondary mb-3" style="background-color: #ffffff;">
+                <img src="Euro Veritas Consulting.jpg" alt="Euro Veritas Logo" style="max-width: 82%; height: auto; border-radius: 8px;">
             </div>
             <a href="#" onclick="sayfaYukle('dashboard')"><i class="fas fa-chart-line"></i> Yönetici Özeti</a>
             <a href="#" onclick="sayfaYukle('faturalar')"><i class="fas fa-file-invoice-dollar"></i> Faturalar</a>
@@ -121,7 +121,7 @@
         </div>
 
         <!-- Ana İçerik Alanı -->
-        <div class="col-md-10 content-area" id="main-content"></div>
+        <div class="content-area" id="main-content"></div>
     </div>
 </div>
 
@@ -540,13 +540,14 @@
       if(yabanciDiv && uyruk) { yabanciDiv.style.display = (uyruk.value === 'Yabanci') ? 'flex' : 'none'; }
   };
 
-  // Çalışan Ekle Butonuna Tıklandığında Cari Modalını Aç (Grubu Çalışan Seçerek)
+  // Çalışan Ekle Butonuna Tıklandığında Cari Modalını Aç
   window.yeniCalisanAc = function() {
       window.yeniCariAc();
       setTimeout(() => {
           let grupS = document.getElementById('c_grup');
           if(grupS) { grupS.value = 'Calisan'; window.ikAlanlariGoster(); }
-          document.querySelector("#yeniCariModal .modal-title").innerHTML = "<i class='fas fa-id-badge me-2'></i>Yeni Personel / Ortak Ekle";
+          let titleEl = document.querySelector("#yeniCariModal .modal-title");
+          if(titleEl) titleEl.innerHTML = "<i class='fas fa-id-badge me-2'></i>Yeni Personel / Ortak Ekle";
       }, 100);
   };
 
@@ -598,7 +599,7 @@
                       </div>
                       <div class="card-footer bg-white border-top-0 text-end">
                           <button class="btn btn-sm btn-outline-secondary py-0 me-1" onclick="cariDuzenleAc('${c.id}')"><i class="fas fa-edit"></i> Düzenle</button>
-                          <button class="btn btn-sm btn-outline-success py-0" onclick="cariEkstreAc('${c.id}')"><i class="fas fa-wallet"></i> Maaş Ekstresi / Öde</button>
+                          <button class="btn btn-sm btn-outline-success py-0" onclick="cariEkstreAc('${c.id}')"><i class="fas fa-wallet"></i> Maaş Ekstresi</button>
                       </div>
                   </div>
               </div>`;
@@ -2068,6 +2069,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     </button>
                 </div>
                 
+                <!-- ARAMA VE FİLTRELEME ALANI -->
                 <div class="row mb-3 d-print-none bg-white p-3 rounded shadow-sm border-light border">
                     <div class="col-md-4">
                         <label class="form-label text-muted small fw-bold">Unvan veya Vergi No Ara</label>
@@ -2079,9 +2081,9 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                     <div class="col-md-4">
                         <label class="form-label text-muted small fw-bold">Cari Türü</label>
                         <select id="cariGrupFiltre" class="form-select" onchange="tabloyuCiz()">
-                            <option value="Hepsi">Tümü (Müşteri ve Tedarikçiler)</option>
-                            <option value="Alici">Sadece Müşteriler (Alıcı)</option>
-                            <option value="Satici">Sadece Tedarikçiler (Satıcı)</option>
+                            <option value="Hepsi">Tümü</option>
+                            <option value="Alici">Müşteriler (Alıcı)</option>
+                            <option value="Satici">Tedarikçiler (Satıcı)</option>
                             <option value="Ortak">Şirket Ortağı</option>
                             <option value="Calisan">Çalışan / Personel</option>
                         </select>
@@ -2129,7 +2131,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                         <div class="col-md-6"><label class="form-label">Vergi No / PIB / Kimlik No *</label><input type="text" class="form-control" id="c_vergiNo"></div>
                                     </div>
                                     
-                                    <!-- YENİ İNSAN KAYNAKLARI ALANI (SADECE ÇALIŞAN SEÇİLİNCE GÖRÜNÜR) -->
+                                    <!-- İNSAN KAYNAKLARI FORMU (ÇALIŞAN VEYA ORTAK SEÇİLİNCE AÇILIR) -->
                                     <div id="hr_fields" style="display: none; background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed #cbd5e1; margin-bottom: 15px;">
                                         <h6 class="text-info fw-bold mb-3"><i class="fas fa-id-card me-1"></i> İnsan Kaynakları & Maaş Bilgileri</h6>
                                         <div class="row mb-3">
@@ -2188,7 +2190,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                 </div>
                 
                 <div class="alert alert-info border-0 shadow-sm small py-2 d-print-none">
-                    <i class="fas fa-info-circle me-1"></i> Çalışanlarınızın maaş ödemelerini ve ortakların kâr payı çıkışlarını <b>Banka Hesapları</b> sayfasından veya buradaki maaş öde tuşuyla Cari Ekstre üzerinden <b>Ödeme (Çıkış)</b> yaparak gerçekleştirebilirsiniz.
+                    <i class="fas fa-info-circle me-1"></i> Çalışanlarınızın maaş ödemelerini ve ortakların kâr payı çıkışlarını sol menüdeki <b>Banka Hesapları</b> sekmesinden <b>Ödeme (Çıkış)</b> yaparak gerçekleştirebilirsiniz. Aşağıdaki <b>Maaş Ekstresi</b> butonundan ise personelin geçmiş maaş ve ödeme dökümlerini inceleyebilirsiniz.
                 </div>
                 
                 <div id="ikTabloGövdesi" class="mt-4"></div>
