@@ -155,8 +155,10 @@
   let aiGecmisListesi = [];
   
   let proformaListesi = [];
+  let bordroListesi = [];
+  let karPayiListesi = [];
   let cariDinleyici = null; 
-  let faturaDinleyici = null; 
+  let faturaDinleyici = null;
 
   onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -197,6 +199,22 @@
               snapshot.forEach((docSnap) => { proformaListesi.push({ id: docSnap.id, ...docSnap.data() }); });
               proformaListesi.sort((a,b) => new Date(b.tarih) - new Date(a.tarih));
               if (document.getElementById('proformaTabloGövdesi')) { window.faturalariCiz(); }
+          });
+
+          // BORDROLARI DİNLE
+          onSnapshot(collection(db, "bordrolar"), (snapshot) => {
+              bordroListesi = [];
+              snapshot.forEach((doc) => { bordroListesi.push({ id: doc.id, ...doc.data() }); });
+              bordroListesi.sort((a,b) => (b.donem || '').localeCompare(a.donem || ''));
+              if (document.getElementById('bordroTabloGovdesi')) { window.bordrolariCiz(); }
+          });
+
+          // KÂR PAYLARINI DİNLE
+          onSnapshot(collection(db, "karPayilari"), (snapshot) => {
+              karPayiListesi = [];
+              snapshot.forEach((doc) => { karPayiListesi.push({ id: doc.id, ...doc.data() }); });
+              karPayiListesi.sort((a,b) => new Date(b.tarih) - new Date(a.tarih));
+              if (document.getElementById('karPayiTabloGovdesi')) { window.karPayilariCiz(); }
           });
 
           // BANKALARI DİNLE (NaN Oto-Düzeltme Eklendi)
@@ -575,11 +593,9 @@
                   else izinUyarisi = `<div class="mt-2 small text-success"><i class="fas fa-check-circle"></i> İzin Geçerlilik: ${farkGun} Gün</div>`;
               }
 
-              let ozelButon = '';
-              if(c.grup === 'Calisan') {
-                  ozelButon = `<button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="maasBordrosuYazdir('${c.id}')" title="Resmi Maaş Bordrosu (Obračun Zarade)"><i class="fas fa-file-invoice"></i> Bordro</button>`;
-              } else if(c.grup === 'Ortak') {
-                  ozelButon = `<button class="btn btn-sm btn-outline-warning text-dark py-0 me-1" onclick="karPayiPusulasiYazdir('${c.id}')" title="Kâr Payı Pusulası (Obračun Dividende)"><i class="fas fa-coins"></i> Kâr Payı</button>`;
+              let ozelButon = `<button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="maasBordrosuModalAc('${c.id}')" title="Resmi Maaş Bordrosu (Obračun Zarade)"><i class="fas fa-file-invoice"></i> Bordro</button>`;
+              if(c.grup === 'Ortak') {
+                  ozelButon += `<button class="btn btn-sm btn-outline-warning text-dark py-0 me-1" onclick="karPayiModalAc('${c.id}')" title="Kâr Payı Pusulası (Obračun Dividende)"><i class="fas fa-coins"></i> Kâr Payı</button>`;
               }
 
               html += `
@@ -591,6 +607,7 @@
                               <span class="badge ${c.grup === 'Ortak' ? 'bg-primary' : 'bg-success'} text-white border" style="font-size:10px;">${c.grup === 'Ortak' ? 'Şirket Ortağı' : 'Çalışan / İcra Direktörü'}</span>
                           </div>
                           <small class="text-muted d-block mb-1"><i class="fas fa-id-card me-1"></i> Kimlik / Pasaport: <strong class="text-dark">${c.vergiNo || '-'}</strong></small>
+                          <small class="text-muted d-block mb-1"><i class="fas fa-calendar-alt me-1"></i> İşe Giriş Tarihi: <strong class="text-dark">${c.iseGirisTarihi || '-'}</strong></small>
                           <small class="text-muted d-block mb-3"><i class="fas fa-globe me-1"></i> Uyruk: <strong class="text-dark">${c.uyruk_ik === 'Yabanci' ? 'Yabancı (Oturum İzni)' : 'Karadağ Vatandaşı'}</strong></small>
                           
                           <div class="bg-light p-2 rounded border border-light">
@@ -619,246 +636,6 @@
       alan.innerHTML = html;
   };
 
-  window.tabloyuCiz = function() {
-    const alan = document.getElementById('cariTabloGövdesi');
-    if (!alan) return; 
-
-    let aramaMetni = document.getElementById('cariArama') ? document.getElementById('cariArama').value.toLowerCase() : '';
-    let grupFiltre = document.getElementById('cariGrupFiltre') ? document.getElementById('cariGrupFiltre').value : 'Hepsi';
-    let bolgeFiltre = document.getElementById('cariBolgeFiltre') ? document.getElementById('cariBolgeFiltre').value : 'Hepsi';
-
-    alan.innerHTML = '<div class="row" id="cariKartlari"></div>';
-    const kartAlani = document.getElementById('cariKartlari');
-    let gosterilenCariSayisi = 0;
-
-    cariListesi.forEach((cari, index) => {
-        let cariUnvan = cari.unvan ? cari.unvan.toLowerCase() : '';
-        let cariVergiNo = cari.vergiNo ? cari.vergiNo.toLowerCase() : '';
-        
-        let aramaUyuyor = aramaMetni === '' || cariUnvan.includes(aramaMetni) || cariVergiNo.includes(aramaMetni);
-        let grupUyuyor = grupFiltre === 'Hepsi' || cari.grup === grupFiltre;
-        let bolgeUyuyor = bolgeFiltre === 'Hepsi' || cari.bolge === bolgeFiltre;
-
-        if (!aramaUyuyor || !grupUyuyor || !bolgeUyuyor) return;
-        
-        gosterilenCariSayisi++;
-
-        let bakiye = cari.bakiye || 0;
-        let bRenk = bakiye < 0 ? 'text-danger' : (bakiye > 0 ? 'text-success' : 'text-dark');
-        
-        let bDurum = "Bakiye Yok";
-        if (bakiye > 0) bDurum = "Tahsil Edilecek (Alacağımız)";
-        else if (bakiye < 0) bDurum = "Ödenecek (Borcumuz)";
-
-        let birim = cari.paraBirimi || 'EUR';
-        let sembol = birim === 'USD' ? '$' : '€';
-        
-        let paraBirimiRengi = birim === 'USD' ? 'background-color: #f39c12; color: #fff;' : 'background-color: #2c3e50; color: #fff;';
-        let leftBorderColor = index % 2 === 0 ? '#2c3e50' : '#f39c12';
-
-        let grupMetni = 'Müşteri (Alıcı)';
-        if(cari.grup === 'Satici') grupMetni = 'Tedarikçi (Satıcı)';
-        else if(cari.grup === 'Ortak') grupMetni = 'Şirket Ortağı';
-        else if(cari.grup === 'Calisan') grupMetni = 'Çalışan / Personel';
-
-        let cariSatis = 0; let cariAlim = 0;
-        faturaListesi.forEach(f => {
-            if(f.cariId === cari.id) {
-                if(f.tur === 'Satis' || f.tur === 'Ihracat' || f.tur === 'YerelSatis') cariSatis += f.toplamTutar;
-                else if(f.tur === 'Alim') cariAlim += f.toplamTutar;
-            }
-        });
-
-        let analizHtml = '';
-        if(cari.grup === 'Alici') {
-            analizHtml = `<span>Hasılat (Ciro): <strong class="text-success">${cariSatis.toLocaleString('en-US', {minimumFractionDigits: 2})} ${sembol}</strong></span>`;
-        } else if (cari.grup === 'Satici') {
-            analizHtml = `<span>Maliyet (Gider): <strong class="text-danger">${cariAlim.toLocaleString('en-US', {minimumFractionDigits: 2})} ${sembol}</strong></span>`;
-        } else {
-             analizHtml = `<span>Maaş / Kâr Payı Ekstresi: Açmak İçin Tıklayın</span>`;
-        }
-
-        kartAlani.innerHTML += `
-            <div class="col-md-4 mb-2">
-                <div class="card border-0 shadow-sm h-100 rounded-2" style="background-color: #ffffff; border-left: 3px solid ${leftBorderColor} !important;">
-                    <div class="card-body cursor-pointer position-relative p-3 pb-2" onclick="cariEkstreAc('${cari.id}')">
-                        <span class="badge position-absolute top-0 end-0 m-2 px-2 py-1 shadow-sm rounded-pill" style="${paraBirimiRengi} font-size: 0.65rem;">${birim}</span>
-                        <h6 class="fw-bold text-truncate pe-4 mb-1" style="color: #2c3e50; font-size: 0.85rem;" title="${cari.unvan}">${cari.unvan}</h6>
-                        <small class="text-muted" style="font-size:0.73rem;"><i class="fas fa-globe-europe me-1" style="color: #7f8c8d;"></i>${cari.ulke} | ${grupMetni}</small>
-                        <div class="mt-2 mb-1">
-                            <span class="text-muted d-block mb-0" style="font-size: 0.72rem;">${bDurum}</span>
-                            <h5 class="${bRenk} mb-0 fw-bold" style="font-size: 1.1rem;">${Math.abs(bakiye).toLocaleString('en-US', {minimumFractionDigits: 2})} ${sembol}</h5>
-                        </div>
-                        <div class="d-flex justify-content-between border-top pt-1 mt-2 text-muted" style="font-size:10.5px;">
-                            ${analizHtml}
-                        </div>
-                    </div>
-                    <div class="card-footer bg-light border-top-0 text-end py-1 px-3">
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2 me-1" style="font-size:0.7rem;" title="Düzenle" onclick="cariDuzenleAc('${cari.id}')"><i class="fas fa-edit"></i> Düzenle</button>
-                        <button class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:0.7rem;" title="Sil" onclick="cariSil('${cari.id}')"><i class="fas fa-trash"></i> Sil</button>
-                    </div>
-                </div>
-            </div>`;
-    });
-
-    if (gosterilenCariSayisi === 0) {
-        kartAlani.innerHTML = `<div class="col-12 text-center text-muted py-5 border rounded bg-light border-dashed">
-            <i class="fas fa-search fa-2x mb-3 text-secondary opacity-50"></i>
-            <h6>Aradığınız kriterlere uygun kayıt bulunamadı.</h6>
-        </div>`;
-    }
-  };
-
-  window.cariSil = async function(id) {
-      if(!confirm("Bu hesabı silmek istediğinize emin misiniz?")) return;
-      try { await deleteDoc(doc(db, "cariler", id)); } 
-      catch(e) { alert("Hata: " + e.message); }
-  };
-
-  window.yeniCariAc = function() {
-      document.getElementById('yeniCariForm').reset();
-      document.getElementById('c_id').value = '';
-      if(typeof window.ikAlanlariGoster === 'function') window.ikAlanlariGoster();
-      document.querySelector("#yeniCariModal .modal-title").innerHTML = "Yeni Cari / Şahıs Kartı";
-      new bootstrap.Modal(document.getElementById('yeniCariModal')).show();
-  };
-
-  window.cariEkstreAc = async function(cariId, reRender = false) {
-    const cari = cariListesi.find(c => c.id === cariId);
-    let birim = cari.paraBirimi === 'USD' ? '$' : '€';
-    
-    let basTarih = reRender && document.getElementById('ex_bas') ? document.getElementById('ex_bas').value : '';
-    let bitTarih = reRender && document.getElementById('ex_bit') ? document.getElementById('ex_bit').value : '';
-
-    let tamHareketler = [];
-    faturaListesi.filter(f => f.cariId === cariId).forEach(f => {
-        let ekAciklama = f.aciklama ? ` - <span class="text-muted">${f.aciklama}</span>` : '';
-        let isSatis = (f.tur === 'Satis' || f.tur === 'Ihracat' || f.tur === 'YerelSatis');
-        let tipIsmi = isSatis ? (f.tur === 'Ihracat' ? 'Hizmet İhracatı' : 'Satış Faturası') : 'Alım Faturası';
-        
-        tamHareketler.push({ id: f.id, tipKodu: 'fatura', tarih: f.tarih, tip: tipIsmi, 
-            aciklama: `Fatura No: ${f.faturaNo}${ekAciklama}`, tutar: isSatis ? f.toplamTutar : -f.toplamTutar, hamTarih: new Date(f.tarih).getTime() });
-    });
-    islemListesi.filter(i => i.cariId === cariId).forEach(i => {
-        let dStr = i.tarih ? new Date(i.tarih.seconds * 1000).toISOString().split('T')[0] : '';
-        tamHareketler.push({ id: i.id, tipKodu: 'islem', bankaId: i.bankaId, orijinalTur: i.tur, tarih: dStr, tip: i.tur === 'Tahsilat' ? 'Tahsilat (Giriş)' : 'Ödeme (Çıkış)', 
-            aciklama: i.aciklama || 'Banka/Kasa İşlemi', tutar: i.tur === 'Tahsilat' ? -i.tutar : i.tutar, mutlakTutar: i.tutar, hamTarih: new Date(dStr).getTime() });
-    });
-    tamHareketler.sort((a,b) => a.hamTarih - b.hamTarih); 
-
-    let gercekBakiye = 0;
-    tamHareketler.forEach(t => gercekBakiye += t.tutar);
-    
-    if(!reRender && parseFloat(gercekBakiye.toFixed(2)) !== parseFloat((cari.bakiye || 0).toFixed(2))) {
-        updateDoc(doc(db, "cariler", cariId), { bakiye: gercekBakiye }); cari.bakiye = gercekBakiye;
-    }
-
-    let html = `<div id="yazdirilacak-alan" class="p-4 bg-white shadow-sm rounded border border-light">
-        <div class="d-flex justify-content-between align-items-end mb-4 border-bottom pb-3">
-            <div class="d-flex align-items-center">
-                <img src="Euro Veritas Consulting.jpg" style="height: 110px; margin-right: 25px; object-fit: contain;" class="d-none d-print-block">
-                <div><h4 class="mb-0 text-dark fw-bold" style="color: #2c3e50;">${cari.unvan}</h4><small class="text-muted">Cari / Maaş Hesap Ekstresi</small></div>
-            </div>
-            <div class="text-end"><h6 class="mb-0 text-muted small">Güncel Kapanış Bakiyesi</h6><h4 class="${cari.bakiye >= 0 ? 'text-success' : 'text-danger'} fw-bold mb-0">${Math.abs(cari.bakiye).toFixed(2)} ${birim}</h4></div>
-        </div>
-        
-        <div class="row mb-3 d-print-none bg-light p-2 rounded mx-0">
-            <div class="col-md-4"><label class="small text-muted">Başlangıç Tarihi</label><input type="date" id="ex_bas" class="form-control form-control-sm" value="${basTarih}"></div>
-            <div class="col-md-4"><label class="small text-muted">Bitiş Tarihi</label><input type="date" id="ex_bit" class="form-control form-control-sm" value="${bitTarih}"></div>
-            <div class="col-md-4 d-flex align-items-end"><button class="btn btn-sm btn-primary w-100" onclick="cariEkstreAc('${cariId}', true)" style="background-color: #2c3e50; border-color: #2c3e50;"><i class="fas fa-filter"></i> Tarihe Göre Filtrele</button></div>
-        </div>
-
-        <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle">
-            <thead class="text-muted small border-bottom border-dark border-2" style="background-color: #f4f6f9;"><tr><th>Tarih</th><th>İşlem Tipi</th><th>Açıklama</th><th class="text-end">Borç (Debit)</th><th class="text-end">Alacak (Credit)</th><th class="text-end">Bakiye</th><th class="d-print-none text-center">İşlem</th></tr></thead>
-            <tbody>`;
-            
-    let yuruyenBakiye = 0; let toplamBorc = 0; let toplamAlacak = 0; let gosterilenKayit = 0;
-    
-    tamHareketler.forEach(h => {
-        yuruyenBakiye += h.tutar;
-        if(basTarih && h.tarih < basTarih) return;
-        if(bitTarih && h.tarih > bitTarih) return;
-
-        gosterilenKayit++;
-        let borcStr = '-'; let alacakStr = '-';
-        if(h.tutar > 0) { borcStr = `${h.tutar.toFixed(2)} ${birim}`; toplamBorc += h.tutar; } 
-        else if(h.tutar < 0) { alacakStr = `${Math.abs(h.tutar).toFixed(2)} ${birim}`; toplamAlacak += Math.abs(h.tutar); } 
-
-        let silButon = '';
-        if(h.tipKodu === 'islem') {
-            silButon = `
-                <button class="btn btn-sm btn-outline-secondary py-0 me-1" onclick="makbuzYazdir('${h.id}', '${cariId}', '${h.bankaId}', '${h.orijinalTur}', ${h.mutlakTutar}, '${h.tarih}', '${encodeURIComponent(h.aciklama)}', 'ENG')" title="İngilizce Makbuz"><i class="fas fa-file-invoice-dollar"></i> EN</button>
-                <button class="btn btn-sm btn-outline-secondary py-0 me-1" onclick="makbuzYazdir('${h.id}', '${cariId}', '${h.bankaId}', '${h.orijinalTur}', ${h.mutlakTutar}, '${h.tarih}', '${encodeURIComponent(h.aciklama)}', 'MNE')" title="Karadağca Makbuz"><i class="fas fa-file-invoice-dollar"></i> MNE</button>
-                <button class="btn btn-sm btn-outline-danger py-0" onclick="islemSil('${h.id}', '${cariId}', '${h.bankaId}', '${h.orijinalTur}', ${h.mutlakTutar})" title="İşlemi sil"><i class="fas fa-trash"></i></button>
-            `;
-        } else {
-            silButon = `<span class="badge bg-light text-muted fw-normal">Faturadan silin</span>`;
-        }
-
-        let bakiyeRenk = yuruyenBakiye >= 0 ? 'text-success' : 'text-danger';
-        
-        html += `<tr><td class="small">${h.tarih}</td><td class="small text-muted">${h.tip}</td><td class="small">${h.aciklama}</td><td class="text-end fw-medium text-dark">${borcStr}</td><td class="text-end fw-medium text-dark">${alacakStr}</td><td class="text-end fw-bold ${bakiyeRenk}">${Math.abs(yuruyenBakiye).toFixed(2)} ${birim}</td><td class="d-print-none text-center">${silButon}</td></tr>`;
-    });
-
-    if(gosterilenKayit === 0) { html += `<tr><td colspan="7" class="text-center text-muted py-3">Bu tarih aralığında hareket bulunamadı.</td></tr>`; } 
-    html += `<tr class="border-top border-dark border-2" style="background-color: #f4f6f9;"><td colspan="3" class="text-end fw-bold small text-muted">DÖNEM TOPLAMI:</td><td class="text-end fw-bold text-dark">${toplamBorc.toFixed(2)} ${birim}</td><td class="text-end fw-bold text-dark">${toplamAlacak.toFixed(2)} ${birim}</td><td></td><td class="d-print-none"></td></tr>`;
-    html += `</tbody></table></div></div>`;
-    html += `<div class="mt-3"><button class="btn btn-secondary shadow-sm" onclick="window.print()"><i class="fas fa-print"></i> Yazdır</button> <button class="btn btn-outline-danger ms-2" onclick="sayfaYukle('${cari.grup==='Calisan'||cari.grup==='Ortak'?'ik':'cariler'}')">Kapat</button></div>`;
-    document.getElementById('main-content').innerHTML = html;
-  };
-
-  window.makbuzYazdir = function(islemId, cariId, bankaId, tur, tutar, tarih, aciklamaEncoded, dil) {
-      const cari = cariListesi.find(c => c.id === cariId) || {unvan: 'Bilinmeyen Cari'};
-      const banka = bankaListesi.find(b => b.id === bankaId) || {paraBirimi: 'EUR'};
-      const aciklama = decodeURIComponent(aciklamaEncoded);
-      const v = kunyeVerisi;
-      const birim = banka.paraBirimi === 'USD' ? '$' : '€';
-      
-      let t_baslik = dil === 'MNE' ? 'GOTOVINSKA PRIZNANICA' : 'CASH RECEIPT';
-      let t_tarih = dil === 'MNE' ? 'Datum:' : 'Date:';
-      let t_no = dil === 'MNE' ? 'Broj Priznanice:' : 'Receipt No:';
-      let t_kime = tur === 'Tahsilat' ? (dil === 'MNE' ? 'Uplaćeno od:' : 'Received From:') : (dil === 'MNE' ? 'Isplaćeno za:' : 'Paid To:');
-      let t_tutar = dil === 'MNE' ? 'Iznos:' : 'Amount:';
-      let t_aciklama = dil === 'MNE' ? 'Svrha plaćanja:' : 'Description:';
-      let t_imza = dil === 'MNE' ? 'Potpis ovlašćenog lica:' : 'Authorized Signature:';
-
-      let html = `
-      <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 148mm; max-width: 210mm; margin: auto;">
-          <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
-              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 90px; object-fit: contain;" class="mb-2 d-print-block"></div>
-              <div class="col-6 text-end text-muted small" style="font-size: 12px;">
-                  <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
-                  ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
-              </div>
-          </div>
-          <h3 class="text-center fw-bold mb-4" style="color: #2c3e50; letter-spacing: 2px;">${t_baslik}</h3>
-          
-          <div class="p-4 bg-light rounded" style="border: 1px solid #cbd5e1;">
-              <div class="row mb-3">
-                  <div class="col-6"><span class="text-muted small text-uppercase">${t_no}</span><br><strong class="fs-6">${islemId.substring(0,8).toUpperCase()}</strong></div>
-                  <div class="col-6 text-end"><span class="text-muted small text-uppercase">${t_tarih}</span><br><strong class="fs-6">${tarih}</strong></div>
-              </div>
-              <div class="mb-3">
-                  <span class="text-muted small text-uppercase">${t_kime}</span><br><strong class="fs-5 text-dark">${cari.unvan}</strong>
-              </div>
-              <div class="mb-3">
-                  <span class="text-muted small text-uppercase">${t_aciklama}</span><br><strong class="fs-6 text-dark">${aciklama || '-'}</strong>
-              </div>
-              <div class="mt-4 pt-3 border-top border-secondary d-flex justify-content-between align-items-center">
-                  <div><span class="text-muted small text-uppercase">${t_tutar}</span><br><strong class="fs-3 ${tur==='Tahsilat'?'text-success':'text-danger'}">${tutar.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</strong></div>
-                  <div class="text-center pt-4" style="width: 200px; border-bottom: 1px solid #333;"><span class="text-muted small">${t_imza}</span></div>
-              </div>
-          </div>
-      </div>
-      <div class="mt-4 d-print-none text-center">
-          <button class="btn btn-secondary shadow-sm px-4 me-2" onclick="window.print()"><i class="fas fa-print"></i> Yazdır / PDF Olarak Kaydet</button>
-          <button class="btn btn-outline-danger px-4" onclick="cariEkstreAc('${cariId}')">Geri Dön</button>
-      </div>
-      `;
-      document.getElementById('main-content').innerHTML = html;
-  };
-
   window.cariDuzenleAc = function(id) {
       const c = cariListesi.find(x => x.id === id);
       document.getElementById('c_id').value = c.id;
@@ -872,6 +649,8 @@
       if(document.getElementById('c_netMaas')) document.getElementById('c_netMaas').value = c.netMaas || '';
       if(document.getElementById('c_doprinosi')) document.getElementById('c_doprinosi').value = c.doprinosi || '';
       if(document.getElementById('c_uyruk_ik')) document.getElementById('c_uyruk_ik').value = c.uyruk_ik || 'Yerli';
+      if(document.getElementById('c_iseGirisTarihi')) document.getElementById('c_iseGirisTarihi').value = c.iseGirisTarihi || '';
+      if(document.getElementById('c_maasGecerlilikTarihi')) document.getElementById('c_maasGecerlilikTarihi').value = new Date().toISOString().split('T')[0];
       if(document.getElementById('c_calismaIzniNo')) document.getElementById('c_calismaIzniNo').value = c.calismaIzniNo || '';
       if(document.getElementById('c_calismaIzniBitis')) document.getElementById('c_calismaIzniBitis').value = c.calismaIzniBitis || '';
       
@@ -886,6 +665,22 @@
       const unvan = document.getElementById('c_unvan').value;
       if(unvan.trim() === "") { alert("Ünvan / Ad Soyad zorunludur."); return; }
       
+      const netMaas = parseFloat(document.getElementById('c_netMaas')?.value) || 0;
+      const doprinosi = parseFloat(document.getElementById('c_doprinosi')?.value) || 0;
+      const gecerlilikTarihi = document.getElementById('c_maasGecerlilikTarihi')?.value || new Date().toISOString().split('T')[0];
+
+      let maasGecmisi = [];
+      if(id) {
+          const eski = cariListesi.find(x => x.id === id);
+          if(eski && eski.maasGecmisi) maasGecmisi = eski.maasGecmisi;
+      }
+      
+      // Yeni maaş değişikliği varsa geçmişe ekle
+      if(netMaas > 0) {
+          maasGecmisi.push({ gecerlilikTarihi, netMaas, doprinosi });
+          maasGecmisi.sort((a,b) => b.gecerlilikTarihi.localeCompare(a.gecerlilikTarihi));
+      }
+
       const data = {
           unvan: unvan, paraBirimi: document.getElementById('c_paraBirimi').value, grup: document.getElementById('c_grup').value,
           bolge: document.getElementById('c_bolge').value, ulke: document.getElementById('c_ulke').value, 
@@ -893,8 +688,10 @@
           bic: document.getElementById('c_bic').value, email: document.getElementById('c_email').value,
           
           // İK Verileri
-          netMaas: parseFloat(document.getElementById('c_netMaas')?.value) || 0,
-          doprinosi: parseFloat(document.getElementById('c_doprinosi')?.value) || 0,
+          netMaas: netMaas,
+          doprinosi: doprinosi,
+          iseGirisTarihi: document.getElementById('c_iseGirisTarihi')?.value || '',
+          maasGecmisi: maasGecmisi,
           uyruk_ik: document.getElementById('c_uyruk_ik')?.value || 'Yerli',
           calismaIzniNo: document.getElementById('c_calismaIzniNo')?.value || '',
           calismaIzniBitis: document.getElementById('c_calismaIzniBitis')?.value || ''
@@ -905,6 +702,377 @@
           else { data.bakiye = 0; data.olusturmaTarihi = serverTimestamp(); await addDoc(collection(db, "cariler"), data); }
           bootstrap.Modal.getInstance(document.getElementById('yeniCariModal')).hide();
       } catch (e) { alert("Hata: " + e.message); }
+  };
+
+  // ---------------- BORDRO VE MAAŞ GEÇMİŞİ FONKSİYONLARI ----------------
+
+  // Seçilen Ay/Döneme Göre O Ay Geçerli Maaşı Bunan Yardımcı Fonksiyon
+  window.getGecerliMaas = function(cari, donemStr) {
+      if(!cari) return { netMaas: 0, doprinosi: 0 };
+      const defaultNet = cari.netMaas || 0;
+      const defaultDop = cari.doprinosi || 0;
+      
+      if(!cari.maasGecmisi || cari.maasGecmisi.length === 0) return { netMaas: defaultNet, doprinosi: defaultDop };
+
+      const donemLimit = donemStr + "-31";
+      const uyanlar = cari.maasGecmisi.filter(m => m.gecerlilikTarihi <= donemLimit);
+      if(uyanlar.length === 0) return { netMaas: defaultNet, doprinosi: defaultDop };
+
+      uyanlar.sort((a,b) => b.gecerlilikTarihi.localeCompare(a.gecerlilikTarihi));
+      return { netMaas: uyanlar[0].netMaas, doprinosi: uyanlar[0].doprinosi };
+  };
+
+  window.maasBordrosuModalAc = function(cariId) {
+      const c = cariListesi.find(x => x.id === cariId);
+      if(!c) return;
+
+      document.getElementById('bo_cariId').value = c.id;
+      document.getElementById('bo_cariUnvan').value = c.unvan;
+      
+      const bugun = new Date();
+      const donemDefault = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, '0')}`;
+      document.getElementById('bo_donem').value = donemDefault;
+      document.getElementById('bo_tarih').value = bugun.toISOString().split('T')[0];
+
+      // Bankaları doldur
+      const bSelect = document.getElementById('bo_bankaId');
+      bSelect.innerHTML = '<option value="">-- Ödenmedi (Sadece Bordro Kaydet) --</option>';
+      bankaListesi.forEach(b => {
+          bSelect.innerHTML += `<option value="${b.id}">${b.hesapAdi} (${b.paraBirimi})</option>`;
+      });
+
+      window.boDonemDegisti();
+      new bootstrap.Modal(document.getElementById('bordroModal')).show();
+  };
+
+  window.boDonemDegisti = function() {
+      const cariId = document.getElementById('bo_cariId').value;
+      const donem = document.getElementById('bo_donem').value;
+      const c = cariListesi.find(x => x.id === cariId);
+
+      const { netMaas, doprinosi } = window.getGecerliMaas(c, donem);
+      const bruto = netMaas + doprinosi;
+
+      document.getElementById('bo_netMaasText').innerText = `${netMaas.toFixed(2)} €`;
+      document.getElementById('bo_doprinosiText').innerText = `${doprinosi.toFixed(2)} €`;
+      document.getElementById('bo_brutoText').innerText = `${bruto.toFixed(2)} €`;
+  };
+
+  window.bordroKaydet = async function() {
+      const cariId = document.getElementById('bo_cariId').value;
+      const donem = document.getElementById('bo_donem').value;
+      const tarih = document.getElementById('bo_tarih').value;
+      const bankaId = document.getElementById('bo_bankaId').value;
+
+      if(!cariId || !donem || !tarih) { alert("Lütfen dönem ve tarih alanlarını doldurun."); return; }
+      
+      const c = cariListesi.find(x => x.id === cariId);
+      const { netMaas, doprinosi } = window.getGecerliMaas(c, donem);
+      const bruto = netMaas + doprinosi;
+      const banka = bankaListesi.find(b => b.id === bankaId);
+
+      const data = {
+          cariId: cariId,
+          cariUnvan: c.unvan,
+          donem: donem,
+          tarih: tarih,
+          netMaas: netMaas,
+          doprinosi: doprinosi,
+          brutoMaas: bruto,
+          bankaId: bankaId || '',
+          bankaAdi: banka ? banka.hesapAdi : '',
+          durum: bankaId ? 'Ödendi' : 'Bekliyor',
+          olusturmaTarihi: serverTimestamp()
+      };
+
+      try {
+          const docRef = await addDoc(collection(db, "bordrolar"), data);
+
+          // Eğer ödemenin yapılacağı banka seçildiyse kasa çıkışı ve hareket kaydı ekle
+          if(bankaId && netMaas > 0) {
+              await addDoc(collection(db, "hesapHareketleri"), {
+                  bankaId: bankaId,
+                  cariId: cariId,
+                  tur: 'Odeme',
+                  tutar: netMaas,
+                  aciklama: `Maaş Ödemesi - ${donem} Bordrosu`,
+                  tarih: new Date(tarih)
+              });
+
+              await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(-netMaas) });
+              await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(netMaas) });
+          }
+
+          bootstrap.Modal.getInstance(document.getElementById('bordroModal')).hide();
+          alert("Bordro başarıyla oluşturuldu ve kaydedildi.");
+      } catch(e) { alert("Hata: " + e.message); }
+  };
+
+  window.bordrolariCiz = function() {
+      const tbody = document.getElementById('bordroTabloGovdesi');
+      if(!tbody) return;
+      tbody.innerHTML = '';
+
+      if(bordroListesi.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Henüz kayıtlı bordro bulunmuyor.</td></tr>';
+          return;
+      }
+
+      bordroListesi.forEach(b => {
+          let bnkHtml = b.bankaAdi ? `<span class="badge bg-success">Ödendi (${b.bankaAdi})</span>` : `<span class="badge bg-warning text-dark">Ödenmedi / Bekliyor</span>`;
+          tbody.innerHTML += `
+              <tr>
+                  <td><strong>${b.donem}</strong></td>
+                  <td>${b.cariUnvan}</td>
+                  <td class="fw-bold">${(b.brutoMaas || 0).toFixed(2)} €</td>
+                  <td class="text-danger">${(b.doprinosi || 0).toFixed(2)} €</td>
+                  <td class="text-success fw-bold">${(b.netMaas || 0).toFixed(2)} €</td>
+                  <td>${bnkHtml}</td>
+                  <td class="text-end">
+                      <button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="bordroGoster('${b.id}')"><i class="fas fa-print"></i> Görüntüle / Yazdır</button>
+                      <button class="btn btn-sm btn-outline-danger py-0" onclick="bordroSil('${b.id}')"><i class="fas fa-trash"></i> Sil</button>
+                  </td>
+              </tr>
+          `;
+      });
+  };
+
+  window.bordroGoster = function(bordroId) {
+      const b = bordroListesi.find(x => x.id === bordroId);
+      if(!b) return;
+      const c = cariListesi.find(x => x.id === b.cariId) || { vergiNo: '-', iseGirisTarihi: '-', uyruk_ik: 'Yerli' };
+      const v = kunyeVerisi;
+
+      let html = `
+      <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
+          <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 90px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6 text-end text-muted small" style="font-size: 12px;">
+                  <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
+                  ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
+              </div>
+          </div>
+
+          <div class="text-center mb-4">
+              <h3 class="fw-bold mb-1" style="color: #2c3e50; letter-spacing: 1px;">OBRAČUNSKI LIST ZARADE</h3>
+              <span class="text-muted fw-bold">MAAŞ BORDROSU / PAYROLL STATEMENT - ${b.donem}</span>
+          </div>
+
+          <div class="p-3 bg-light rounded mb-4" style="border: 1px solid #cbd5e1;">
+              <div class="row">
+                  <div class="col-6 mb-2"><span class="text-muted small text-uppercase">Zaposleni / Çalışan:</span><br><strong class="fs-6 text-dark">${b.cariUnvan}</strong></div>
+                  <div class="col-6 mb-2 text-end"><span class="text-muted small text-uppercase">Datum Obračuna / Tarih:</span><br><strong class="fs-6 text-dark">${b.tarih}</strong></div>
+                  <div class="col-6"><span class="text-muted small text-uppercase">PIB / Pasport / JMBG:</span><br><strong>${c.vergiNo || '-'}</strong></div>
+                  <div class="col-6 text-end"><span class="text-muted small text-uppercase">Datum Zaposlenja / Giriş Tarihi:</span><br><strong>${c.iseGirisTarihi || '-'}</strong></div>
+              </div>
+          </div>
+
+          <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">FINANSIJSKI DETALJI / MAAŞ VE PRİM DETAYLARI</h6>
+          <table class="table table-bordered border-dark mb-4">
+              <thead style="background-color: #f1f5f9;">
+                  <tr><th>Opis / Açıklama</th><th class="text-end">Iznos / Tutar</th></tr>
+              </thead>
+              <tbody>
+                  <tr><td>Ukupna Bruto Zarada (Brüt Maaş Maliyeti)</td><td class="text-end fw-bold">${(b.brutoMaas || 0).toLocaleString('en-US', {minimumFractionDigits: 2})} €</td></tr>
+                  <tr><td>Doprinosi za obavezno socijalno osiguranje (SGK / Doprinosi Primi)</td><td class="text-end text-danger">-${(b.doprinosi || 0).toLocaleString('en-US', {minimumFractionDigits: 2})} €</td></tr>
+                  <tr><td>Porez na dohodak fizickih lica (Gelir Vergisi)</td><td class="text-end text-muted">0.00 €</td></tr>
+                  <tr class="table-success border-top border-dark border-2">
+                      <td class="fw-bold fs-6 text-dark">NETO ZARADA ZA ISPLATU (NET ÖDENECEK MAAŞ)</td>
+                      <td class="text-end fw-bold fs-5 text-success">${(b.netMaas || 0).toLocaleString('en-US', {minimumFractionDigits: 2})} €</td>
+                  </tr>
+              </tbody>
+          </table>
+
+          <div class="mt-5 pt-5 row text-center">
+              <div class="col-6"><div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2"><strong class="small text-dark">Potpis poslodavca / İşveren İmza</strong></div></div>
+              <div class="col-6"><div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2"><strong class="small text-dark">Potpis zaposlenog / Çalışan İmza</strong></div></div>
+          </div>
+      </div>
+      <div class="mt-4 d-print-none text-center">
+          <button class="btn btn-secondary shadow-sm px-4 me-2" onclick="window.print()"><i class="fas fa-print me-1"></i> Çıktı Al / PDF Kaydet</button>
+          <button class="btn btn-outline-danger px-4" onclick="sayfaYukle('ik')">Geri Dön</button>
+      </div>
+      `;
+      document.getElementById('main-content').innerHTML = html;
+  };
+
+  window.bordroSil = async function(bordroId) {
+      if(!confirm("Bu bordroyu silmek istediğinize emin misiniz?")) return;
+      try {
+          await deleteDoc(doc(db, "bordrolar", bordroId));
+          alert("Bordro kaydı silindi.");
+      } catch(e) { alert("Hata: " + e.message); }
+  };
+
+  // ---------------- KÂR PAYI İŞLEMLERİ ----------------
+
+  window.karPayiModalAc = function(cariId) {
+      const c = cariListesi.find(x => x.id === cariId);
+      if(!c) return;
+
+      document.getElementById('kp_cariId').value = c.id;
+      document.getElementById('kp_cariUnvan').value = c.unvan;
+      document.getElementById('kp_tarih').value = new Date().toISOString().split('T')[0];
+      document.getElementById('kp_brutTutar').value = '';
+
+      const bSelect = document.getElementById('kp_bankaId');
+      bSelect.innerHTML = '<option value="">-- Banka / Kasa Hesabı Seçin * --</option>';
+      bankaListesi.forEach(b => {
+          bSelect.innerHTML += `<option value="${b.id}">${b.hesapAdi} (${b.paraBirimi})</option>`;
+      });
+
+      window.kpHesapla();
+      new bootstrap.Modal(document.getElementById('karPayiModal')).show();
+  };
+
+  window.kpHesapla = function() {
+      const brut = parseFloat(document.getElementById('kp_brutTutar').value) || 0;
+      const stopaj = brut * 0.15; // %15 Karadağ Kâr Payı Stopajı
+      const net = brut - stopaj;
+
+      document.getElementById('kp_stopajText').innerText = `${stopaj.toFixed(2)} €`;
+      document.getElementById('kp_netText').innerText = `${net.toFixed(2)} €`;
+  };
+
+  window.karPayiKaydet = async function() {
+      const cariId = document.getElementById('kp_cariId').value;
+      const tarih = document.getElementById('kp_tarih').value;
+      const brutTutar = parseFloat(document.getElementById('kp_brutTutar').value) || 0;
+      const bankaId = document.getElementById('kp_bankaId').value;
+      const aciklama = document.getElementById('kp_aciklama').value || 'Kâr Payı Ödemesi';
+
+      if(!cariId || brutTutar <= 0 || !bankaId || !tarih) { alert("Lütfen tarih, brüt tutar ve ödeme yapılacak banka/kasa hesabını seçiniz."); return; }
+
+      const c = cariListesi.find(x => x.id === cariId);
+      const banka = bankaListesi.find(b => b.id === bankaId);
+      const stopajTutar = brutTutar * 0.15;
+      const netTutar = brutTutar - stopajTutar;
+
+      const data = {
+          cariId: cariId,
+          cariUnvan: c.unvan,
+          tarih: tarih,
+          brutTutar: brutTutar,
+          stopajTutar: stopajTutar,
+          netTutar: netTutar,
+          bankaId: bankaId,
+          bankaAdi: banka.hesapAdi,
+          aciklama: aciklama,
+          olusturmaTarihi: serverTimestamp()
+      };
+
+      try {
+          await addDoc(collection(db, "karPayilari"), data);
+
+          // Bankadan Ödeme Çıkışı yap ve Hesap Hareketlerine İşle
+          await addDoc(collection(db, "hesapHareketleri"), {
+              bankaId: bankaId,
+              cariId: cariId,
+              tur: 'Odeme',
+              tutar: netTutar,
+              aciklama: `Kâr Payı (Dividenda) Ödemesi - Net`,
+              tarih: new Date(tarih)
+          });
+
+          await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(-netTutar) });
+          await updateDoc(doc(db, "cariler", cariId), { bakiye: increment(netTutar) });
+
+          bootstrap.Modal.getInstance(document.getElementById('karPayiModal')).hide();
+          alert("Kâr Payı ödemesi başarıyla kaydedildi ve banka bakiyesinden düşüldü.");
+      } catch(e) { alert("Hata: " + e.message); }
+  };
+
+  window.karPayilariCiz = function() {
+      const tbody = document.getElementById('karPayiTabloGovdesi');
+      if(!tbody) return;
+      tbody.innerHTML = '';
+
+      if(karPayiListesi.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Henüz kâr payı dağıtım kaydı bulunmuyor.</td></tr>';
+          return;
+      }
+
+      karPayiListesi.forEach(k => {
+          tbody.innerHTML += `
+              <tr>
+                  <td>${k.tarih}</td>
+                  <td><strong>${k.cariUnvan}</strong></td>
+                  <td class="fw-bold">${(k.brutTutar || 0).toFixed(2)} €</td>
+                  <td class="text-danger">-${(k.stopajTutar || 0).toFixed(2)} €</td>
+                  <td class="text-success fw-bold">${(k.netTutar || 0).toFixed(2)} €</td>
+                  <td><span class="badge bg-primary">${k.bankaAdi || '-'}</span></td>
+                  <td class="text-end">
+                      <button class="btn btn-sm btn-outline-warning text-dark py-0 me-1" onclick="karPayiGoster('${k.id}')"><i class="fas fa-print"></i> Pusula</button>
+                      <button class="btn btn-sm btn-outline-danger py-0" onclick="karPayiSil('${k.id}')"><i class="fas fa-trash"></i> Sil</button>
+                  </td>
+              </tr>
+          `;
+      });
+  };
+
+  window.karPayiGoster = function(karPayiId) {
+      const k = karPayiListesi.find(x => x.id === karPayiId);
+      if(!k) return;
+      const c = cariListesi.find(x => x.id === k.cariId) || { vergiNo: '-', iban: '-' };
+      const v = kunyeVerisi;
+
+      let html = `
+      <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
+          <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 90px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6 text-end text-muted small" style="font-size: 12px;">
+                  <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
+                  ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
+              </div>
+          </div>
+
+          <div class="text-center mb-4">
+              <h3 class="fw-bold mb-1" style="color: #2c3e50; letter-spacing: 1px;">OBRAČUN I ISPLATA DIVIDENDE / DOBITI</h3>
+              <span class="text-muted fw-bold">KÂR PAYI HESAP PUSULASI / DIVIDEND STATEMENT - ${k.tarih}</span>
+          </div>
+
+          <div class="p-3 bg-light rounded mb-4" style="border: 1px solid #cbd5e1;">
+              <div class="row">
+                  <div class="col-6 mb-2"><span class="text-muted small text-uppercase">Osnivač / Şirket Ortağı:</span><br><strong class="fs-6 text-dark">${k.cariUnvan}</strong></div>
+                  <div class="col-6 mb-2 text-end"><span class="text-muted small text-uppercase">PIB / Kimlik No:</span><br><strong class="fs-6 text-dark">${c.vergiNo || '-'}</strong></div>
+                  <div class="col-12"><span class="text-muted small text-uppercase">Isplaćeno preko banke / Ödenen Banka:</span><br><strong>${k.bankaAdi || '-'}</strong></div>
+              </div>
+          </div>
+
+          <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">FINANSIJSKI PRORAČUN / HESAPLAMA DETAYLARI</h6>
+          <table class="table table-bordered border-dark mb-4">
+              <thead style="background-color: #f1f5f9;">
+                  <tr><th>Opis / Açıklama</th><th class="text-end">Iznos / Tutar</th></tr>
+              </thead>
+              <tbody>
+                  <tr><td>Bruto Odobrena Dividenda (Dağıtılan Brüt Kâr Payı)</td><td class="text-end fw-bold">${(k.brutTutar || 0).toLocaleString('en-US', {minimumFractionDigits: 2})} €</td></tr>
+                  <tr><td>Porez po odbitku na dividendu - 15% (Karadağ Stopaj Vergisi Kesintisi)</td><td class="text-end text-danger">-${(k.stopajTutar || 0).toLocaleString('en-US', {minimumFractionDigits: 2})} €</td></tr>
+                  <tr class="table-success border-top border-dark border-2">
+                      <td class="fw-bold fs-6 text-dark">NETO DIVIDENDA ZA ISPLATU (NET ÖDENEN KÂR PAYI)</td>
+                      <td class="text-end fw-bold fs-5 text-success">${(k.netTutar || 0).toLocaleString('en-US', {minimumFractionDigits: 2})} €</td>
+                  </tr>
+              </tbody>
+          </table>
+
+          <div class="mt-5 pt-4 row text-center">
+              <div class="col-6"><div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2"><strong class="small text-dark">Za Kompaniju / Şirket Yetkilisi</strong></div></div>
+              <div class="col-6"><div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2"><strong class="small text-dark">Primalac dividende / Ortak İmza</strong></div></div>
+          </div>
+      </div>
+      <div class="mt-4 d-print-none text-center">
+          <button class="btn btn-secondary shadow-sm px-4 me-2" onclick="window.print()"><i class="fas fa-print me-1"></i> Çıktı Al / PDF Kaydet</button>
+          <button class="btn btn-outline-danger px-4" onclick="sayfaYukle('ik')">Geri Dön</button>
+      </div>
+      `;
+      document.getElementById('main-content').innerHTML = html;
+  };
+
+  window.karPayiSil = async function(karPayiId) {
+      if(!confirm("Bu kâr payı kaydını silmek istediğinize emin misiniz?")) return;
+      try {
+          await deleteDoc(doc(db, "karPayilari", karPayiId));
+          alert("Kâr payı kaydı silindi.");
+      } catch(e) { alert("Hata: " + e.message); }
   };
 
   // ---------------- MAAŞ BORDROSU (OBRAČUN ZARADE) YAZDIRMA ----------------
@@ -2324,18 +2492,136 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         }
         else if(sayfa === 'ik') {
             mainContent.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
                     <h2>İnsan Kaynakları (HR) ve Maaşlar</h2>
                     <button class="btn btn-primary shadow-sm" onclick="yeniCalisanAc()">
                         <i class="fas fa-user-plus"></i> Yeni Çalışan / Ortak Ekle
                     </button>
                 </div>
                 
-                <div class="alert alert-info border-0 shadow-sm small py-2 d-print-none">
-                    <i class="fas fa-info-circle me-1"></i> Çalışanlarınızın maaş ödemelerini ve ortakların kâr payı çıkışlarını sol menüdeki <b>Banka Hesapları</b> sekmesinden <b>Ödeme (Çıkış)</b> yaparak gerçekleştirebilirsiniz. Personel hesap dökümlerini ise aşağıdaki <b>Maaş Ekstresi</b> butonundan inceleyebilirsiniz.
+                <ul class="nav nav-tabs mb-3" id="ikTab" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active fw-bold text-dark" data-bs-toggle="tab" data-bs-target="#ik-personel" type="button"><i class="fas fa-users me-1"></i> Çalışan & Ortaklar</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link fw-bold text-primary" data-bs-toggle="tab" data-bs-target="#ik-bordrolar" type="button" onclick="window.bordrolariCiz()"><i class="fas fa-file-invoice-dollar me-1"></i> Bordro Geçmişi</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link fw-bold text-warning text-dark" data-bs-toggle="tab" data-bs-target="#ik-karpaylari" type="button" onclick="window.karPayilariCiz()"><i class="fas fa-coins me-1"></i> Kâr Payı Geçmişi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- PERSONEL KARTLARI SEKMESİ -->
+                    <div class="tab-pane fade show active" id="ik-personel">
+                        <div class="alert alert-info border-0 shadow-sm small py-2 mb-3 d-print-none">
+                            <i class="fas fa-info-circle me-1"></i> Personel kartlarında <b>Bordro</b> butonuna basarak istediğiniz ayın maaş bordrosunu oluşturabilir veya bankadan ödemesini tamamlayabilirsiniz.
+                        </div>
+                        <div id="ikTabloGövdesi" class="mt-2"></div>
+                    </div>
+
+                    <!-- BORDRO GEÇMİŞİ SEKMESİ -->
+                    <div class="tab-pane fade" id="ik-bordrolar">
+                        <div class="bg-white p-3 rounded shadow-sm border">
+                            <h6 class="fw-bold text-primary mb-3"><i class="fas fa-history me-1"></i> Kayıtlı Maaş Bordroları</h6>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle table-sm">
+                                    <thead class="table-light text-muted small">
+                                        <tr><th>Dönem (Ay)</th><th>Personel / Ünvan</th><th>Brüt Tutar</th><th>Doprinosi (SGK)</th><th>Net Maaş</th><th>Ödeme Durumu / Banka</th><th class="text-end">İşlemler</th></tr>
+                                    </thead>
+                                    <tbody id="bordroTabloGovdesi"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KÂR PAYI GEÇMİŞİ SEKMESİ -->
+                    <div class="tab-pane fade" id="ik-karpaylari">
+                        <div class="bg-white p-3 rounded shadow-sm border">
+                            <h6 class="fw-bold text-warning mb-3"><i class="fas fa-receipt me-1"></i> Kâr Payı Dağıtım Geçmişi</h6>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle table-sm">
+                                    <thead class="table-light text-muted small">
+                                        <tr><th>Tarih</th><th>Şirket Ortağı</th><th>Brüt Kâr Payı</th><th>Stopaj (%15)</th><th>Net Ödenen</th><th>Banka / Kasa</th><th class="text-end">İşlemler</th></tr>
+                                    </thead>
+                                    <tbody id="karPayiTabloGovdesi"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <div id="ikTabloGövdesi" class="mt-4"></div>
+
+                <!-- BORDRO OLUŞTURMA & ÖDEME MODALI -->
+                <div class="modal fade" id="bordroModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-dark text-white">
+                                <h5 class="modal-title"><i class="fas fa-calculator me-2"></i>Maaş Bordrosu Oluştur</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="bordroForm">
+                                    <input type="hidden" id="bo_cariId">
+                                    <div class="mb-2"><label class="form-label text-muted small mb-1">Personel / Ünvan</label><input type="text" class="form-control fw-bold bg-light" id="bo_cariUnvan" readonly></div>
+                                    <div class="row mb-2">
+                                        <div class="col-md-6"><label class="form-label text-muted small mb-1">Bordro Dönemi (Ay/Yıl) *</label><input type="month" class="form-control" id="bo_donem" required onchange="boDonemDegisti()"></div>
+                                        <div class="col-md-6"><label class="form-label text-muted small mb-1">Bordro Tarihi *</label><input type="date" class="form-control" id="bo_tarih" required></div>
+                                    </div>
+                                    <div class="p-2 bg-light border rounded mb-3">
+                                        <div class="d-flex justify-content-between small mb-1"><span>Net Maaş (O Dönemki):</span> <strong id="bo_netMaasText" class="text-dark">0.00 €</strong></div>
+                                        <div class="d-flex justify-content-between small mb-1"><span>Doprinosi (SGK Primi):</span> <strong id="bo_doprinosiText" class="text-danger">0.00 €</strong></div>
+                                        <div class="d-flex justify-content-between border-top pt-1 fw-bold"><span>Toplam Brüt Maliyet:</span> <strong id="bo_brutoText" class="text-primary">0.00 €</strong></div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label text-muted small mb-1">Maaş Ödemesinin Yapılacağı Banka / Kasa</label>
+                                        <select class="form-select" id="bo_bankaId">
+                                            <option value="">-- Ödenmedi (Sadece Bordro İle Borçlandır) --</option>
+                                        </select>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-primary" onclick="bordroKaydet()">Bordroyu Oluştur ve Kaydet</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KÂR PAYI DAĞITIM & ÖDEME MODALI -->
+                <div class="modal fade" id="karPayiModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-warning text-dark">
+                                <h5 class="modal-title"><i class="fas fa-coins me-2"></i>Kâr Payı Dağıtım Pusulası</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="karPayiForm">
+                                    <input type="hidden" id="kp_cariId">
+                                    <div class="mb-2"><label class="form-label text-muted small mb-1">Şirket Ortağı</label><input type="text" class="form-control fw-bold bg-light" id="kp_cariUnvan" readonly></div>
+                                    <div class="row mb-2">
+                                        <div class="col-md-6"><label class="form-label text-muted small mb-1">Ödeme Tarihi *</label><input type="date" class="form-control" id="kp_tarih" required></div>
+                                        <div class="col-md-6"><label class="form-label text-muted small mb-1">Dağıtılacak Brüt Kâr (€) *</label><input type="number" class="form-control fw-bold" id="kp_brutTutar" step="0.01" placeholder="1000.00" onkeyup="kpHesapla()" onchange="kpHesapla()" required></div>
+                                    </div>
+                                    <div class="p-2 bg-light border rounded mb-3">
+                                        <div class="d-flex justify-content-between small mb-1"><span>Karadağ Stopaj Vergisi (%15):</span> <strong id="kp_stopajText" class="text-danger">0.00 €</strong></div>
+                                        <div class="d-flex justify-content-between border-top pt-1 fw-bold"><span>Ortağa Ödenecek Net Nakit:</span> <strong id="kp_netText" class="text-success">0.00 €</strong></div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label text-muted small mb-1">Ödemenin Yapılacağı Banka / Kasa Hesabı *</label>
+                                        <select class="form-select" id="kp_bankaId" required></select>
+                                    </div>
+                                    <div class="mb-2"><label class="form-label text-muted small mb-1">Açıklama</label><input type="text" class="form-control" id="kp_aciklama" value="Kâr Payı (Dividenda) Ödemesi"></div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-warning text-dark fw-bold" onclick="karPayiKaydet()">Kâr Payını Öde ve Kaydet</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- ÇALIŞAN VE ORTAK EKLEME / DÜZENLEME MODALI -->
                 <div class="modal fade" id="yeniCariModal" tabindex="-1">
@@ -2369,24 +2655,34 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                         <div class="col-md-6"><label class="form-label">Vergi No / PIB / Kimlik No *</label><input type="text" class="form-control" id="c_vergiNo"></div>
                                     </div>
                                     
-                                    <!-- İNSAN KAYNAKLARI FORMU (ÇALIŞAN VEYA ORTAK SEÇİLİNCE AÇILIR) -->
+                                    <!-- İNSAN KAYNAKLARI FORMU -->
                                     <div id="hr_fields" style="display: none; background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed #cbd5e1; margin-bottom: 15px;">
                                         <h6 class="text-info fw-bold mb-3"><i class="fas fa-id-card me-1"></i> İnsan Kaynakları & Maaş Bilgileri</h6>
                                         <div class="row mb-3">
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <label class="form-label small text-muted">Çalışan Uyruğu</label>
                                                 <select class="form-select form-select-sm" id="c_uyruk_ik" onchange="if(typeof window.uyrukDegisti === 'function') window.uyrukDegisti()">
                                                     <option value="Yerli">Karadağ Vatandaşı (Yerli)</option>
                                                     <option value="Yabanci">Yabancı (Oturum / Çalışma İzni)</option>
                                                 </select>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
+                                                <label class="form-label small text-muted">İşe Giriş Tarihi</label>
+                                                <input type="date" class="form-control form-control-sm" id="c_iseGirisTarihi">
+                                            </div>
+                                            <div class="col-md-3">
                                                 <label class="form-label small text-muted">Aylık Net Maaş (€)</label>
                                                 <input type="number" class="form-control form-control-sm" id="c_netMaas" step="0.01" placeholder="Örn: 600.00">
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <label class="form-label small text-muted">Doprinosi (SGK) (€)</label>
                                                 <input type="number" class="form-control form-control-sm" id="c_doprinosi" step="0.01" placeholder="Örn: 125.00">
+                                            </div>
+                                        </div>
+                                        <div class="row mb-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label small text-primary fw-bold">Ücret / SGK Değişikliği Geçerlilik Tarihi</label>
+                                                <input type="date" class="form-control form-control-sm border-primary" id="c_maasGecerlilikTarihi">
                                             </div>
                                         </div>
                                         <div class="row" id="yabanci_fields" style="display: none;">
