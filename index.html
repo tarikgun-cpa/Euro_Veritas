@@ -865,7 +865,7 @@
               </div>
               <div class="mt-4 pt-3 border-top border-secondary d-flex justify-content-between align-items-center">
                   <div><span class="text-muted small text-uppercase">${t_tutar}</span><br><strong class="fs-3 ${tur==='Tahsilat'?'text-success':'text-danger'}">${tutar.toLocaleString('en-US', {minimumFractionDigits: 2})} ${birim}</strong></div>
-                  <div class="text-center pt-4 position-relative" style="width: 220px; border-bottom: 1px solid #333;">
+                  <div id="kase-alani" data-border-type="bottom" class="text-center pt-4 position-relative" style="width: 220px; border-bottom: 1px solid #333;">
                       <img id="kase-gorseli" src="Kase.jpg" class="d-none position-absolute" style="max-height: 110px; top: -35px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 5;">
                       <span class="text-muted small">${t_imza}</span>
                   </div>
@@ -954,11 +954,26 @@
       } catch (e) { alert("Hata: " + e.message); }
   };
 
-  // Kaşe Görselini Göster / Gizle
+  // Kaşe Görselini ve Üst Çizgiyi Göster / Gizle
   window.kaseToggle = function() {
       const kase = document.getElementById('kase-gorseli');
-      if (kase) {
+      const kaseAlani = document.getElementById('kase-alani');
+      if (kase && kaseAlani) {
           kase.classList.toggle('d-none');
+          const isHidden = kase.classList.contains('d-none');
+          
+          if (!isHidden) {
+              // Kaşe aktifleştiğinde çizgiyi gizle
+              kaseAlani.style.borderTop = 'none';
+              kaseAlani.style.borderBottom = 'none';
+          } else {
+              // Kaşe kaldırıldığında çizgiyi geri getir
+              if (kaseAlani.dataset.borderType === 'bottom') {
+                  kaseAlani.style.borderBottom = '1px solid #333';
+              } else {
+                  kaseAlani.style.borderTop = '1px solid #333';
+              }
+          }
       }
   };
 
@@ -1160,7 +1175,7 @@
 
           <div class="mt-5 pt-5 row text-center">
               <div class="col-6">
-                  <div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2 position-relative">
+                  <div id="kase-alani" data-border-type="top" style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2 position-relative">
                       <img id="kase-gorseli" src="Kase.jpg" class="d-none position-absolute" style="max-height: 115px; top: -65px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 5;">
                       <strong class="small text-dark">Potpis poslodavca / İşveren İmza</strong>
                   </div>
@@ -1363,7 +1378,7 @@
 
           <div class="mt-5 pt-4 row text-center">
               <div class="col-6">
-                  <div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2 position-relative">
+                  <div id="kase-alani" data-border-type="top" style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2 position-relative">
                       <img id="kase-gorseli" src="Kase.jpg" class="d-none position-absolute" style="max-height: 115px; top: -65px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 5;">
                       <strong class="small text-dark">Za Kompaniju / Şirket Yetkilisi</strong>
                   </div>
@@ -1455,7 +1470,7 @@
 
           <div class="mt-5 pt-5 row text-center">
               <div class="col-6">
-                  <div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2 position-relative">
+                  <div id="kase-alani" data-border-type="top" style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2 position-relative">
                       <img id="kase-gorseli" src="Kase.jpg" class="d-none position-absolute" style="max-height: 115px; top: -65px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 5;">
                       <strong class="small text-dark">Potpis poslodavca / İşveren İmza</strong>
                   </div>
@@ -1530,7 +1545,7 @@
 
           <div class="mt-5 pt-4 row text-center">
               <div class="col-6">
-                  <div style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2 position-relative">
+                  <div id="kase-alani" data-border-type="top" style="border-top: 1px solid #333; width: 80%; margin: auto;" class="pt-2 position-relative">
                       <img id="kase-gorseli" src="Kase.jpg" class="d-none position-absolute" style="max-height: 115px; top: -65px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 5;">
                       <strong class="small text-dark">Za Kompaniju / Şirket Yetkilisi</strong>
                   </div>
