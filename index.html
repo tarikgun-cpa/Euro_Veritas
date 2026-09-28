@@ -998,6 +998,31 @@
       return { netMaas: uyanlar[0].netMaas, doprinosi: uyanlar[0].doprinosi };
   };
 
+  // Ay İçi Girişler İçin Otomatik Kıst (Pro-rata) Maaş ve Doprinosi Hesaplama
+  window.getKistMaas = function(cari, donemStr) {
+      const { netMaas, doprinosi } = window.getGecerliMaas(cari, donemStr);
+      if(!cari || !cari.iseGirisTarihi || !donemStr) {
+          return { netMaas, doprinosi, calisilanGun: null, toplamGun: null, kistMi: false };
+      }
+
+      const [yil, ay] = donemStr.split('-').map(Number);
+      const [girisYil, girisAy, girisGun] = cari.iseGirisTarihi.split('-').map(Number);
+
+      // İşe giriş tarihi seçilen bordro ayındaysa kıst hesapla
+      if (girisYil === yil && girisAy === ay) {
+          const toplamGun = new Date(yil, ay, 0).getDate(); // O ayın toplam gün sayısı (Şubat 28 vb.)
+          const calisilanGun = toplamGun - girisGun + 1; // İşe giriş günü dahil aktif gün sayısı
+          
+          if (calisilanGun > 0 && calisilanGun < toplamGun) {
+              const kistNet = parseFloat(((netMaas / toplamGun) * calisilanGun).toFixed(2));
+              const kistDop = parseFloat(((doprinosi / toplamGun) * calisilanGun).toFixed(2));
+              return { netMaas: kistNet, doprinosi: kistDop, calisilanGun, toplamGun, kistMi: true };
+          }
+      }
+
+      return { netMaas, doprinosi, calisilanGun: null, toplamGun: null, kistMi: false };
+  };
+
   window.maasBordrosuModalAc = function(cariId) {
       const c = cariListesi.find(x => x.id === cariId);
       if(!c) return;
@@ -1028,12 +1053,26 @@
       const donem = document.getElementById('bo_donem').value;
       const c = cariListesi.find(x => x.id === cariId);
 
-      const { netMaas, doprinosi } = window.getGecerliMaas(c, donem);
+      const { netMaas, doprinosi, calisilanGun, toplamGun, kistMi } = window.getKistMaas(c, donem);
       const bruto = netMaas + doprinosi;
 
       document.getElementById('bo_netMaasText').innerText = `${netMaas.toFixed(2)} €`;
       document.getElementById('bo_doprinosiText').innerText = `${doprinosi.toFixed(2)} €`;
       document.getElementById('bo_brutoText').innerText = `${bruto.toFixed(2)} €`;
+
+      // Kıst uyarısı rozeti göster
+      let bilgiEl = document.getElementById('bo_kistBilgi');
+      if(!bilgiEl) {
+          const container = document.getElementById('bo_netMaasText').parentElement.parentElement;
+          bilgiEl = document.createElement('div');
+          bilgiEl.id = 'bo_kistBilgi';
+          container.prepend(bilgiEl);
+      }
+      if(kistMi) {
+          bilgiEl.innerHTML = `<div class="alert alert-warning py-1 px-2 small mb-2"><i class="fas fa-calendar-day me-1"></i> Ay İçi İşe Giriş (${c.iseGirisTarihi}): <b>${calisilanGun} / ${toplamGun} Günlük Kıst Bordro Hesaplandı.</b></div>`;
+      } else {
+          bilgiEl.innerHTML = '';
+      }
   };
 
   window.bordroKaydet = async function() {
@@ -1045,14 +1084,13 @@
       if(!cariId || !donem || !tarih) { alert("Lütfen dönem ve tarih alanlarını doldurun."); return; }
       
       const c = cariListesi.find(x => x.id === cariId);
-      const { netMaas, doprinosi } = window.getGecerliMaas(c, donem);
+      const { netMaas, doprinosi, calisilanGun, toplamGun, kistMi } = window.getKistMaas(c, donem);
       const bruto = netMaas + doprinosi;
       const banka = bankaListesi.find(b => b.id === bankaId);
 
       let bankaDetayStr = '';
       let islemId = '';
 
-      // Eğer banka/kasa seçildiyse ödemeyi gerçekleştir ve hareket id'sini al
       if(bankaId && netMaas > 0) {
           let nolar = banka.yerelHesap || banka.iban || '';
           bankaDetayStr = `${banka.hesapAdi}${nolar ? ' (' + nolar + ')' : ''}`;
@@ -1062,7 +1100,7 @@
               cariId: cariId,
               tur: 'Odeme',
               tutar: netMaas,
-              aciklama: `Maaş Ödemesi - ${donem} Bordrosu`,
+              aciklama: `Maaş Ödemesi - ${donem} Bordrosu ${kistMi ? '(' + calisilanGun + '/' + toplamGun + ' Gün Kıst)' : ''}`,
               tarih: new Date(tarih)
           });
 
@@ -1080,6 +1118,9 @@
           netMaas: netMaas,
           doprinosi: doprinosi,
           brutoMaas: bruto,
+          calisilanGun: calisilanGun || null,
+          toplamGun: toplamGun || null,
+          kistMi: kistMi || false,
           bankaId: bankaId || '',
           bankaAdi: banka ? banka.hesapAdi : '',
           bankaDetay: bankaDetayStr,
@@ -1091,7 +1132,7 @@
       try {
           await addDoc(collection(db, "bordrolar"), data);
           bootstrap.Modal.getInstance(document.getElementById('bordroModal')).hide();
-          alert("Bordro başarıyla oluşturuldu ve banka/kasa ödemesi kaydedildi.");
+          alert("Bordro başarıyla oluşturuldu ve kaydedildi.");
       } catch(e) { alert("Hata: " + e.message); }
   };
 
