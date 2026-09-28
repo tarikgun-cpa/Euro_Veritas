@@ -1147,7 +1147,10 @@
       }
 
       bordroListesi.forEach(b => {
-          let bnkHtml = b.bankaDetay ? `<span class="badge bg-success">Ödendi (${b.bankaDetay})</span>` : (b.bankaAdi ? `<span class="badge bg-success">Ödendi (${b.bankaAdi})</span>` : `<span class="badge bg-warning text-dark">Ödenmedi / Bekliyor</span>`);
+          let isPaid = b.durum === 'Ödendi' || b.bankaId;
+          let bnkHtml = isPaid ? `<span class="badge bg-success">Ödendi (${b.bankaDetay || b.bankaAdi})</span>` : `<span class="badge bg-warning text-dark">Ödenmedi / Bekliyor</span>`;
+          let odeBtn = !isPaid ? `<button class="btn btn-sm btn-success py-0 me-1" onclick="bordroOdeAc('${b.id}')"><i class="fas fa-check"></i> Öde</button>` : '';
+
           tbody.innerHTML += `
               <tr>
                   <td><strong>${b.donem}</strong></td>
@@ -1157,12 +1160,82 @@
                   <td class="text-success fw-bold">${(b.netMaas || 0).toFixed(2)} €</td>
                   <td>${bnkHtml}</td>
                   <td class="text-end">
+                      ${odeBtn}
                       <button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="bordroGoster('${b.id}')"><i class="fas fa-print"></i> Görüntüle / Yazdır</button>
                       <button class="btn btn-sm btn-outline-danger py-0" onclick="bordroSil('${b.id}')"><i class="fas fa-trash"></i> Sil</button>
                   </td>
               </tr>
           `;
       });
+  };
+
+  // Bekleyen Bordro İçin Ödeme Modalını Açma
+  window.bordroOdeAc = function(bordroId) {
+      const b = bordroListesi.find(x => x.id === bordroId);
+      if(!b) return;
+
+      document.getElementById('bo_ode_bordroId').value = b.id;
+      document.getElementById('bo_ode_detay').value = `${b.cariUnvan} (${b.donem})`;
+      document.getElementById('bo_ode_tutarText').value = `${(b.netMaas || 0).toFixed(2)} €`;
+      document.getElementById('bo_ode_tarih').value = new Date().toISOString().split('T')[0];
+
+      const bSelect = document.getElementById('bo_ode_bankaId');
+      bSelect.innerHTML = '<option value="">-- Banka / Kasa Hesabı Seçin * --</option>';
+      bankaListesi.forEach(bnk => {
+          let nolar = bnk.yerelHesap || bnk.iban || '';
+          let detayStr = bnk.hesapAdi + (nolar ? ` - ${nolar}` : '');
+          bSelect.innerHTML += `<option value="${bnk.id}">${detayStr} (${bnk.paraBirimi})</option>`;
+      });
+
+      new bootstrap.Modal(document.getElementById('bordroOdeModal')).show();
+  };
+
+  // Sonradan Bordro Ödemesini Tamamlama
+  window.bordroOdemeTamamla = async function() {
+      const bordroId = document.getElementById('bo_ode_bordroId').value;
+      const bankaId = document.getElementById('bo_ode_bankaId').value;
+      const tarih = document.getElementById('bo_ode_tarih').value;
+
+      if(!bankaId || !tarih) { alert("Lütfen ödeme tarihi ve banka/kasa hesabını seçiniz."); return; }
+
+      const b = bordroListesi.find(x => x.id === bordroId);
+      if(!b) return;
+
+      const banka = bankaListesi.find(x => x.id === bankaId);
+      const netMaas = b.netMaas || 0;
+
+      let nolar = banka.yerelHesap || banka.iban || '';
+      let bankaDetayStr = `${banka.hesapAdi}${nolar ? ' (' + nolar + ')' : ''}`;
+
+      try {
+          let islemId = '';
+          if(netMaas > 0) {
+              const islemRef = await addDoc(collection(db, "hesapHareketleri"), {
+                  bankaId: bankaId,
+                  cariId: b.cariId,
+                  tur: 'Odeme',
+                  tutar: netMaas,
+                  aciklama: `Maaş Ödemesi - ${b.donem} Bordrosu`,
+                  tarih: new Date(tarih)
+              });
+              islemId = islemRef.id;
+
+              await updateDoc(doc(db, "bankalar", bankaId), { bakiye: increment(-netMaas) });
+              await updateDoc(doc(db, "cariler", b.cariId), { bakiye: increment(netMaas) });
+          }
+
+          await updateDoc(doc(db, "bordrolar", bordroId), {
+              durum: 'Ödendi',
+              bankaId: bankaId,
+              bankaAdi: banka.hesapAdi,
+              bankaDetay: bankaDetayStr,
+              islemId: islemId,
+              odemeTarihi: tarih
+          });
+
+          bootstrap.Modal.getInstance(document.getElementById('bordroOdeModal')).hide();
+          alert("Bordro ödemesi gerçekleştirildi ve banka bakiyesinden düşüldü.");
+      } catch(e) { alert("Hata: " + e.message); }
   };
 
   window.bordroGoster = function(bordroId) {
@@ -3021,6 +3094,43 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
                                 <button type="button" class="btn btn-warning text-dark fw-bold" onclick="karPayiKaydet()">Kâr Payını Öde ve Kaydet</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BORDRO ÖDEME MODALI -->
+                <div class="modal fade" id="bordroOdeModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title"><i class="fas fa-wallet me-2"></i>Bordro Ödemesini Gerçekleştir</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="bordroOdeForm">
+                                    <input type="hidden" id="bo_ode_bordroId">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small mb-1">Personel / Dönem</label>
+                                        <input type="text" class="form-control fw-bold bg-light" id="bo_ode_detay" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small mb-1">Ödenecek Net Maaş</label>
+                                        <input type="text" class="form-control fw-bold text-success bg-light fs-5" id="bo_ode_tutarText" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small mb-1">Ödeme Tarihi *</label>
+                                        <input type="date" class="form-control" id="bo_ode_tarih" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small mb-1">Ödemenin Yapılacağı Banka / Kasa Hesabı *</label>
+                                        <select class="form-select" id="bo_ode_bankaId" required></select>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-success" onclick="bordroOdemeTamamla()">Ödemeyi Onayla ve Düş</button>
                             </div>
                         </div>
                     </div>
