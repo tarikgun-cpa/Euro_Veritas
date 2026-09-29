@@ -288,11 +288,49 @@
       new bootstrap.Modal(document.getElementById('yeniYazismaModal')).show();
   };
 
+  // ---------------- RESMİ YAZIŞMALAR (DOPIS) İŞLEMLERİ ----------------
+
+  window.yeniYazismaAc = function() {
+      document.getElementById('yeniYazismaForm').reset();
+      document.getElementById('y_id').value = '';
+      document.getElementById('y_tarih').value = new Date().toISOString().split('T')[0];
+
+      // Bankalarımızı Doldur
+      const bSelect = document.getElementById('y_bankaId');
+      bSelect.innerHTML = '<option value="">-- Banka Hesabımızı Seçin --</option>';
+      bankaListesi.forEach(b => {
+          let nolar = b.yerelHesap || b.iban || '';
+          bSelect.innerHTML += `<option value="${b.id}">${b.hesapAdi} ${nolar ? '(' + nolar + ')' : ''}</option>`;
+      });
+
+      // Cari Hesapları Doldur
+      const cSelect = document.getElementById('y_cariId');
+      cSelect.innerHTML = '<option value="">-- Alıcı Cari Hesabı Seçin --</option>';
+      cariListesi.forEach(c => {
+          let bnkInfo = c.bankaAdi ? ` - ${c.bankaAdi}` : '';
+          cSelect.innerHTML += `<option value="${c.id}">${c.unvan}${bnkInfo}</option>`;
+      });
+
+      new bootstrap.Modal(document.getElementById('yeniYazismaModal')).show();
+  };
+
   // Karadağ Resmi Yazışma Formatlarına Uygun Hazır Şablonlar
   window.yazismaSablonSec = function() {
       const sablon = document.getElementById('y_sablon').value;
+      const bankaId = document.getElementById('y_bankaId').value;
+      const cariId = document.getElementById('y_cariId').value;
+      const tutarVal = parseFloat(document.getElementById('y_tutar').value) || 0;
+      const tutarStr = tutarVal > 0 ? tutarVal.toLocaleString('en-US', {minimumFractionDigits: 2}) : '[TUTAR]';
+
       const v = kunyeVerisi;
-      const banka = bankaListesi[0] || { hesapAdi: 'Hipotekarna Banka', yerelHesap: '520-XXXXX-XX' };
+      const banka = bankaListesi.find(b => b.id === bankaId) || { hesapAdi: '[BANKA HESABIMIZ]', yerelHesap: '[ŽIRO RAČUN]' };
+      const cari = cariListesi.find(c => c.id === cariId) || { unvan: '[ALICI FİRMA/İSİM]', bankaAdi: '[ALICI BANKA]', iban: '[ALICI IBAN]', vergiNo: '[ALICI PIB]' };
+
+      let gonderenIban = banka.yerelHesap || banka.iban || '[ŽIRO RAČUN]';
+      let aliciUnvan = cari.unvan || '[ALICI FİRMA/İSİM]';
+      let aliciBanka = cari.bankaAdi || '[ALICI BANKA]';
+      let aliciIban = cari.iban || '[ALICI IBAN/ACCOUNT]';
+      let aliciPib = cari.vergiNo || '[ALICI PIB]';
 
       let kurum = '';
       let konu = '';
@@ -301,22 +339,22 @@
       if (sablon === 'EFT') {
           kurum = banka.hesapAdi || 'Hipotekarna Banka AD Podgorica';
           konu = 'Nalog za prenos novčanih sredstava (EFT / Doznaka)';
-          metin = `Poštovani,\n\nMolimo vas da sa našeg žiro računa broj: ${banka.yerelHesap || banka.iban || '520-XXXXX-XX'}\nizvršite prenos novčanih sredstava u iznosu od [TUTAR] EUR na žiro račun primaoca:\n\nPrimalac: [ALICI FİRMA / İSİM]\nŽiro račun primaoca: [ALICI HESAP NO / IBAN]\nSvrha doznake: [ÖDEME AÇIKLAMASI / FATURA NO]\n\nUnaprijed zahvalni na saradnji.`;
+          metin = `Poštovani,\n\nMolimo vas da sa našeg žiro računa broj: ${gonderenIban}\nizvršite prenos novčanih sredstava u iznosu od ${tutarStr} EUR na žiro račun primaoca:\n\nPrimalac: ${aliciUnvan}\nBanka primaoca: ${aliciBanka}\nŽiro račun primaoca: ${aliciIban}\nPIB primaoca: ${aliciPib}\nSvrha doznake: [ÖDEME AÇIKLAMASI / FATURA NO]\n\nUnaprijed zahvalni na saradnji.`;
       } 
       else if (sablon === 'Vergi') {
           kurum = 'Uprava prihoda i carina Crne Gore';
           konu = 'Prenos sredstava za obaveze po osnovu poreza i doprinosa';
-          metin = `Poštovani,\n\nOvim putem dajemo nalog za prenos sredstava za uplatu poreza i doprinosa na zarade zaposlenih za obračunski period [DÖNEM: Npr. 02/2026].\n\nUkupan iznos poreza i doprinosa: [TUTAR] EUR\nBroj računa za uplatu: [VERGİ DAİRESİ HESAP NO]\nPoziv na broj: [PIB / MATIČNI BROJ]\n\nMolimo da potvrdite obradu naloga.`;
+          metin = `Poštovani,\n\nOvim putem dajemo nalog za prenos sredstava sa našeg žiro računa: ${gonderenIban} za uplatu poreza i doprinosa na zarade zaposlenih za obračunski period [DÖNEM: Npr. 02/2026].\n\nUkupan iznos poreza i doprinosa: ${tutarStr} EUR\nBroj računa za uplatu: [VERGİ DAİRESİ HESAP NO]\nPoziv na broj: ${v.pib || '[PIB / MATIČNI BROJ]'}\n\nMolimo da potvrdite obradu naloga.`;
       } 
       else if (sablon === 'ParaCekme') {
           kurum = banka.hesapAdi || 'Hipotekarna Banka AD';
           konu = 'Zahtjev za isplatu gotovine sa računa';
-          metin = `Poštovani,\n\nOvim nalogom ovlašćujemo izvršnog direktora kompanije, [DİREKTÖR İSMİ], sa brojem pasoša/lične karte: [PASAPORT/KİMLİK NO], da dana [TARIH] godine podigne gotovinu sa našeg žiro računa broj: ${banka.yerelHesap || banka.iban || '520-XXXXX-XX'}.\n\nIznos za podizanje: [TUTAR] EUR\nSvrha podizanja gotovine: Materijalni troškovi / službeni put.\n\nMolimo da pripremite navedeni iznos.`;
+          metin = `Poštovani,\n\nOvim nalogom ovlašćujemo izvršnog direktora kompanije, ${v.direktor || '[DİREKTÖR İSMİ]'}, da podigne gotovinu sa našeg žiro računa broj: ${gonderenIban}.\n\nIznos za podizanje: ${tutarStr} EUR\nSvrha podizanja gotovine: Materijalni troškovi / službeni put.\n\nMolimo da pripremite navedeni iznos.`;
       } 
       else if (sablon === 'BankaDopis') {
           kurum = banka.hesapAdi || 'Hipotekarna Banka AD';
           konu = 'Zahtjev za izdavanje bankarske potvrde / izvoda';
-          metin = `Poštovani,\n\nMolimo vas da nam za potrebe poslovanja naše kompanije izdate zvaničnu bankarsku potvrdu o stanju i prometu na našem žiro računu broj: ${banka.yerelHesap || banka.iban || '520-XXXXX-XX'} za period od [BAŞLANGIÇ] do [BİTİŞ].\n\nPotvrdu možete dostaviti putem e-maila ili preuzeti lično u vašoj filijali.`;
+          metin = `Poštovani,\n\nMolimo vas da nam za potrebe poslovanja naše kompanije izdate zvaničnu bankarsku potvrdu o stanju i prometu na našem žiro računu broj: ${gonderenIban} za period od [BAŞLANGIÇ] do [BİTİŞ].\n\nPotvrdu možete dostaviti putem e-maila ili preuzeti lično u vašoj filijali.`;
       } 
       else if (sablon === 'DevletDopis') {
           kurum = 'Uprava prihoda i carina / Centralni registar privrednih subjekata (CRPS)';
@@ -419,7 +457,7 @@
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
           <!-- ANTET DÜZENİ -->
           <div class="row mb-4 border-bottom border-2 pb-3 border-dark align-items-center">
-              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 100px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 140px; object-fit: contain;" class="mb-2 d-print-block">
               <div class="col-6 text-end text-muted small" style="font-size: 11px;">
                   <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
                   ${v.adres || 'Podgorica, Crna Gora'}<br>
@@ -1044,7 +1082,7 @@
       let html = `
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 148mm; max-width: 210mm; margin: auto;">
           <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
-              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 90px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 140px; object-fit: contain;" class="mb-2 d-print-block"></div>
               <div class="col-6 text-end text-muted small" style="font-size: 12px;">
                   <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
                   ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
@@ -1449,7 +1487,7 @@
       let html = `
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
           <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
-              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 90px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 130px; object-fit: contain;" class="mb-2 d-print-block"></div>
               <div class="col-6 text-end text-muted small" style="font-size: 12px;">
                   <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
                   ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
@@ -1654,7 +1692,7 @@
       let html = `
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
           <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
-              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 90px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 130px; object-fit: contain;" class="mb-2 d-print-block"></div>
               <div class="col-6 text-end text-muted small" style="font-size: 12px;">
                   <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
                   ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
@@ -1748,7 +1786,7 @@
       let html = `
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
           <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
-              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 90px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 130px; object-fit: contain;" class="mb-2 d-print-block"></div>
               <div class="col-6 text-end text-muted small" style="font-size: 12px;">
                   <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
                   ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
@@ -1821,7 +1859,7 @@
       let html = `
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
           <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
-              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 90px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 130px; object-fit: contain;" class="mb-2 d-print-block"></div>
               <div class="col-6 text-end text-muted small" style="font-size: 12px;">
                   <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
                   ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
@@ -2664,7 +2702,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       let html = `
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light">
           <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
-              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 80px; object-fit: contain;" class="mb-2 d-print-block"></div>
+              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 120px; object-fit: contain;" class="mb-2 d-print-block"></div>
               <div class="col-6 text-end text-muted small">
                   <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
                   Rapor Dönemi: <strong>${bas.split('-').reverse().join('.')} - ${bit.split('-').reverse().join('.')}</strong>
@@ -3992,7 +4030,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                     <input type="hidden" id="y_id">
                                     <div class="row mb-3">
                                         <div class="col-md-6">
-                                            <label class="form-label text-muted small fw-bold">Hazır Hazır Matbu Şablon Seçin</label>
+                                            <label class="form-label text-muted small fw-bold">Hazır Matbu Şablon Seçin</label>
                                             <select class="form-select border-primary" id="y_sablon" onchange="yazismaSablonSec()">
                                                 <option value="Serbest">-- Özel / Serbest Metin --</option>
                                                 <option value="EFT">Nalog za prenos (Banka Havale/EFT Talimatı)</option>
@@ -4005,6 +4043,25 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                         <div class="col-md-6">
                                             <label class="form-label text-muted small fw-bold">Belge Tarihi *</label>
                                             <input type="date" class="form-control" id="y_tarih" required>
+                                        </div>
+                                    </div>
+
+                                    <!-- DİNAMİK SEÇİM ALANLARI (BANKA, ALICI CARİ VE TUTAR) -->
+                                    <div class="p-3 bg-light rounded border mb-3">
+                                        <h6 class="text-primary fw-bold mb-2 small"><i class="fas fa-exchange-alt me-1"></i> Talimat Detay Seçimleri (EFT / Havale İçin)</h6>
+                                        <div class="row g-2">
+                                            <div class="col-md-5">
+                                                <label class="form-label text-muted small mb-1">Gönderen Banka Hesabımız</label>
+                                                <select class="form-select form-select-sm" id="y_bankaId" onchange="yazismaSablonSec()"></select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label text-muted small mb-1">Alıcı Cari Hesap (Kime)</label>
+                                                <select class="form-select form-select-sm" id="y_cariId" onchange="yazismaSablonSec()"></select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label text-muted small mb-1">İşlem Tutarı (€)</label>
+                                                <input type="number" class="form-control form-control-sm" id="y_tutar" step="0.01" placeholder="1000.00" onkeyup="yazismaSablonSec()" onchange="yazismaSablonSec()">
+                                            </div>
                                         </div>
                                     </div>
 
