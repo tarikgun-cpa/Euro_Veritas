@@ -447,62 +447,78 @@
       } catch (e) { alert("Hata: " + e.message); }
   };
 
-  // Antetli Kağıtlı ve Kaşeli Baskı Ekranı
+  // Kurumsal Antetli Kağıtlı ve Kaşeli A4 Baskı Ekranı
   window.yazismaGoster = function(id) {
       const y = yazismaListesi.find(x => x.id === id);
       if (!y) return;
       const v = kunyeVerisi;
 
+      let refNo = y.id ? `EV-${y.id.substring(0,8).toUpperCase()}` : 'EV-000000';
+      let tarihFormatted = y.tarih ? y.tarih.split('-').reverse().join('.') : new Date().toLocaleDateString('tr-TR');
+
       let html = `
-      <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
-          <!-- ANTET DÜZENİ -->
-          <div class="row mb-4 border-bottom border-2 pb-3 border-dark align-items-center">
-              <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 140px; object-fit: contain;" class="mb-2 d-print-block">
-              <div class="col-6 text-end text-muted small" style="font-size: 11px;">
-                  <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
-                  ${v.adres || 'Podgorica, Crna Gora'}<br>
-                  PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>
-                  Tel: ${v.telefon1 || '-'} | E-mail: ${v.email1 || '-'}<br>
-                  Web: ${v.web || '-'}
+      <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border" style="min-height: 297mm; max-width: 210mm; margin: auto; color: #0f172a; font-family: 'Inter', Arial, sans-serif;">
+          
+          <!-- RESMİ ANTET BAŞLIĞI -->
+          <div class="row mb-3 align-items-center pb-3 border-bottom border-2 border-dark">
+              <div class="col-5">
+                  <img src="Euro Veritas Consulting.jpg" style="max-height: 110px; width: auto; object-fit: contain;" class="d-print-block">
+              </div>
+              <div class="col-7 text-end text-muted" style="font-size: 11px; line-height: 1.55;">
+                  <h6 class="fw-bold text-dark mb-1" style="font-size: 13px; letter-spacing: 0.3px;">${v.tamUnvan || 'D.O.O. "EURO VERITAS COLSUNTING"'}</h6>
+                  <span>${v.adres || 'HERCEGOVAČKA 88, PODGORICA'}</span><br>
+                  <span><strong>PIB:</strong> ${v.pib || '03791971'} | <strong>Matični Broj:</strong> ${v.sicilNo || '51340456'}</span><br>
+                  <span><strong>Tel:</strong> ${v.telefon1 || '+382 542 323 7477'} | <strong>E-mail:</strong> ${v.email1 || 'info@euroveritas.me'}</span><br>
+                  <span><strong>Web:</strong> ${v.web || 'www.euroveritas.me'}</span>
               </div>
           </div>
 
-          <!-- TARİH VE YAZI DETAYI -->
-          <div class="d-flex justify-content-between mb-4">
-              <span class="text-muted small">Broj / Ref: EV-${y.id.substring(0,6).toUpperCase()}</span>
-              <span class="fw-bold text-dark">Podgorica, ${y.tarih.split('-').reverse().join('.')}. godine</span>
+          <!-- DOKÜMAN REF NO VE TARİH BARI -->
+          <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-light" style="font-size: 12px;">
+              <div>
+                  <span class="text-uppercase text-muted fw-bold">Broj / Ref:</span>
+                  <strong class="text-dark ms-1">${refNo}</strong>
+              </div>
+              <div>
+                  <strong class="text-dark">Podgorica, ${tarihFormatted}. godine</strong>
+              </div>
           </div>
 
-          <!-- MUHATAP KURUM -->
-          <div class="mb-4 pt-2">
-              <h5 class="fw-bold text-dark text-uppercase mb-1" style="letter-spacing: 0.5px;">${y.kurum}</h5>
-              <span class="text-muted small">PODGORICA / CRNA GORA</span>
+          <!-- MUHATAP KURUM KUTUSU (PRIMALAC) -->
+          <div class="mb-4 p-3 rounded" style="background-color: #f8fafc; border-left: 4px solid #1e293b; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+              <span class="text-uppercase fw-bold text-muted d-block mb-1" style="font-size: 10px; letter-spacing: 0.5px;">PRIMALAC / PRIMA:</span>
+              <h5 class="fw-bold text-dark text-uppercase mb-1" style="font-size: 15px; letter-spacing: 0.3px;">${y.kurum}</h5>
+              <span class="text-secondary small fw-medium">PODGORICA, CRNA GORA</span>
           </div>
 
-          <!-- KONU (PREDMET) -->
-          <div class="mb-4 p-2 bg-light rounded border border-light">
-              <strong class="text-dark">PREDMET:</strong> ${y.konu}
+          <!-- KONU BARI (PREDMET) -->
+          <div class="mb-4 p-2 bg-light rounded border border-light" style="font-size: 13px;">
+              <strong class="text-dark text-uppercase me-1">PREDMET:</strong>
+              <span class="fw-bold text-dark">${y.konu}</span>
           </div>
 
           <!-- DİLEKÇE METNİ -->
-          <div class="mb-5 text-dark" style="font-size: 13px; line-height: 1.8; white-space: pre-wrap; min-height: 120mm;">${y.metin}</div>
+          <div class="mb-5 text-dark" style="font-size: 13.5px; line-height: 1.85; white-space: pre-wrap; text-align: justify; min-height: 110mm;">
+${y.metin}
+          </div>
 
-          <!-- İMZA VE KAŞE ALANI -->
-          <div class="mt-5 pt-4 row text-end justify-content-end">
+          <!-- KAŞE VE İMZA ALANI -->
+          <div class="row mt-5 pt-4 justify-content-end text-center">
               <div class="col-6">
-                  <div id="kase-alani" data-border-type="top" style="border-top: 1px solid #333; width: 85%; margin-left: auto;" class="pt-2 position-relative text-center">
+                  <div id="kase-alani" data-border-type="top" style="border-top: 1px solid #333; width: 85%; margin-left: auto;" class="pt-2 position-relative">
                       <img id="kase-gorseli" src="Kase.jpg" class="d-none position-absolute" style="max-height: 125px; top: -65px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 5; mix-blend-mode: multiply;">
                       <strong class="small text-dark d-block">Za "${v.unvan || 'Euro Veritas Doo'}"</strong>
-                      <span class="small text-muted">Izvršni Direktor / İcra Direktörü</span>
+                      <span class="small text-muted" style="font-size: 11px;">Izvršni Direktor / İcra Direktörü</span>
                   </div>
               </div>
           </div>
       </div>
 
+      <!-- BUTONLAR (SADECE EKRANDA GÖRÜNÜR) -->
       <div class="mt-4 d-print-none text-center">
-          <button class="btn btn-warning shadow-sm me-2" onclick="kaseToggle()"><i class="fas fa-stamp me-1"></i> Kaşe Ekle / Kaldır</button>
-          <button class="btn btn-secondary shadow-sm px-4 me-2" onclick="window.print()"><i class="fas fa-print me-1"></i> Yazdır / PDF Kaydet</button>
-          <button class="btn btn-outline-danger px-4" onclick="sayfaYukle('yazismalar')">Geri Dön</button>
+          <button class="btn btn-warning shadow-sm me-2 fw-bold" onclick="kaseToggle()"><i class="fas fa-stamp me-1"></i> Kaşe Ekle / Kaldır</button>
+          <button class="btn btn-secondary shadow-sm px-4 me-2 fw-bold" onclick="window.print()"><i class="fas fa-print me-1"></i> Yazdır / PDF Kaydet</button>
+          <button class="btn btn-outline-danger px-4 fw-bold" onclick="sayfaYukle('yazismalar')">Geri Dön</button>
       </div>
       `;
       document.getElementById('main-content').innerHTML = html;
@@ -4000,17 +4016,27 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'yazismalar') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="fas fa-envelope-open-text text-primary me-2"></i>Resmi Yazışmalar (Dopis)</h2>
-                    <button class="btn btn-primary shadow-sm" onclick="yeniYazismaAc()">
-                        <i class="fas fa-plus me-1"></i> Yeni Yazışma / Dilekçe Oluştur
+                    <div>
+                        <h2 class="mb-1 text-dark fw-bold"><i class="fas fa-envelope-open-text text-primary me-2"></i>Resmi Yazışma & Dilekçe Yönetimi (Dopis)</h2>
+                        <span class="text-muted small">Karadağ bankaları ve resmi makamları (Uprava prihoda / CRPS) için resmi antetli dilekçe üretin.</span>
+                    </div>
+                    <button class="btn btn-primary shadow-sm px-3 py-2 fw-bold" onclick="yeniYazismaAc()">
+                        <i class="fas fa-plus-circle me-1"></i> Yeni Yazışma / Dilekçe Oluştur
                     </button>
                 </div>
 
+                <!-- LİSTELEME TABLOSU -->
                 <div class="bg-white p-3 rounded shadow-sm border mb-4">
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle table-sm">
+                        <table class="table table-hover align-middle table-sm mb-0">
                             <thead class="table-light text-muted small">
-                                <tr><th>Tarih</th><th>Muhatap Kurum / Banka</th><th>Konu (Predmet)</th><th>Şablon Türü</th><th class="text-end">İşlemler</th></tr>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Muhatap Kurum / Banka</th>
+                                    <th>Konu (Predmet)</th>
+                                    <th>Şablon Türü</th>
+                                    <th class="text-end">İşlemler</th>
+                                </tr>
                             </thead>
                             <tbody id="yazismaTabloGovdesi"></tbody>
                         </table>
@@ -4020,18 +4046,18 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                 <!-- YENİ / DÜZENLE YAZIŞMA MODALI -->
                 <div class="modal fade" id="yeniYazismaModal" tabindex="-1">
                     <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header bg-dark text-white">
-                                <h5 class="modal-title"><i class="fas fa-file-signature me-2"></i>Resmi Yazışma / Dilekçe Oluştur</h5>
+                        <div class="modal-content border-0 shadow-lg">
+                            <div class="modal-header bg-dark text-white py-3">
+                                <h5 class="modal-title fs-6"><i class="fas fa-file-signature text-warning me-2"></i>Resmi Yazışma / Dilekçe Hazırla</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
-                            <div class="modal-body">
+                            <div class="modal-body p-4">
                                 <form id="yeniYazismaForm">
                                     <input type="hidden" id="y_id">
                                     <div class="row mb-3">
                                         <div class="col-md-6">
                                             <label class="form-label text-muted small fw-bold">Hazır Matbu Şablon Seçin</label>
-                                            <select class="form-select border-primary" id="y_sablon" onchange="yazismaSablonSec()">
+                                            <select class="form-select border-primary fw-medium" id="y_sablon" onchange="yazismaSablonSec()">
                                                 <option value="Serbest">-- Özel / Serbest Metin --</option>
                                                 <option value="EFT">Nalog za prenos (Banka Havale/EFT Talimatı)</option>
                                                 <option value="Vergi">Porezi i Doprinosi (Vergi / SGK Ödeme Talimatı)</option>
@@ -4046,9 +4072,9 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                         </div>
                                     </div>
 
-                                    <!-- DİNAMİK SEÇİM ALANLARI (BANKA, ALICI CARİ VE TUTAR) -->
-                                    <div class="p-3 bg-light rounded border mb-3">
-                                        <h6 class="text-primary fw-bold mb-2 small"><i class="fas fa-exchange-alt me-1"></i> Talimat Detay Seçimleri (EFT / Havale İçin)</h6>
+                                    <!-- DİNAMİK SEÇİM ALANLARI -->
+                                    <div class="p-3 bg-light rounded border border-secondary border-opacity-25 mb-3">
+                                        <h6 class="text-primary fw-bold mb-2 small"><i class="fas fa-sliders-h me-1"></i> Otomatik Doldurma Parametreleri (Banka & Cari)</h6>
                                         <div class="row g-2">
                                             <div class="col-md-5">
                                                 <label class="form-label text-muted small mb-1">Gönderen Banka Hesabımız</label>
@@ -4067,24 +4093,24 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
                                     <div class="row mb-3">
                                         <div class="col-md-6">
-                                            <label class="form-label text-muted small fw-bold">Muhatap Kurum / Banka Adı * (Npr: Hipotekarna Banka AD)</label>
-                                            <input type="text" class="form-control" id="y_kurum" placeholder="Npr: Uprava prihoda i carina / CKB Banka" required>
+                                            <label class="form-label text-muted small fw-bold">Muhatap Kurum / Banka Adı *</label>
+                                            <input type="text" class="form-control" id="y_kurum" placeholder="Npr: Hipotekarna Banka AD Podgorica" required>
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label text-muted small fw-bold">Konu / Predmet * (Npr: Zahtjev za izdavanje potvrde)</label>
-                                            <input type="text" class="form-control" id="y_konu" placeholder="Dilekçe / Talimat konusu" required>
+                                            <label class="form-label text-muted small fw-bold">Konu / Predmet *</label>
+                                            <input type="text" class="form-control" id="y_konu" placeholder="Npr: Zahtjev za izdavanje potvrde" required>
                                         </div>
                                     </div>
 
                                     <div class="mb-3">
                                         <label class="form-label text-muted small fw-bold">Dilekçe / Talimat Metni (Karadağca) *</label>
-                                        <textarea class="form-control font-monospace" id="y_metin" rows="10" placeholder="Poštovani, Obraćamo vam se sa zahtjevom..." required></textarea>
+                                        <textarea class="form-control font-monospace text-dark" id="y_metin" rows="9" style="font-size: 13px; line-height: 1.6;" placeholder="Poštovani, Obraćamo vam se sa zahtjevom..." required></textarea>
                                     </div>
                                 </form>
                             </div>
-                            <div class="modal-footer">
+                            <div class="modal-footer bg-light">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                                <button type="button" class="btn btn-primary px-4" onclick="yazismaKaydet()">Kaydet</button>
+                                <button type="button" class="btn btn-primary px-4 fw-bold" onclick="yazismaKaydet()">Kaydet</button>
                             </div>
                         </div>
                     </div>
