@@ -279,39 +279,71 @@
               if (document.getElementById('ai_cevap_ekrani')) { window.aiGecmisCiz(); }
           });
 
-          // ---------------- RESMİ YAZIŞMALAR (DOPIS) İŞLEMLERİ ----------------
+        // ---------------- RESMİ YAZIŞMALAR (DOPIS) İŞLEMLERİ ----------------
+
+  // Banka ve Cari Seçeneklerini Dolduran Yardımcı Fonksiyon
+  window.yazismaSelectDoldur = function() {
+      const bSelect = document.getElementById('y_bankaId');
+      if (bSelect) {
+          bSelect.innerHTML = '<option value="">-- Banka Hesabımızı Seçin --</option>';
+          bankaListesi.forEach(b => {
+              let nolar = b.yerelHesap || b.iban || '';
+              let bnkUnvan = b.bankaAdi ? `${b.bankaAdi} - ${b.hesapAdi}` : b.hesapAdi;
+              bSelect.innerHTML += `<option value="${b.id}">${bnkUnvan} ${nolar ? '(' + nolar + ')' : ''}</option>`;
+          });
+      }
+
+      const cSelect = document.getElementById('y_cariId');
+      if (cSelect) {
+          cSelect.innerHTML = '<option value="">-- Alıcı Cari Hesabı Seçin --</option>';
+          cariListesi.forEach(c => {
+              let bnkInfo = c.bankaAdi ? ` - ${c.bankaAdi}` : '';
+              cSelect.innerHTML += `<option value="${c.id}">${c.unvan}${bnkInfo}</option>`;
+          });
+      }
+  };
 
   window.yeniYazismaAc = function() {
       document.getElementById('yeniYazismaForm').reset();
       document.getElementById('y_id').value = '';
       document.getElementById('y_tarih').value = new Date().toISOString().split('T')[0];
+
+      const bugun = new Date();
+      document.getElementById('y_maasDonem').value = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, '0')}`;
+
+      window.yazismaSelectDoldur();
+      window.yazismaMaasToggle();
+
       new bootstrap.Modal(document.getElementById('yeniYazismaModal')).show();
   };
 
-  // ---------------- RESMİ YAZIŞMALAR (DOPIS) İŞLEMLERİ ----------------
+  // Maaş Ödemesi Seçeneğine Göre Görünürlüğü Ayarlama
+  window.yazismaMaasToggle = function() {
+      const sablon = document.getElementById('y_sablon').value;
+      const isMaasCheck = document.getElementById('y_isMaas').checked;
 
-  window.yeniYazismaAc = function() {
-      document.getElementById('yeniYazismaForm').reset();
-      document.getElementById('y_id').value = '';
-      document.getElementById('y_tarih').value = new Date().toISOString().split('T')[0];
+      const maasAlani = document.getElementById('y_maas_alani');
+      const maasDonemDiv = document.getElementById('y_maas_donem_div');
 
-      // Bankalarımızı Doldur
-      const bSelect = document.getElementById('y_bankaId');
-      bSelect.innerHTML = '<option value="">-- Banka Hesabımızı Seçin --</option>';
-      bankaListesi.forEach(b => {
-          let nolar = b.yerelHesap || b.iban || '';
-          bSelect.innerHTML += `<option value="${b.id}">${b.hesapAdi} ${nolar ? '(' + nolar + ')' : ''}</option>`;
-      });
+      if (sablon === 'EFT') {
+          if (maasAlani) maasAlani.style.display = 'flex';
+          if (maasDonemDiv) maasDonemDiv.style.display = isMaasCheck ? 'block' : 'none';
+      } else {
+          if (maasAlani) maasAlani.style.display = 'none';
+          if (maasDonemDiv) maasDonemDiv.style.display = 'none';
+      }
+  };
 
-      // Cari Hesapları Doldur
-      const cSelect = document.getElementById('y_cariId');
-      cSelect.innerHTML = '<option value="">-- Alıcı Cari Hesabı Seçin --</option>';
-      cariListesi.forEach(c => {
-          let bnkInfo = c.bankaAdi ? ` - ${c.bankaAdi}` : '';
-          cSelect.innerHTML += `<option value="${c.id}">${c.unvan}${bnkInfo}</option>`;
-      });
-
-      new bootstrap.Modal(document.getElementById('yeniYazismaModal')).show();
+  // Maaş Ödemesi Seçildiğinde Personelin Kartındaki Net Maaşı Otomatik Getir
+  window.yazismaMaasTutarOtomatikDoldur = function() {
+      const isMaas = document.getElementById('y_isMaas').checked;
+      const cariId = document.getElementById('y_cariId').value;
+      if (isMaas && cariId) {
+          const cari = cariListesi.find(c => c.id === cariId);
+          if (cari && cari.netMaas && cari.netMaas > 0) {
+              document.getElementById('y_tutar').value = cari.netMaas;
+          }
+      }
   };
 
   // Karadağ Resmi Yazışma Formatlarına Uygun Hazır Şablonlar
@@ -322,11 +354,27 @@
       const tutarVal = parseFloat(document.getElementById('y_tutar').value) || 0;
       const tutarStr = tutarVal > 0 ? tutarVal.toLocaleString('en-US', {minimumFractionDigits: 2}) : '[TUTAR]';
 
+      const isMaas = document.getElementById('y_isMaas').checked;
+      const maasDonemVal = document.getElementById('y_maasDonem').value;
+
       const v = kunyeVerisi;
-      const banka = bankaListesi.find(b => b.id === bankaId) || { hesapAdi: '[BANKA HESABIMIZ]', yerelHesap: '[ŽIRO RAČUN]' };
+      const banka = bankaListesi.find(b => b.id === bankaId);
       const cari = cariListesi.find(c => c.id === cariId) || { unvan: '[ALICI FİRMA/İSİM]', bankaAdi: '[ALICI BANKA]', iban: '[ALICI IBAN]', vergiNo: '[ALICI PIB]' };
 
-      let gonderenIban = banka.yerelHesap || banka.iban || '[ŽIRO RAČUN]';
+      let bankaKurumAdi = 'HIPOTEKARNA BANKA AD PODGORICA';
+      let gonderenIban = '[ŽIRO RAČUN]';
+
+      if (banka) {
+          gonderenIban = banka.yerelHesap || banka.iban || '[ŽIRO RAČUN]';
+          if (banka.bankaAdi && banka.hesapAdi) {
+              bankaKurumAdi = `${banka.bankaAdi.toUpperCase()} - ${banka.hesapAdi.toUpperCase()}`;
+          } else if (banka.bankaAdi) {
+              bankaKurumAdi = banka.bankaAdi.toUpperCase();
+          } else if (banka.hesapAdi) {
+              bankaKurumAdi = banka.hesapAdi.toUpperCase();
+          }
+      }
+
       let aliciUnvan = cari.unvan || '[ALICI FİRMA/İSİM]';
       let aliciBanka = cari.bankaAdi || '[ALICI BANKA]';
       let aliciIban = cari.iban || '[ALICI IBAN/ACCOUNT]';
@@ -337,9 +385,20 @@
       let metin = '';
 
       if (sablon === 'EFT') {
-          kurum = banka.hesapAdi || 'Hipotekarna Banka AD Podgorica';
-          konu = 'Nalog za prenos novčanih sredstava (EFT / Doznaka)';
-          metin = `Poštovani,\n\nMolimo vas da sa našeg žiro računa broj: ${gonderenIban}\nizvršite prenos novčanih sredstava u iznosu od ${tutarStr} EUR na žiro račun primaoca:\n\nPrimalac: ${aliciUnvan}\nBanka primaoca: ${aliciBanka}\nŽiro račun primaoca: ${aliciIban}\nPIB primaoca: ${aliciPib}\nSvrha doznake: [ÖDEME AÇIKLAMASI / FATURA NO]\n\nUnaprijed zahvalni na saradnji.`;
+          kurum = bankaKurumAdi;
+          konu = isMaas ? 'Nalog za prenos novčanih sredstava - Isplata zarade' : 'Nalog za prenos novčanih sredstava (EFT / Doznaka)';
+
+          let svrhaDoznake = '[ÖDEME AÇIKLAMASI / FATURA NO]';
+          if (isMaas) {
+              if (maasDonemVal) {
+                  const [mYil, mAy] = maasDonemVal.split('-');
+                  svrhaDoznake = `Isplata neto zarade za ${mAy}/${mYil}. godine`;
+              } else {
+                  svrhaDoznake = `Isplata neto zarade`;
+              }
+          }
+
+          metin = `Poštovani,\n\nMolimo vas da sa našeg žiro računa broj: ${gonderenIban}\nizvršite prenos novčanih sredstava u iznosu od ${tutarStr} EUR na žiro račun primaoca:\n\nPrimalac: ${aliciUnvan}\nBanka primaoca: ${aliciBanka}\nŽiro račun primaoca: ${aliciIban}\nPIB primaoca: ${aliciPib}\nSvrha doznake: ${svrhaDoznake}\n\nUnaprijed zahvalni na saradnji.`;
       } 
       else if (sablon === 'Vergi') {
           kurum = 'Uprava prihoda i carina Crne Gore';
@@ -347,12 +406,12 @@
           metin = `Poštovani,\n\nOvim putem dajemo nalog za prenos sredstava sa našeg žiro računa: ${gonderenIban} za uplatu poreza i doprinosa na zarade zaposlenih za obračunski period [DÖNEM: Npr. 02/2026].\n\nUkupan iznos poreza i doprinosa: ${tutarStr} EUR\nBroj računa za uplatu: [VERGİ DAİRESİ HESAP NO]\nPoziv na broj: ${v.pib || '[PIB / MATIČNI BROJ]'}\n\nMolimo da potvrdite obradu naloga.`;
       } 
       else if (sablon === 'ParaCekme') {
-          kurum = banka.hesapAdi || 'Hipotekarna Banka AD';
+          kurum = bankaKurumAdi;
           konu = 'Zahtjev za isplatu gotovine sa računa';
           metin = `Poštovani,\n\nOvim nalogom ovlašćujemo izvršnog direktora kompanije, ${v.direktor || '[DİREKTÖR İSMİ]'}, da podigne gotovinu sa našeg žiro računa broj: ${gonderenIban}.\n\nIznos za podizanje: ${tutarStr} EUR\nSvrha podizanja gotovine: Materijalni troškovi / službeni put.\n\nMolimo da pripremite navedeni iznos.`;
       } 
       else if (sablon === 'BankaDopis') {
-          kurum = banka.hesapAdi || 'Hipotekarna Banka AD';
+          kurum = bankaKurumAdi;
           konu = 'Zahtjev za izdavanje bankarske potvrde / izvoda';
           metin = `Poštovani,\n\nMolimo vas da nam za potrebe poslovanja naše kompanije izdate zvaničnu bankarsku potvrdu o stanju i prometu na našem žiro računu broj: ${gonderenIban} za period od [BAŞLANGIÇ] do [BİTİŞ].\n\nPotvrdu možete dostaviti putem e-maila ili preuzeti lično u vašoj filijali.`;
       } 
@@ -375,6 +434,12 @@
       const metin = document.getElementById('y_metin').value;
       const sablon = document.getElementById('y_sablon').value;
 
+      const bankaId = document.getElementById('y_bankaId').value || '';
+      const cariId = document.getElementById('y_cariId').value || '';
+      const tutar = parseFloat(document.getElementById('y_tutar').value) || 0;
+      const isMaas = document.getElementById('y_isMaas').checked || false;
+      const maasDonem = document.getElementById('y_maasDonem').value || '';
+
       if (!tarih || !kurum || !konu || !metin) {
           alert("Lütfen tüm zorunlu alanları doldurun.");
           return;
@@ -386,6 +451,11 @@
           konu: konu,
           metin: metin,
           sablon: sablon,
+          bankaId: bankaId,
+          cariId: cariId,
+          tutar: tutar,
+          isMaas: isMaas,
+          maasDonem: maasDonem,
           olusturmaTarihi: serverTimestamp()
       };
 
@@ -406,7 +476,7 @@
       tbody.innerHTML = '';
 
       if (yazismaListesi.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Kayıtlı resmi yazışma bulunmuyor.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Henüz kayıtlı resmi yazışma bulunmuyor.</td></tr>';
           return;
       }
 
@@ -427,15 +497,31 @@
       });
   };
 
+  // Düzenleme / Değiştir İşleminde Tüm Kayıtlı Parametreleri Yükleme
   window.yazismaDuzenleAc = function(id) {
       const y = yazismaListesi.find(x => x.id === id);
       if(!y) return;
+
+      document.getElementById('yeniYazismaForm').reset();
+      window.yazismaSelectDoldur();
+
       document.getElementById('y_id').value = y.id;
-      document.getElementById('y_tarih').value = y.tarih;
-      document.getElementById('y_kurum').value = y.kurum;
-      document.getElementById('y_konu').value = y.konu;
-      document.getElementById('y_metin').value = y.metin;
+      document.getElementById('y_tarih').value = y.tarih || new Date().toISOString().split('T')[0];
       document.getElementById('y_sablon').value = y.sablon || 'Serbest';
+      document.getElementById('y_bankaId').value = y.bankaId || '';
+      document.getElementById('y_cariId').value = y.cariId || '';
+      document.getElementById('y_tutar').value = y.tutar || '';
+      document.getElementById('y_isMaas').checked = y.isMaas || false;
+
+      const bugun = new Date();
+      document.getElementById('y_maasDonem').value = y.maasDonem || `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, '0')}`;
+
+      window.yazismaMaasToggle();
+
+      document.getElementById('y_kurum').value = y.kurum || '';
+      document.getElementById('y_konu').value = y.konu || '';
+      document.getElementById('y_metin').value = y.metin || '';
+
       new bootstrap.Modal(document.getElementById('yeniYazismaModal')).show();
   };
 
@@ -445,7 +531,7 @@
           await deleteDoc(doc(db, "yazismalar", id));
           alert("Yazışma silindi.");
       } catch (e) { alert("Hata: " + e.message); }
-  };
+  }; 
 
   // Kurumsal Antetli Kağıtlı ve Kaşeli A4 Baskı Ekranı
   window.yazismaGoster = function(id) {
@@ -4057,7 +4143,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                     <div class="row mb-3">
                                         <div class="col-md-6">
                                             <label class="form-label text-muted small fw-bold">Hazır Matbu Şablon Seçin</label>
-                                            <select class="form-select border-primary fw-medium" id="y_sablon" onchange="yazismaSablonSec()">
+                                            <select class="form-select border-primary fw-medium" id="y_sablon" onchange="yazismaMaasToggle(); yazismaSablonSec();">
                                                 <option value="Serbest">-- Özel / Serbest Metin --</option>
                                                 <option value="EFT">Nalog za prenos (Banka Havale/EFT Talimatı)</option>
                                                 <option value="Vergi">Porezi i Doprinosi (Vergi / SGK Ödeme Talimatı)</option>
@@ -4082,11 +4168,27 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                             </div>
                                             <div class="col-md-4">
                                                 <label class="form-label text-muted small mb-1">Alıcı Cari Hesap (Kime)</label>
-                                                <select class="form-select form-select-sm" id="y_cariId" onchange="yazismaSablonSec()"></select>
+                                                <select class="form-select form-select-sm" id="y_cariId" onchange="yazismaMaasTutarOtomatikDoldur(); yazismaSablonSec()"></select>
                                             </div>
                                             <div class="col-md-3">
                                                 <label class="form-label text-muted small mb-1">İşlem Tutarı (€)</label>
                                                 <input type="number" class="form-control form-control-sm" id="y_tutar" step="0.01" placeholder="1000.00" onkeyup="yazismaSablonSec()" onchange="yazismaSablonSec()">
+                                            </div>
+                                        </div>
+
+                                        <!-- MAAŞ ÖDEMESİ SEÇENEĞİ (SADECE EFT SEÇİLİNCE GÖRÜNÜR) -->
+                                        <div class="row g-2 mt-2 pt-2 border-top align-items-center" id="y_maas_alani" style="display: none;">
+                                            <div class="col-md-5">
+                                                <div class="form-check form-switch pt-1">
+                                                    <input class="form-check-input" type="checkbox" id="y_isMaas" onchange="yazismaMaasToggle(); yazismaMaasTutarOtomatikDoldur(); yazismaSablonSec();">
+                                                    <label class="form-check-label small fw-bold text-dark" for="y_isMaas"><i class="fas fa-money-check-alt text-success me-1"></i> Maaş Ödemesi Talimatı</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-7" id="y_maas_donem_div" style="display: none;">
+                                                <div class="d-flex align-items-center">
+                                                    <label class="form-label text-muted small me-2 mb-0 white-space-nowrap">Maaş Dönemi:</label>
+                                                    <input type="month" class="form-control form-control-sm" id="y_maasDonem" onchange="yazismaSablonSec()">
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
