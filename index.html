@@ -554,7 +554,7 @@
                   <h6 class="fw-bold text-dark mb-1" style="font-size: 13px; letter-spacing: 0.3px;">${v.tamUnvan || 'D.O.O. "EURO VERITAS COLSUNTING"'}</h6>
                   <span>${v.adres || 'HERCEGOVAČKA 88, PODGORICA'}</span><br>
                   <span><strong>PIB:</strong> ${v.pib || '03791971'} | <strong>Matični Broj:</strong> ${v.sicilNo || '51340456'}</span><br>
-                  <span><strong>Tel:</strong> ${v.telefon1 || '+382 542 323 7477'} | <strong>E-mail:</strong> ${v.email1 || 'info@euroveritas.me'}</span><br>
+                  <span><strong>Tel:</strong> ${[v.telefon1, v.telefon2].filter(Boolean).join(' / ') || '+382 542 323 7477'} | <strong>E-mail:</strong> ${v.email1 || 'info@euroveritas.me'}</span><br>
                   <span><strong>Web:</strong> ${v.web || 'www.euroveritas.me'}</span>
               </div>
           </div>
@@ -1185,10 +1185,10 @@ ${y.metin}
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 148mm; max-width: 210mm; margin: auto;">
           <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
               <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 140px; object-fit: contain;" class="mb-2 d-print-block"></div>
-              <div class="col-6 text-end text-muted small" style="font-size: 12px;">
+            <div class="col-6 text-end text-muted small" style="font-size: 12px;">
                   <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
-                  ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
-              </div>
+                  ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${[v.telefon1, v.telefon2].filter(Boolean).length > 0 ? 'Tel: ' + [v.telefon1, v.telefon2].filter(Boolean).join(' / ') + ' | ' : ''}${v.email1 || ''}
+              </div>  
           </div>
           <h3 class="text-center fw-bold mb-4" style="color: #2c3e50; letter-spacing: 2px;">${t_baslik}</h3>
           
@@ -1590,10 +1590,10 @@ ${y.metin}
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
           <div class="row mb-4 border-bottom border-2 pb-3 border-dark">
               <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 130px; object-fit: contain;" class="mb-2 d-print-block"></div>
-              <div class="col-6 text-end text-muted small" style="font-size: 12px;">
+            <div class="col-6 text-end text-muted small" style="font-size: 12px;">
                   <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
-                  ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''}
-              </div>
+                  ${v.adres || ''}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${[v.telefon1, v.telefon2].filter(Boolean).length > 0 ? 'Tel: ' + [v.telefon1, v.telefon2].filter(Boolean).join(' / ') + ' | ' : ''}${v.email1 || ''}
+              </div>  
           </div>
 
           <div class="text-center mb-4">
@@ -2135,10 +2135,10 @@ ${y.metin}
       <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border border-light" style="min-height: 297mm; max-width: 210mm; margin: auto;">
           <div class="row mb-5 border-bottom border-2 pb-4 border-dark">
               <div class="col-6"><img src="Euro Veritas Consulting.jpg" style="max-height: 140px; object-fit: contain;" class="mb-2 d-print-block"></div>
-              <div class="col-6 text-end text-muted small" style="font-size: 12px;">
+            <div class="col-6 text-end text-muted small" style="font-size: 12px;">
                   <h5 class="text-dark fw-bold mb-1">${v.tamUnvan || 'Euro Veritas Doo'}</h5>
-                  ${v.adres || 'Adres Girilmemiş'}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${v.email1 || ''} | ${v.web || ''}
-              </div>
+                  ${v.adres || 'Adres Girilmemiş'}<br>PIB: ${v.pib || '-'} | Matični Broj: ${v.sicilNo || '-'}<br>${[v.telefon1, v.telefon2].filter(Boolean).length > 0 ? 'Tel: ' + [v.telefon1, v.telefon2].filter(Boolean).join(' / ') + '<br>' : ''}${v.email1 || ''} | ${v.web || ''}
+              </div>  
           </div>
           
           <h3 class="text-center fw-bold mb-5" style="color: #2c3e50; letter-spacing: 2px;">${t_baslik}</h3>
