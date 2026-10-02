@@ -2338,6 +2338,50 @@ ${y.metin}
   };
 
   // ---------------- BANKA VE KASA İŞLEMLERİ ----------------
+ window.bankaDuzenleAc = function(id) {
+      const b = bankaListesi.find(x => x.id === id);
+      document.getElementById('b_id').value = b.id;
+      document.getElementById('b_tur').value = b.tur || 'Banka';
+      document.getElementById('b_hesapAdi').value = b.hesapAdi;
+      document.getElementById('b_bankaAdi').value = b.bankaAdi || '';
+      document.getElementById('b_iban').value = b.iban || '';
+      document.getElementById('b_yerelHesap').value = b.yerelHesap || '';
+      document.getElementById('b_paraBirimi').value = b.paraBirimi || 'EUR';
+      if(document.getElementById('b_primalac')) document.getElementById('b_primalac').value = b.primalac || '';
+      if(document.getElementById('b_swift')) document.getElementById('b_swift').value = b.swift || '';
+      if(document.getElementById('b_korBanka')) document.getElementById('b_korBanka').value = b.korBanka || '';
+      if(document.getElementById('b_korSwift')) document.getElementById('b_korSwift').value = b.korSwift || '';
+
+      document.querySelector("#yeniBankaModal .modal-title").innerHTML = "Hesabı Düzenle";
+      new bootstrap.Modal(document.getElementById('yeniBankaModal')).show();
+  };
+
+  window.bankaKaydet = async function() {
+      const id = document.getElementById('b_id').value;
+      const hesapAdi = document.getElementById('b_hesapAdi').value;
+      if(hesapAdi === "") { alert("Hesap adı zorunludur!"); return; }
+      
+      const data = { 
+          hesapAdi: hesapAdi, 
+          tur: document.getElementById('b_tur').value,
+          bankaAdi: document.getElementById('b_bankaAdi').value || '', 
+          iban: document.getElementById('b_iban').value || '',
+          yerelHesap: document.getElementById('b_yerelHesap').value || '',
+          paraBirimi: document.getElementById('b_paraBirimi').value,
+          primalac: document.getElementById('b_primalac')?.value || '',
+          swift: document.getElementById('b_swift')?.value || '',
+          korBanka: document.getElementById('b_korBanka')?.value || '',
+          korSwift: document.getElementById('b_korSwift')?.value || ''
+      };
+      
+      try {
+          if(id) { await updateDoc(doc(db, "bankalar", id), data); } 
+          else { data.bakiye = 0; data.olusturmaTarihi = serverTimestamp(); await addDoc(collection(db, "bankalar"), data); }
+          bootstrap.Modal.getInstance(document.getElementById('yeniBankaModal')).hide();
+          document.getElementById('yeniBankaForm').reset(); document.getElementById('b_id').value = '';
+      } catch(e) { alert("Hata: " + e.message); }
+  };
+
   window.bankalariCiz = function() {
       const bTbody = document.getElementById('bankaTabloGövdesi');
       const kTbody = document.getElementById('kasaTabloGövdesi');
@@ -2352,8 +2396,9 @@ ${y.metin}
           let hesapNoGosterimi = '-';
           if (!isKasa) {
               let nolar = [];
-              if (banka.iban) nolar.push(`<span class="text-muted small">IBAN:</span> ${banka.iban}`);
-              if (banka.yerelHesap) nolar.push(`<span class="text-muted small">Yerel/Kart No:</span> ${banka.yerelHesap}`);
+              if (banka.iban) nolar.push(`<span class="text-muted small">IBAN:</span> <strong class="font-monospace text-dark">${banka.iban}</strong>`);
+              if (banka.swift) nolar.push(`<span class="text-muted small">SWIFT:</span> <strong class="font-monospace text-dark">${banka.swift}</strong>`);
+              if (banka.yerelHesap) nolar.push(`<span class="text-muted small">Yerel:</span> ${banka.yerelHesap}`);
               hesapNoGosterimi = nolar.length > 0 ? nolar.join('<br>') : '-';
           }
           
@@ -2366,16 +2411,20 @@ ${y.metin}
                   <td class="ps-3 py-3" style="border-left: 4px solid ${leftBorderColor};">
                       <div class="d-flex align-items-center">
                           <div class="me-3 fs-3" style="color: ${iconColor};"><i class="fas ${iconClass}"></i></div>
-                          <div><span class="fw-bold" style="color: #2c3e50;">${banka.hesapAdi}</span><br><small class="text-muted">${banka.bankaAdi || (isKasa ? 'Nakit Kasa' : (isDebit ? 'Debit Kart' : ''))}</small></div>
+                          <div>
+                              <span class="fw-bold" style="color: #2c3e50;">${banka.hesapAdi}</span><br>
+                              <small class="text-muted">${banka.bankaAdi || (isKasa ? 'Nakit Kasa' : '')}</small>
+                              ${banka.korBanka ? `<br><small class="text-secondary" style="font-size:10px;"><i class="fas fa-link me-1"></i>Correspondent: ${banka.korBanka}</small>` : ''}
+                          </div>
                       </div>
                   </td>
-                  <td class="py-3">${hesapNoGosterimi}</td>
+                  <td class="py-3" style="font-size:11px;">${hesapNoGosterimi}</td>
                   <td class="py-3"><span class="badge rounded-pill px-3 py-2" style="background-color: ${iconColor};">${banka.paraBirimi}</span></td>
                   <td class="fw-bold fs-5 py-3" style="color: ${iconColor};">${bakiye.toFixed(2)} ${banka.paraBirimi === 'USD' ? '$' : '€'}</td>
                   <td class="py-3">
-                      <button class="btn btn-sm text-white py-0" style="background-color: #2ecc71;" onclick="islemModalAc('Tahsilat', '${banka.id}')"><i class="fas fa-arrow-down"></i> Tahsilat</button>
+                      <button class="btn btn-sm text-white py-0 me-1" style="background-color: #2ecc71;" onclick="islemModalAc('Tahsilat', '${banka.id}')"><i class="fas fa-arrow-down"></i> Tahsilat</button>
                       <button class="btn btn-sm text-white py-0 me-2" style="background-color: #e74c3c;" onclick="islemModalAc('Odeme', '${banka.id}')"><i class="fas fa-arrow-up"></i> Ödeme</button>
-                      <button class="btn btn-sm btn-outline-secondary py-0" onclick="bankaDuzenleAc('${banka.id}')"><i class="fas fa-edit"></i></button>
+                      <button class="btn btn-sm btn-outline-secondary py-0 me-1" onclick="bankaDuzenleAc('${banka.id}')"><i class="fas fa-edit"></i></button>
                       <button class="btn btn-sm btn-outline-danger py-0" onclick="bankaSil('${banka.id}')"><i class="fas fa-trash"></i></button>
                   </td>
               </tr>
@@ -2385,42 +2434,8 @@ ${y.metin}
       });
       if(bTbody.innerHTML === '') bTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Banka veya Debit Kart hesabı eklenmemiş.</td></tr>';
       if(kTbody.innerHTML === '') kTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Kasa hesabı eklenmemiş.</td></tr>';
-  };
-
-  window.bankaDuzenleAc = function(id) {
-      const b = bankaListesi.find(x => x.id === id);
-      document.getElementById('b_id').value = b.id;
-      document.getElementById('b_tur').value = b.tur || 'Banka';
-      document.getElementById('b_hesapAdi').value = b.hesapAdi;
-      document.getElementById('b_bankaAdi').value = b.bankaAdi || '';
-      document.getElementById('b_iban').value = b.iban || '';
-      document.getElementById('b_yerelHesap').value = b.yerelHesap || '';
-      document.getElementById('b_paraBirimi').value = b.paraBirimi || 'EUR';
-      document.querySelector("#yeniBankaModal .modal-title").innerHTML = "Hesabı Düzenle";
-      new bootstrap.Modal(document.getElementById('yeniBankaModal')).show();
-  };
-
-  window.bankaKaydet = async function() {
-      const id = document.getElementById('b_id').value;
-      const hesapAdi = document.getElementById('b_hesapAdi').value;
-      if(hesapAdi === "") { alert("Hesap adı zorunludur!"); return; }
-      
-      const data = { 
-          hesapAdi: hesapAdi, 
-          tur: document.getElementById('b_tur').value,
-          bankaAdi: document.getElementById('b_bankaAdi').value, 
-          iban: document.getElementById('b_iban').value,
-          yerelHesap: document.getElementById('b_yerelHesap').value,
-          paraBirimi: document.getElementById('b_paraBirimi').value
-      };
-      
-      try {
-          if(id) { await updateDoc(doc(db, "bankalar", id), data); } 
-          else { data.bakiye = 0; data.olusturmaTarihi = serverTimestamp(); await addDoc(collection(db, "bankalar"), data); }
-          bootstrap.Modal.getInstance(document.getElementById('yeniBankaModal')).hide();
-          document.getElementById('yeniBankaForm').reset(); document.getElementById('b_id').value = '';
-      } catch(e) { alert("Hata: " + e.message); }
-  };
+  }; 
+  
 
 window.bankaEkstreAc = async function(bankaId, reRender = false) {
       const banka = bankaListesi.find(b => b.id === bankaId);
@@ -2893,34 +2908,104 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       const v = kunyeVerisi;
       
       alan.innerHTML = `
-          <div id="yazdirilacak-alan">
-              <div class="text-center mb-4 d-none d-print-block"><img src="Euro Veritas Consulting.jpg" style="max-height: 130px; object-fit: contain;"></div>
-              <h4 class="mb-4 text-center d-none d-print-block">${v.unvan || 'ŞİRKET KÜNYESİ'}</h4>
-              <div class="row">
-                  <h6 class="border-bottom pb-2 text-primary"><i class="fas fa-info-circle"></i> Resmi Kimlik Bilgileri</h6>
-                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">Kısa Ünvan</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.unvan || '-'}</strong></div></div>
-                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">PIB (Vergi Numarası)</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.pib || '-'}</strong></div></div>
-                  <div class="col-md-12 mb-3"><label class="text-muted small mb-1">Tam Resmi Ünvan</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.tamUnvan || '-'}</strong></div></div>
-                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">Matični Broj (Sicil No)</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.sicilNo || '-'}</strong></div></div>
-                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">Kayıtlı Adres</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.adres || '-'}</strong></div></div>
-                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">Ana Faaliyet</label><div><strong class="fs-6">${v.faaliyet || '-'}</strong></div></div>
-                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">İcra Direktörü / Sermaye</label><div><strong class="fs-6">${v.direktor || '-'} / ${v.sermaye || '-'} €</strong></div></div>
-                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">Kuruluş Tarihi</label><div><strong class="fs-6">${v.kurulus || '-'}</strong></div></div>
+          <div id="yazdirilacak-alan" class="p-3">
+              <div class="text-center mb-4 d-none d-print-block">
+                  <img src="Euro Veritas Consulting.jpg" style="max-height: 130px; object-fit: contain;">
+              </div>
+              <h4 class="mb-4 text-center fw-bold d-none d-print-block">${v.tamUnvan || 'PROFIL KOMPANIJE / COMPANY PROFILE'}</h4>
+              
+              <div class="row g-3">
+                  <!-- ŞİRKET BİLGİLERİ -->
+                  <h6 class="border-bottom pb-2 text-primary fw-bold"><i class="fas fa-building me-2"></i>Osnovni podaci o kompaniji / Company Profile</h6>
                   
-                  <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-address-book"></i> İletişim Bilgileri</h6>
-                  <div class="col-md-12 mb-3"><label class="text-muted small mb-1">Web Sitesi</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.web || '-'}</strong></div></div>
-                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">E-Posta 1 / E-Posta 2</label><div><strong class="fs-6">${v.email1 || '-'} <br> ${v.email2 || '-'}</strong></div></div>
-                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">Telefon 1 / Telefon 2</label><div><strong class="fs-6">${v.telefon1 || '-'} <br> ${v.telefon2 || '-'}</strong></div></div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Kraći naziv / Short Name</label>
+                      <strong class="fs-6 text-dark">${v.unvan || '-'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">PIB (Poreski identifikacioni broj) / Tax ID</label>
+                      <strong class="fs-6 text-dark">${v.pib || '-'}</strong>
+                  </div>
+                  <div class="col-md-12 mb-2">
+                      <label class="text-muted small d-block">Pun zvanični naziv / Full Registered Legal Name</label>
+                      <strong class="fs-6 text-dark">${v.tamUnvan || '-'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Matični broj / Registration No (CRPS)</label>
+                      <strong class="fs-6 text-dark">${v.sicilNo || '-'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Registrovana adresa / Registered Address</label>
+                      <strong class="fs-6 text-dark">${v.adres || '-'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Pretežna djelatnost / Main Activity Code</label>
+                      <strong class="fs-6 text-dark">${v.faaliyet || '-'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Izvršni direktor & Kapital / Executive Director & Capital</label>
+                      <strong class="fs-6 text-dark">${v.direktor || '-'} / ${v.sermaye || '-'} €</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Datum osnivanja / Date of Incorporation</label>
+                      <strong class="fs-6 text-dark">${v.kurulus || '-'}</strong>
+                  </div>
 
-                  <h6 class="border-bottom pb-2 mt-3 text-primary"><i class="fas fa-university"></i> Banka Bilgileri</h6>
-                  <div class="col-md-12 mb-3"><label class="text-muted small mb-1">Banka Adı ve EUR IBAN (Uluslararası)</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.banka || ''} - ${v.iban || '-'}</strong></div></div>
-                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">Yerel Hesap No (Karadağ İçi)</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.yerelHesap || '-'}</strong></div></div>
-                  <div class="col-md-6 mb-3"><label class="text-muted small mb-1">USD IBAN</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.usdIban || '-'}</strong></div></div>
-                  <div class="col-md-12"><label class="text-muted small mb-1">BIC / SWIFT Kodu</label><div class="d-flex align-items-center"><strong class="fs-6 me-3">${v.swift || '-'}</strong></div></div>
+                  <!-- İLETİŞİM BİLGİLERİ -->
+                  <h6 class="border-bottom pb-2 mt-4 text-primary fw-bold"><i class="fas fa-address-book me-2"></i>Kontakt informacije / Contact Information</h6>
+                  <div class="col-md-12 mb-2">
+                      <label class="text-muted small d-block">Veb sajt / Website</label>
+                      <strong class="fs-6 text-dark">${v.web || '-'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">E-mail adrese / E-mail Addresses</label>
+                      <strong class="fs-6 text-dark">${v.email1 || '-'} ${v.email2 ? '<br>' + v.email2 : ''}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Brojevi telefona / Phone Numbers</label>
+                      <strong class="fs-6 text-dark">${[v.telefon1, v.telefon2].filter(Boolean).join(' / ') || '-'}</strong>
+                  </div>
+
+                  <!-- BANKA VE ÖDEME BİLGİLERİ (PODACI ZA INOSTRANA PLAĆANJA) -->
+                  <h6 class="border-bottom pb-2 mt-4 text-primary fw-bold"><i class="fas fa-university me-2"></i>Podaci za inostrana plaćanja / International Payments (EUR)</h6>
                   
-                  <h6 class="border-bottom pb-2 mt-4 text-danger d-print-none"><i class="fas fa-lock"></i> Dijital Platform Şifreleri (Gizli)</h6>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Primalac / Beneficiary</label>
+                      <strong class="fs-6 text-dark">${v.primalac || v.tamUnvan || 'EURO VERITAS COLSUNTING D.O.O.'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Banka / Bank Name & Location</label>
+                      <strong class="fs-6 text-dark">${v.banka || 'Hipotekarna Banka AD Podgorica, Montenegro'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">SWIFT / BIC (Field 57A)</label>
+                      <strong class="fs-6 text-dark font-monospace">${v.swift || 'HBBAMEPGXXX'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">IBAN (Field 59A)</label>
+                      <strong class="fs-6 text-dark font-monospace">${v.iban || 'ME25520042000002301240'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Correspondent Bank</label>
+                      <strong class="fs-6 text-dark">${v.korBanka || 'ERSTE GROUP BANK AG, VIENNA'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Correspondent SWIFT</label>
+                      <strong class="fs-6 text-dark font-monospace">${v.korSwift || 'GIBAATWW'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">Žiro račun (Unutrašnji platni promet / Local Account)</label>
+                      <strong class="fs-6 text-dark font-monospace">${v.yerelHesap || '-'}</strong>
+                  </div>
+                  <div class="col-md-6 mb-2">
+                      <label class="text-muted small d-block">USD IBAN (Inostrani promet)</label>
+                      <strong class="fs-6 text-dark font-monospace">${v.usdIban || '-'}</strong>
+                  </div>
+                  
+                  <!-- DİJİTAL ŞİFRELER -->
+                  <h6 class="border-bottom pb-2 mt-4 text-danger fw-bold d-print-none"><i class="fas fa-lock me-2"></i>Pristupne šifre i sistemi (Tajno) / Credentials</h6>
                   <div class="col-md-12 mb-3 d-print-none">
-                      <div class="bg-light p-3 border rounded text-monospace" style="white-space: pre-wrap; font-size: 14px;">${v.sifreler || 'Henüz şifre eklenmedi.'}</div>
+                      <div class="bg-light p-3 border rounded text-monospace" style="white-space: pre-wrap; font-size: 13px;">${v.sifreler || 'Nema sačuvanih šifara.'}</div>
                   </div>
               </div>
           </div>
@@ -2939,6 +3024,12 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       document.getElementById('k_email1').value = v.email1 || ''; document.getElementById('k_email2').value = v.email2 || ''; 
       document.getElementById('k_telefon1').value = v.telefon1 || ''; document.getElementById('k_telefon2').value = v.telefon2 || ''; 
       document.getElementById('k_web').value = v.web || ''; document.getElementById('k_sifreler').value = v.sifreler || '';
+      
+      // Yeni Uluslararası Ödeme Alanları
+      if(document.getElementById('k_primalac')) document.getElementById('k_primalac').value = v.primalac || 'EURO VERITAS COLSUNTING D.O.O.';
+      if(document.getElementById('k_korBanka')) document.getElementById('k_korBanka').value = v.korBanka || 'ERSTE GROUP BANK AG, VIENNA';
+      if(document.getElementById('k_korSwift')) document.getElementById('k_korSwift').value = v.korSwift || 'GIBAATWW';
+
       new bootstrap.Modal(document.getElementById('kunyeModal')).show();
   };
 
@@ -2956,9 +3047,15 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
               kurulus: document.getElementById('k_kurulus').value, sermaye: document.getElementById('k_sermaye').value, 
               email1: document.getElementById('k_email1').value, email2: document.getElementById('k_email2').value, 
               telefon1: document.getElementById('k_telefon1').value, telefon2: document.getElementById('k_telefon2').value, 
-              web: document.getElementById('k_web').value, sifreler: document.getElementById('k_sifreler').value
+              web: document.getElementById('k_web').value, sifreler: document.getElementById('k_sifreler').value,
+              
+              // Yeni Kaydedilecek Alanlar
+              primalac: document.getElementById('k_primalac')?.value || 'EURO VERITAS COLSUNTING D.O.O.',
+              korBanka: document.getElementById('k_korBanka')?.value || 'ERSTE GROUP BANK AG, VIENNA',
+              korSwift: document.getElementById('k_korSwift')?.value || 'GIBAATWW'
           });
           bootstrap.Modal.getInstance(document.getElementById('kunyeModal')).hide();
+          alert("Şirket künyesi ve banka ödeme detayları başarıyla kaydedildi.");
       } catch(e) { alert("Hata: " + e.message); } finally { btn.disabled = false; btn.innerHTML = "Kaydet"; }
   };
 
@@ -3714,52 +3811,80 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                 </div>
 
                 <div class="modal fade" id="yeniBankaModal" tabindex="-1">
-                    <div class="modal-dialog">
+                    <div class="modal-dialog modal-lg">
                         <div class="modal-content">
                             <div class="modal-header bg-dark text-white">
-                                <h5 class="modal-title">Yeni Banka/Kasa Hesabı</h5>
+                                <h5 class="modal-title"><i class="fas fa-university me-2"></i>Banka / Kasa Hesabı Düzenle</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
-                            <div class="modal-body">
+                            <div class="modal-body p-4">
                                 <form id="yeniBankaForm">
                                     <input type="hidden" id="b_id">
                                     <div class="row mb-3">
-                                        <div class="col-md-6">
-                                            <label class="form-label">Hesap Türü *</label>
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-bold">Hesap Türü *</label>
                                             <select class="form-select" id="b_tur">
                                                 <option value="Banka">Banka Hesabı</option>
                                                 <option value="Debit Kart">Debit Kart (Banka Kartı)</option>
                                                 <option value="Kasa">Nakit Kasa</option>
                                             </select>
                                         </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Para Birimi *</label>
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-bold">Para Birimi *</label>
                                             <select class="form-select" id="b_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select>
                                         </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-bold">Hesap Tanım Adı *</label>
+                                            <input type="text" class="form-control" id="b_hesapAdi" placeholder="Örn: CKB Euro Ana Hesap" required>
+                                        </div>
                                     </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Hesap Adı * (Örn: Merkez Kasa, CKB Euro)</label>
-                                        <input type="text" class="form-control" id="b_hesapAdi" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Banka Adı (Kasaysa boş bırakın)</label>
-                                        <input type="text" class="form-control" id="b_bankaAdi">
-                                    </div>
+
+                                    <h6 class="text-primary border-bottom pb-2 mt-3 mb-3 fw-bold small"><i class="fas fa-globe me-1"></i> Podaci za inostrana plaćanja / International Payment Details</h6>
+                                    
                                     <div class="row mb-3">
                                         <div class="col-md-6">
-                                            <label class="form-label">IBAN (Uluslararası/Swift)</label>
-                                            <input type="text" class="form-control" id="b_iban" placeholder="ME...">
+                                            <label class="form-label small text-muted">Primalac / Beneficiary (Firma Ünvanı)</label>
+                                            <input type="text" class="form-control" id="b_primalac" placeholder="EURO VERITAS COLSUNTING D.O.O.">
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label">Yerel Hesap No (Karadağ İçi)</label>
-                                            <input type="text" class="form-control" id="b_yerelHesap" placeholder="520-...">
+                                            <label class="form-label small text-muted">Banka / Bank Name & Location</label>
+                                            <input type="text" class="form-control" id="b_bankaAdi" placeholder="Hipotekarna Banka AD Podgorica, Montenegro">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">IBAN (Field 59A)</label>
+                                            <input type="text" class="form-control font-monospace" id="b_iban" placeholder="ME25520042000002301240">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">SWIFT / BIC (Field 57A)</label>
+                                            <input type="text" class="form-control font-monospace" id="b_swift" placeholder="HBBAMEPGXXX">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">Correspondent Bank (Muhabir Banka)</label>
+                                            <input type="text" class="form-control" id="b_korBanka" placeholder="ERSTE GROUP BANK AG, VIENNA">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">Correspondent SWIFT</label>
+                                            <input type="text" class="form-control font-monospace" id="b_korSwift" placeholder="GIBAATWW">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-2">
+                                        <div class="col-md-12">
+                                            <label class="form-label small text-muted">Yerel Hesap No (Karadağ İçi Transferler)</label>
+                                            <input type="text" class="form-control font-monospace" id="b_yerelHesap" placeholder="520-XXXXX-XX">
                                         </div>
                                     </div>
                                 </form>
                             </div>
-                            <div class="modal-footer">
+                            <div class="modal-footer bg-light">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                                <button type="button" class="btn btn-primary" onclick="bankaKaydet()">Kaydet</button>
+                                <button type="button" class="btn btn-primary px-4 fw-bold" onclick="bankaKaydet()">Kaydet</button>
                             </div>
                         </div>
                     </div>
@@ -4031,66 +4156,70 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
                 <div class="modal fade" id="kunyeModal" tabindex="-1">
                     <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
+                        <div class="modal-content border-0 shadow-lg">
                             <div class="modal-header bg-dark text-white">
-                                <h5 class="modal-title">Firma Bilgilerini Düzenle</h5>
+                                <h5 class="modal-title fs-6"><i class="fas fa-building me-2"></i>Firma Bilgilerini Düzenle / Edit Company Profile</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
-                            <div class="modal-body">
+                            <div class="modal-body p-4">
                                 <form id="kunyeForm">
+                                    <h6 class="border-bottom pb-2 text-primary fw-bold small"><i class="fas fa-id-card me-1"></i> Osnovni podaci / Company Identity</h6>
                                     <div class="row mb-2">
-                                        <div class="col-md-4"><label class="form-label small">Kısa Ünvan</label><input type="text" class="form-control form-control-sm" id="k_unvan"></div>
-                                        <div class="col-md-8"><label class="form-label small">Tam Resmi Ünvan</label><input type="text" class="form-control form-control-sm" id="k_tamUnvan"></div>
+                                        <div class="col-md-4"><label class="form-label small text-muted">Kısa Ünvan / Short Name</label><input type="text" class="form-control form-control-sm" id="k_unvan"></div>
+                                        <div class="col-md-8"><label class="form-label small text-muted">Tam Resmi Ünvan / Full Registered Name</label><input type="text" class="form-control form-control-sm" id="k_tamUnvan"></div>
                                     </div>
                                     <div class="row mb-2">
-                                        <div class="col-md-4"><label class="form-label small">PIB (Vergi No)</label><input type="text" class="form-control form-control-sm" id="k_pib"></div>
-                                        <div class="col-md-4"><label class="form-label small">Matični Broj</label><input type="text" class="form-control form-control-sm" id="k_sicilNo"></div>
-                                        <div class="col-md-4"><label class="form-label small">Kayıtlı Adres</label><input type="text" class="form-control form-control-sm" id="k_adres"></div>
+                                        <div class="col-md-4"><label class="form-label small text-muted">PIB (Poreski broj) / Tax ID</label><input type="text" class="form-control form-control-sm" id="k_pib"></div>
+                                        <div class="col-md-4"><label class="form-label small text-muted">Matični Broj / Reg No</label><input type="text" class="form-control form-control-sm" id="k_sicilNo"></div>
+                                        <div class="col-md-4"><label class="form-label small text-muted">Adresa / Address</label><input type="text" class="form-control form-control-sm" id="k_adres"></div>
                                     </div>
                                     <div class="row mb-2">
-                                        <div class="col-md-3"><label class="form-label small">Ana Faaliyet</label><input type="text" class="form-control form-control-sm" id="k_faaliyet"></div>
-                                        <div class="col-md-3"><label class="form-label small">İcra Direktörü</label><input type="text" class="form-control form-control-sm" id="k_direktor"></div>
-                                        <div class="col-md-3"><label class="form-label small">Kuruluş Tarihi</label><input type="date" class="form-control form-control-sm" id="k_kurulus"></div>
-                                        <div class="col-md-3"><label class="form-label small">Sermaye (€)</label><input type="text" class="form-control form-control-sm" id="k_sermaye"></div>
+                                        <div class="col-md-3"><label class="form-label small text-muted">Djelatnost / Main Activity</label><input type="text" class="form-control form-control-sm" id="k_faaliyet"></div>
+                                        <div class="col-md-3"><label class="form-label small text-muted">Izvršni Direktor / Director</label><input type="text" class="form-control form-control-sm" id="k_direktor"></div>
+                                        <div class="col-md-3"><label class="form-label small text-muted">Osnovano / Inc. Date</label><input type="date" class="form-control form-control-sm" id="k_kurulus"></div>
+                                        <div class="col-md-3"><label class="form-label small text-muted">Kapital (€) / Capital</label><input type="text" class="form-control form-control-sm" id="k_sermaye"></div>
+                                    </div>
+                                    
+                                    <h6 class="border-bottom pb-2 text-primary mt-3 fw-bold small"><i class="fas fa-address-book me-1"></i> Kontakt / Contact</h6>
+                                    <div class="row mb-2">
+                                        <div class="col-md-4"><label class="form-label small text-muted">Veb sajt / Website</label><input type="text" class="form-control form-control-sm" id="k_web" placeholder="www.euroveritas.me"></div>
+                                        <div class="col-md-4"><label class="form-label small text-muted">E-mail 1</label><input type="email" class="form-control form-control-sm" id="k_email1"></div>
+                                        <div class="col-md-4"><label class="form-label small text-muted">E-mail 2</label><input type="email" class="form-control form-control-sm" id="k_email2"></div>
                                     </div>
                                     <div class="row mb-2">
-                                        <div class="col-md-12"><label class="form-label small">Web Sitesi</label><input type="text" class="form-control form-control-sm" id="k_web" placeholder="www.euroveritas.com"></div>
-                                    </div>
-                                    <div class="row mb-2">
-                                        <div class="col-md-6"><label class="form-label small">E-Posta 1</label><input type="email" class="form-control form-control-sm" id="k_email1"></div>
-                                        <div class="col-md-6"><label class="form-label small">E-Posta 2</label><input type="email" class="form-control form-control-sm" id="k_email2"></div>
-                                    </div>
-                                    <div class="row mb-2">
-                                        <div class="col-md-6"><label class="form-label small">Telefon 1</label><input type="text" class="form-control form-control-sm" id="k_telefon1"></div>
-                                        <div class="col-md-6"><label class="form-label small">Telefon 2</label><input type="text" class="form-control form-control-sm" id="k_telefon2"></div>
+                                        <div class="col-md-6"><label class="form-label small text-muted">Telefon 1 / Phone 1</label><input type="text" class="form-control form-control-sm" id="k_telefon1"></div>
+                                        <div class="col-md-6"><label class="form-label small text-muted">Telefon 2 / Phone 2</label><input type="text" class="form-control form-control-sm" id="k_telefon2"></div>
                                     </div>
 
-                                    <h6 class="border-bottom pb-2 text-primary mt-3">Banka Bilgileri</h6>
+                                    <h6 class="border-bottom pb-2 text-primary mt-3 fw-bold small"><i class="fas fa-university me-1"></i> Podaci za inostrana plaćanja / International Payments (EUR/USD)</h6>
                                     <div class="row mb-2">
-                                        <div class="col-md-12"><label class="form-label small">Banka Adı</label><input type="text" class="form-control form-control-sm" id="k_banka"></div>
+                                        <div class="col-md-6"><label class="form-label small text-muted">Primalac / Beneficiary</label><input type="text" class="form-control form-control-sm" id="k_primalac" placeholder="EURO VERITAS COLSUNTING D.O.O."></div>
+                                        <div class="col-md-6"><label class="form-label small text-muted">Banka / Bank Name & Location</label><input type="text" class="form-control form-control-sm" id="k_banka" placeholder="Hipotekarna Banka AD Podgorica, Montenegro"></div>
                                     </div>
                                     <div class="row mb-2">
-                                        <div class="col-md-12"><label class="form-label small">EUR IBAN Numarası (Uluslararası / Swift İçin)</label><input type="text" class="form-control form-control-sm" id="k_iban" placeholder="ME..."></div>
+                                        <div class="col-md-6"><label class="form-label small text-muted">IBAN EUR (Field 59A)</label><input type="text" class="form-control form-control-sm font-monospace" id="k_iban" placeholder="ME25520042000002301240"></div>
+                                        <div class="col-md-6"><label class="form-label small text-muted">SWIFT / BIC (Field 57A)</label><input type="text" class="form-control form-control-sm font-monospace" id="k_swift" placeholder="HBBAMEPGXXX"></div>
                                     </div>
                                     <div class="row mb-2">
-                                        <div class="col-md-6"><label class="form-label small">Yerel Hesap No (Karadağ İçi)</label><input type="text" class="form-control form-control-sm" id="k_yerelHesap" placeholder="520-..."></div>
-                                        <div class="col-md-6"><label class="form-label small">USD IBAN Numarası</label><input type="text" class="form-control form-control-sm" id="k_usdIban"></div>
+                                        <div class="col-md-6"><label class="form-label small text-muted">Correspondent Bank</label><input type="text" class="form-control form-control-sm" id="k_korBanka" placeholder="ERSTE GROUP BANK AG, VIENNA"></div>
+                                        <div class="col-md-6"><label class="form-label small text-muted">Correspondent SWIFT</label><input type="text" class="form-control form-control-sm font-monospace" id="k_korSwift" placeholder="GIBAATWW"></div>
                                     </div>
                                     <div class="row mb-2">
-                                        <div class="col-md-6"><label class="form-label small">SWIFT Kodu</label><input type="text" class="form-control form-control-sm" id="k_swift"></div>
+                                        <div class="col-md-6"><label class="form-label small text-muted">Žiro račun (Unutrašnji promet / Local Account)</label><input type="text" class="form-control form-control-sm font-monospace" id="k_yerelHesap" placeholder="520-XXXXX-XX"></div>
+                                        <div class="col-md-6"><label class="form-label small text-muted">USD IBAN (Inostrani promet)</label><input type="text" class="form-control form-control-sm font-monospace" id="k_usdIban"></div>
                                     </div>
-                                    <h6 class="border-bottom pb-2 text-danger mt-3">Dijital Sistemler ve Şifreler</h6>
+
+                                    <h6 class="border-bottom pb-2 text-danger mt-3 fw-bold small"><i class="fas fa-lock me-1"></i> Pristupne šifre i sistemi (Tajno) / Credentials</h6>
                                     <div class="row mb-2">
                                         <div class="col-md-12">
-                                            <label class="form-label small">e-Fatura, Vergi Dairesi, Banka vb. Şifreler</label>
-                                            <textarea class="form-control form-control-sm" id="k_sifreler" rows="4" placeholder="Kullanıcı adı ve şifrelerinizi alt alta yazabilirsiniz..."></textarea>
+                                            <textarea class="form-control form-control-sm" id="k_sifreler" rows="3" placeholder="e-Faktura, Poreska uprava, Banka šifre..."></textarea>
                                         </div>
                                     </div>
                                 </form>
                             </div>
-                            <div class="modal-footer">
+                            <div class="modal-footer bg-light">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                                <button type="button" class="btn btn-primary" onclick="kunyeKaydet()">Kaydet</button>
+                                <button type="button" class="btn btn-primary px-4 fw-bold" onclick="kunyeKaydet()">Kaydet</button>
                             </div>
                         </div>
                     </div>
