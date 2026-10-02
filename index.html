@@ -53,10 +53,31 @@
         .nav-tabs .nav-link.active { border-bottom: 2px solid #2c3e50; color: #2c3e50; background: transparent; }
 
         @media print {
+            @page {
+                size: A4 portrait;
+                margin: 10mm 12mm;
+            }
+            html, body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+            }
             body * { visibility: hidden; }
-            .sidebar, .btn, .modal-footer, .nav { display: none !important; }
+            .sidebar, .btn, .modal-footer, .nav, .d-print-none, .ticker-wrap { display: none !important; }
             #yazdirilacak-alan, #yazdirilacak-alan * { visibility: visible; }
-            #yazdirilacak-alan { position: absolute; left: 0; top: 0; width: 100%; }
+            #yazdirilacak-alan {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+                background: #ffffff !important;
+            }
             .table tbody td, .table thead th { padding: 4px 8px; font-size: 0.7rem; }
         }
 
@@ -2909,7 +2930,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       }
   };
 
-  // ---------------- ŞİRKET KÜNYESİ İŞLEMLERİ (KURUMSAL FERAH A4 TASARIMI) ----------------
+  // ---------------- ŞİRKET KÜNYESİ İŞLEMLERİ (TAM SAYFA ERGONOMİK DÜZEN) ----------------
   window.kunyeCiz = function() {
       const alan = document.getElementById('kunyeKarti');
       if (!alan) return;
@@ -2920,15 +2941,15 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       let telefonlar = [tel1, tel2].filter(Boolean).join(' / ') || '+382 542 323 7477';
 
       alan.innerHTML = `
-          <div id="yazdirilacak-alan" class="p-5 bg-white shadow-lg rounded-3 border" style="min-height: 297mm; max-width: 210mm; margin: 20px auto; color: #0f172a; font-family: 'Inter', Arial, sans-serif;">
+          <div id="yazdirilacak-alan" class="p-4 p-md-5 bg-white shadow-sm rounded-3 border mx-auto" style="max-width: 900px; width: 100%; color: #0f172a; font-family: 'Inter', Arial, sans-serif;">
               
               <!-- RESMİ ANTET BAŞLIĞI VE LOGO -->
-              <div class="row mb-4 align-items-center pb-3 border-bottom border-2 border-dark">
-                  <div class="col-5">
-                      <img src="Euro Veritas Consulting.jpg" style="max-height: 110px; width: auto; object-fit: contain;" class="d-print-block">
+              <div class="row mb-4 align-items-center pb-3 border-bottom border-2 border-dark g-3">
+                  <div class="col-sm-5 col-12 text-center text-sm-start">
+                      <img src="Euro Veritas Consulting.jpg" style="max-height: 110px; width: auto; object-fit: contain;" class="d-print-block img-fluid">
                   </div>
-                  <div class="col-7 text-end text-muted" style="font-size: 11px; line-height: 1.55;">
-                      <h6 class="fw-bold text-dark mb-1" style="font-size: 13px; letter-spacing: 0.3px;">${v.tamUnvan || 'D.O.O. "EURO VERITAS COLSUNTING"'}</h6>
+                  <div class="col-sm-7 col-12 text-center text-sm-end text-muted" style="font-size: 11px; line-height: 1.6;">
+                      <h6 class="fw-bold text-dark mb-1" style="font-size: 13.5px; letter-spacing: 0.3px;">${v.tamUnvan || 'D.O.O. "EURO VERITAS COLSUNTING"'}</h6>
                       <span>${v.adres || 'HERCEGOVAČKA 88, PODGORICA'}</span><br>
                       <span><strong>PIB:</strong> ${v.pib || '03791971'} | <strong>Matični Broj:</strong> ${v.sicilNo || '51340456'}</span><br>
                       <span><strong>Tel:</strong> ${telefonlar}</span><br>
@@ -2944,19 +2965,19 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
               <!-- 1. OSNOVNI PODACI O KOMPANIJI (ŞİRKET BİLGİLERİ) -->
               <div class="mb-4">
-                  <div class="d-flex align-items-center mb-2 pb-1 border-bottom border-secondary border-opacity-25">
+                  <div class="d-flex align-items-center mb-3 pb-1 border-bottom border-secondary border-opacity-25">
                       <div class="bg-primary text-white rounded-circle p-1 me-2 d-flex align-items-center justify-content-center" style="width:24px; height:24px; font-size:11px;"><i class="fas fa-building"></i></div>
                       <h6 class="fw-bold text-dark mb-0 text-uppercase" style="font-size: 12px; letter-spacing: 0.5px;">Osnovni podaci o kompaniji / Company Profile</h6>
                   </div>
 
                   <div class="row g-2">
-                      <div class="col-6">
+                      <div class="col-md-6 col-12">
                           <div class="p-2 px-3 rounded" style="background-color: #f8fafc; border: 1px solid #e2e8f0; min-height: 52px;">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Kraći naziv / Short Name</span>
                               <strong class="text-dark" style="font-size: 12.5px;">${v.unvan || '-'}</strong>
                           </div>
                       </div>
-                      <div class="col-6">
+                      <div class="col-md-6 col-12">
                           <div class="p-2 px-3 rounded" style="background-color: #f8fafc; border: 1px solid #e2e8f0; min-height: 52px;">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">PIB (Poreski broj) / Tax ID</span>
                               <strong class="text-dark" style="font-size: 12.5px;">${v.pib || '-'}</strong>
@@ -2968,25 +2989,25 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                               <strong class="text-dark" style="font-size: 12.5px;">${v.tamUnvan || '-'}</strong>
                           </div>
                       </div>
-                      <div class="col-6">
+                      <div class="col-md-6 col-12">
                           <div class="p-2 px-3 rounded" style="background-color: #f8fafc; border: 1px solid #e2e8f0; min-height: 52px;">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Matični broj / Registration No (CRPS)</span>
                               <strong class="text-dark" style="font-size: 12.5px;">${v.sicilNo || '-'}</strong>
                           </div>
                       </div>
-                      <div class="col-6">
+                      <div class="col-md-6 col-12">
                           <div class="p-2 px-3 rounded" style="background-color: #f8fafc; border: 1px solid #e2e8f0; min-height: 52px;">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Registrovana adresa / Registered Address</span>
                               <strong class="text-dark" style="font-size: 12.5px;">${v.adres || '-'}</strong>
                           </div>
                       </div>
-                      <div class="col-6">
+                      <div class="col-md-6 col-12">
                           <div class="p-2 px-3 rounded" style="background-color: #f8fafc; border: 1px solid #e2e8f0; min-height: 60px;">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Pretežna djelatnost / Main Activity Code</span>
                               <strong class="text-dark d-block" style="font-size: 11.5px; line-height: 1.3;">${v.faaliyet || '-'}</strong>
                           </div>
                       </div>
-                      <div class="col-6">
+                      <div class="col-md-6 col-12">
                           <div class="p-2 px-3 rounded" style="background-color: #f8fafc; border: 1px solid #e2e8f0; min-height: 60px;">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Izvršni direktor & Kapital / Director & Capital</span>
                               <strong class="text-dark" style="font-size: 12px;">${v.direktor || '-'} / ${v.sermaye || '-'} €</strong>
@@ -3003,25 +3024,25 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
               <!-- 2. KONTAKT INFORMACIJE (İLETİŞİM BİLGİLERİ) -->
               <div class="mb-4">
-                  <div class="d-flex align-items-center mb-2 pb-1 border-bottom border-secondary border-opacity-25">
+                  <div class="d-flex align-items-center mb-3 pb-1 border-bottom border-secondary border-opacity-25">
                       <div class="bg-primary text-white rounded-circle p-1 me-2 d-flex align-items-center justify-content-center" style="width:24px; height:24px; font-size:11px;"><i class="fas fa-address-book"></i></div>
                       <h6 class="fw-bold text-dark mb-0 text-uppercase" style="font-size: 12px; letter-spacing: 0.5px;">Kontakt informacije / Contact Information</h6>
                   </div>
 
                   <div class="row g-2">
-                      <div class="col-4">
+                      <div class="col-md-4 col-12">
                           <div class="p-2 px-3 rounded" style="background-color: #f8fafc; border: 1px solid #e2e8f0; min-height: 52px;">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Veb sajt / Website</span>
                               <strong class="text-dark" style="font-size: 12px;">${v.web || '-'}</strong>
                           </div>
                       </div>
-                      <div class="col-4">
+                      <div class="col-md-4 col-12">
                           <div class="p-2 px-3 rounded" style="background-color: #f8fafc; border: 1px solid #e2e8f0; min-height: 52px;">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">E-mail adrese / E-mail</span>
                               <strong class="text-dark d-block" style="font-size: 11.5px;">${v.email1 || '-'} ${v.email2 ? '<br>' + v.email2 : ''}</strong>
                           </div>
                       </div>
-                      <div class="col-4">
+                      <div class="col-md-4 col-12">
                           <div class="p-2 px-3 rounded" style="background-color: #f8fafc; border: 1px solid #e2e8f0; min-height: 52px;">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Brojevi telefona / Phone Numbers</span>
                               <strong class="text-dark" style="font-size: 11.5px;">${telefonlar}</strong>
@@ -3032,42 +3053,42 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
               <!-- 3. PODACI ZA INOSTRANA I UNUTRAŠNJA PLAĆANJA (BANKA BİLGİLERİ) -->
               <div class="mb-4">
-                  <div class="d-flex align-items-center mb-2 pb-1 border-bottom border-secondary border-opacity-25">
+                  <div class="d-flex align-items-center mb-3 pb-1 border-bottom border-secondary border-opacity-25">
                       <div class="bg-primary text-white rounded-circle p-1 me-2 d-flex align-items-center justify-content-center" style="width:24px; height:24px; font-size:11px;"><i class="fas fa-university"></i></div>
                       <h6 class="fw-bold text-dark mb-0 text-uppercase" style="font-size: 12px; letter-spacing: 0.5px;">Podaci za inostrana i unutrašnja plaćanja / Payment Details</h6>
                   </div>
 
                   <div class="p-3 rounded-3" style="background-color: #f8fafc; border: 1px solid #cbd5e1;">
                       <div class="row g-2">
-                          <div class="col-6">
+                          <div class="col-md-6 col-12">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Primalac / Beneficiary</span>
                               <strong class="text-dark" style="font-size: 12.5px;">${v.primalac || v.tamUnvan || 'EURO VERITAS COLSUNTING D.O.O.'}</strong>
                           </div>
-                          <div class="col-6">
+                          <div class="col-md-6 col-12">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Banka / Bank Name & Location</span>
                               <strong class="text-dark" style="font-size: 12.5px;">${v.banka || 'Hipotekarna Banka AD Podgorica, Montenegro'}</strong>
                           </div>
-                          <div class="col-6">
+                          <div class="col-md-6 col-12">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">SWIFT / BIC (Field 57A)</span>
                               <strong class="text-dark font-monospace" style="font-size: 13px; letter-spacing: 0.5px;">${v.swift || 'HBBAMEPGXXX'}</strong>
                           </div>
-                          <div class="col-6">
+                          <div class="col-md-6 col-12">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">IBAN EUR (Field 59A)</span>
                               <strong class="text-dark font-monospace" style="font-size: 13px; letter-spacing: 0.5px;">${v.iban || 'ME25520042000002301240'}</strong>
                           </div>
-                          <div class="col-6">
+                          <div class="col-md-6 col-12">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Correspondent Bank</span>
                               <strong class="text-dark" style="font-size: 12px;">${v.korBanka || 'ERSTE GROUP BANK AG, VIENNA'}</strong>
                           </div>
-                          <div class="col-6">
+                          <div class="col-md-6 col-12">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Correspondent SWIFT</span>
                               <strong class="text-dark font-monospace" style="font-size: 13px; letter-spacing: 0.5px;">${v.korSwift || 'GIBAATWW'}</strong>
                           </div>
-                          <div class="col-6 pt-2 border-top border-secondary border-opacity-25">
+                          <div class="col-md-6 col-12 pt-2 border-top border-secondary border-opacity-25">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">Žiro račun (Unutrašnji promet / Local Account)</span>
                               <strong class="text-dark font-monospace" style="font-size: 12.5px;">${v.yerelHesap || '-'}</strong>
                           </div>
-                          <div class="col-6 pt-2 border-top border-secondary border-opacity-25">
+                          <div class="col-md-6 col-12 pt-2 border-top border-secondary border-opacity-25">
                               <span class="d-block text-uppercase fw-semibold text-muted" style="font-size: 9.5px;">USD IBAN (Inostrani promet)</span>
                               <strong class="text-dark font-monospace" style="font-size: 12.5px;">${v.usdIban || '-'}</strong>
                           </div>
@@ -3083,7 +3104,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
               <!-- KAŞE VE İMZA ALANI -->
               <div class="row mt-5 pt-3 justify-content-end text-center">
-                  <div class="col-6">
+                  <div class="col-md-6 col-8">
                       <div id="kase-alani" data-border-type="top" style="border-top: 1px solid #333; width: 85%; margin-left: auto;" class="pt-2 position-relative">
                           <img id="kase-gorseli" src="Kase.jpg" class="d-none position-absolute" style="max-height: 125px; top: -65px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 5; mix-blend-mode: multiply;">
                           <strong class="small text-dark d-block">Za "${v.unvan || 'Euro Veritas Doo'}"</strong>
@@ -3094,7 +3115,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
           </div>
 
           <!-- EKRAN KONTROL BUTONLARI -->
-          <div class="mt-4 d-print-none text-center">
+          <div class="mt-4 d-print-none text-center pb-4">
               <button class="btn btn-warning shadow-sm me-2 fw-bold px-3" onclick="kaseToggle()"><i class="fas fa-stamp me-1"></i> Kaşe Ekle / Kaldır</button>
               <button class="btn btn-outline-danger shadow-sm me-2 fw-bold px-3" onclick="sifrelerToggle()"><i class="fas fa-key me-1"></i> Şifreleri Göster / Gizle</button>
               <button class="btn btn-secondary shadow-sm px-4 me-2 fw-bold" onclick="window.print()"><i class="fas fa-print me-1"></i> Yazdır / PDF Kaydet</button>
