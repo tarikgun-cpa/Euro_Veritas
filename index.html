@@ -2908,106 +2908,140 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       const v = kunyeVerisi;
       
       alan.innerHTML = `
-          <div id="yazdirilacak-alan" class="p-3">
-              <div class="text-center mb-4 d-none d-print-block">
-                  <img src="Euro Veritas Consulting.jpg" style="max-height: 130px; object-fit: contain;">
-              </div>
-              <h4 class="mb-4 text-center fw-bold d-none d-print-block">${v.tamUnvan || 'PROFIL KOMPANIJE / COMPANY PROFILE'}</h4>
+          <div id="yazdirilacak-alan" class="p-5 bg-white shadow-sm rounded border" style="min-height: 297mm; max-width: 210mm; margin: auto; color: #0f172a; font-family: 'Inter', Arial, sans-serif;">
               
+              <!-- RESMİ ANTET BAŞLIĞI VE LOGO -->
+              <div class="row mb-4 align-items-center pb-3 border-bottom border-2 border-dark">
+                  <div class="col-5">
+                      <img src="Euro Veritas Consulting.jpg" style="max-height: 125px; width: auto; object-fit: contain;" class="d-print-block">
+                  </div>
+                  <div class="col-7 text-end text-muted" style="font-size: 11px; line-height: 1.55;">
+                      <h6 class="fw-bold text-dark mb-1" style="font-size: 13px; letter-spacing: 0.3px;">${v.tamUnvan || 'D.O.O. "EURO VERITAS COLSUNTING"'}</h6>
+                      <span>${v.adres || 'HERCEGOVAČKA 88, PODGORICA'}</span><br>
+                      <span><strong>PIB:</strong> ${v.pib || '03791971'} | <strong>Matični Broj:</strong> ${v.sicilNo || '51340456'}</span><br>
+                      <span><strong>Tel:</strong> ${[v.telefon1, v.telefon2].filter(Boolean).join(' / ') || '+382 542 323 7477'}</span><br>
+                      <span><strong>E-mail:</strong> ${v.email1 || 'info@euroveritas.me'} | <strong>Web:</strong> ${v.web || 'www.euroveritas.me'}</span>
+                  </div>
+              </div>
+
+              <!-- BELGE BAŞLIĞI -->
+              <div class="text-center my-4">
+                  <h4 class="fw-bold text-dark text-uppercase mb-1" style="letter-spacing: 1px;">PROFIL KOMPANIJE / COMPANY PROFILE</h4>
+                  <span class="text-muted small fw-bold">ZVUČNI PODACI I BANKARSKI DETALJI / OFFICIAL COMPANY & PAYMENT DETAILS</span>
+              </div>
+
               <div class="row g-3">
-                  <!-- ŞİRKET BİLGİLERİ -->
-                  <h6 class="border-bottom pb-2 text-primary fw-bold"><i class="fas fa-building me-2"></i>Osnovni podaci o kompaniji / Company Profile</h6>
+                  <!-- 1. ŞİRKET BİLGİLERİ -->
+                  <div class="col-12"><h6 class="border-bottom pb-1 text-primary fw-bold small text-uppercase"><i class="fas fa-building me-1"></i> Osnovni podaci o kompaniji / Company Profile</h6></div>
                   
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Kraći naziv / Short Name</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Kraći naziv / Short Name</span>
                       <strong class="fs-6 text-dark">${v.unvan || '-'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">PIB (Poreski identifikacioni broj) / Tax ID</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">PIB (Poreski broj) / Tax ID</span>
                       <strong class="fs-6 text-dark">${v.pib || '-'}</strong>
                   </div>
-                  <div class="col-md-12 mb-2">
-                      <label class="text-muted small d-block">Pun zvanični naziv / Full Registered Legal Name</label>
+                  <div class="col-12">
+                      <span class="text-muted small d-block">Pun zvanični naziv / Full Registered Legal Name</span>
                       <strong class="fs-6 text-dark">${v.tamUnvan || '-'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Matični broj / Registration No (CRPS)</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Matični broj / Registration No (CRPS)</span>
                       <strong class="fs-6 text-dark">${v.sicilNo || '-'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Registrovana adresa / Registered Address</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Registrovana adresa / Registered Address</span>
                       <strong class="fs-6 text-dark">${v.adres || '-'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Pretežna djelatnost / Main Activity Code</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Pretežna djelatnost / Main Activity Code</span>
                       <strong class="fs-6 text-dark">${v.faaliyet || '-'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Izvršni direktor & Kapital / Executive Director & Capital</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Izvršni direktor & Kapital / Executive Director & Capital</span>
                       <strong class="fs-6 text-dark">${v.direktor || '-'} / ${v.sermaye || '-'} €</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Datum osnivanja / Date of Incorporation</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Datum osnivanja / Date of Incorporation</span>
                       <strong class="fs-6 text-dark">${v.kurulus || '-'}</strong>
                   </div>
 
-                  <!-- İLETİŞİM BİLGİLERİ -->
-                  <h6 class="border-bottom pb-2 mt-4 text-primary fw-bold"><i class="fas fa-address-book me-2"></i>Kontakt informacije / Contact Information</h6>
-                  <div class="col-md-12 mb-2">
-                      <label class="text-muted small d-block">Veb sajt / Website</label>
+                  <!-- 2. İLETİŞİM BİLGİLERİ -->
+                  <div class="col-12 mt-4"><h6 class="border-bottom pb-1 text-primary fw-bold small text-uppercase"><i class="fas fa-address-book me-1"></i> Kontakt informacije / Contact Information</h6></div>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Veb sajt / Website</span>
                       <strong class="fs-6 text-dark">${v.web || '-'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">E-mail adrese / E-mail Addresses</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">E-mail adrese / E-mail Addresses</span>
                       <strong class="fs-6 text-dark">${v.email1 || '-'} ${v.email2 ? '<br>' + v.email2 : ''}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Brojevi telefona / Phone Numbers</label>
+                  <div class="col-12">
+                      <span class="text-muted small d-block">Brojevi telefona / Phone Numbers</span>
                       <strong class="fs-6 text-dark">${[v.telefon1, v.telefon2].filter(Boolean).join(' / ') || '-'}</strong>
                   </div>
 
-                  <!-- BANKA VE ÖDEME BİLGİLERİ (PODACI ZA INOSTRANA PLAĆANJA) -->
-                  <h6 class="border-bottom pb-2 mt-4 text-primary fw-bold"><i class="fas fa-university me-2"></i>Podaci za inostrana plaćanja / International Payments (EUR)</h6>
+                  <!-- 3. ULUSLARARASI VE YEREL BANKA ÖDEME BİLGİLERİ -->
+                  <div class="col-12 mt-4"><h6 class="border-bottom pb-1 text-primary fw-bold small text-uppercase"><i class="fas fa-university me-1"></i> Podaci za inostrana i unutrašnja plaćanja / Payment Details</h6></div>
                   
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Primalac / Beneficiary</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Primalac / Beneficiary</span>
                       <strong class="fs-6 text-dark">${v.primalac || v.tamUnvan || 'EURO VERITAS COLSUNTING D.O.O.'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Banka / Bank Name & Location</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Banka / Bank Name & Location</span>
                       <strong class="fs-6 text-dark">${v.banka || 'Hipotekarna Banka AD Podgorica, Montenegro'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">SWIFT / BIC (Field 57A)</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">SWIFT / BIC (Field 57A)</span>
                       <strong class="fs-6 text-dark font-monospace">${v.swift || 'HBBAMEPGXXX'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">IBAN (Field 59A)</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">IBAN EUR (Field 59A)</span>
                       <strong class="fs-6 text-dark font-monospace">${v.iban || 'ME25520042000002301240'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Correspondent Bank</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Correspondent Bank</span>
                       <strong class="fs-6 text-dark">${v.korBanka || 'ERSTE GROUP BANK AG, VIENNA'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Correspondent SWIFT</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Correspondent SWIFT</span>
                       <strong class="fs-6 text-dark font-monospace">${v.korSwift || 'GIBAATWW'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">Žiro račun (Unutrašnji platni promet / Local Account)</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">Žiro račun (Unutrašnji promet / Local Account)</span>
                       <strong class="fs-6 text-dark font-monospace">${v.yerelHesap || '-'}</strong>
                   </div>
-                  <div class="col-md-6 mb-2">
-                      <label class="text-muted small d-block">USD IBAN (Inostrani promet)</label>
+                  <div class="col-6">
+                      <span class="text-muted small d-block">USD IBAN (Inostrani promet)</span>
                       <strong class="fs-6 text-dark font-monospace">${v.usdIban || '-'}</strong>
                   </div>
                   
-                  <!-- DİJİTAL ŞİFRELER -->
-                  <h6 class="border-bottom pb-2 mt-4 text-danger fw-bold d-print-none"><i class="fas fa-lock me-2"></i>Pristupne šifre i sistemi (Tajno) / Credentials</h6>
-                  <div class="col-md-12 mb-3 d-print-none">
+                  <!-- DİJİTAL ŞİFRELER (BASKIDA GİZLİ) -->
+                  <div class="col-12 mt-4 d-print-none">
+                      <h6 class="border-bottom pb-1 text-danger fw-bold small text-uppercase"><i class="fas fa-lock me-1"></i> Pristupne šifre i sistemi (Tajno) / Credentials</h6>
                       <div class="bg-light p-3 border rounded text-monospace" style="white-space: pre-wrap; font-size: 13px;">${v.sifreler || 'Nema sačuvanih šifara.'}</div>
                   </div>
               </div>
+
+              <!-- KAŞE VE İMZA ALANI -->
+              <div class="row mt-5 pt-4 justify-content-end text-center">
+                  <div class="col-6">
+                      <div id="kase-alani" data-border-type="top" style="border-top: 1px solid #333; width: 85%; margin-left: auto;" class="pt-2 position-relative">
+                          <img id="kase-gorseli" src="Kase.jpg" class="d-none position-absolute" style="max-height: 125px; top: -65px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 5; mix-blend-mode: multiply;">
+                          <strong class="small text-dark d-block">Za "${v.unvan || 'Euro Veritas Doo'}"</strong>
+                          <span class="small text-muted" style="font-size: 11px;">Izvršni Direktor / İcra Direktörü</span>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <!-- EKRAN KONTROL BUTONLARI -->
+          <div class="mt-4 d-print-none text-center">
+              <button class="btn btn-warning shadow-sm me-2 fw-bold px-3" onclick="kaseToggle()"><i class="fas fa-stamp me-1"></i> Kaşe Ekle / Kaldır</button>
+              <button class="btn btn-secondary shadow-sm px-4 me-2 fw-bold" onclick="window.print()"><i class="fas fa-print me-1"></i> Yazdır / PDF Kaydet</button>
+              <button class="btn btn-primary shadow-sm px-4 fw-bold" onclick="kunyeDuzenleAc()"><i class="fas fa-edit me-1"></i> Bilgileri Düzenle</button>
           </div>
       `;
   };
@@ -4142,15 +4176,14 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
         else if(sayfa === 'kunye') {
             mainContent.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Şirket Künyesi</h2>
                     <div>
-                        <button class="btn btn-outline-secondary shadow-sm me-2" onclick="window.print()"><i class="fas fa-print"></i> Yazdır</button>
-                        <button class="btn btn-primary shadow-sm" onclick="kunyeDuzenleAc()"><i class="fas fa-edit"></i> Bilgileri Düzenle</button>
+                        <h2 class="mb-1 text-dark fw-bold"><i class="fas fa-building text-primary me-2"></i>Şirket Künyesi (Profil kompanije)</h2>
+                        <span class="text-muted small">Şirketinizin tüm resmi kimlik ve uluslararası banka transfer bilgilerini yönetin.</span>
                     </div>
                 </div>
 
                 <div class="card shadow-sm border-0">
-                    <div class="card-body p-4" id="kunyeKarti">
+                    <div class="card-body p-0" id="kunyeKarti">
                     </div>
                 </div>
 
