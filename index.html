@@ -1320,6 +1320,14 @@ ${y.metin}
       }
   };
 
+  // Şirket Künyesindeki Gizli Şifreler Alanını Göster / Gizle
+  window.sifrelerToggle = function() {
+      const sifrelerEl = document.getElementById('sifreler-alani');
+      if (sifrelerEl) {
+          sifrelerEl.classList.toggle('d-none');
+      }
+  };
+
 // ---------------- BORDRO VE MAAŞ GEÇMİŞİ FONKSİYONLARI ----------------
 
   // Seçilen Ay/Döneme Göre O Ay Geçerli Maaşı Bunan Yardımcı Fonksiyon
@@ -3018,8 +3026,8 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                       <strong class="fs-6 text-dark font-monospace">${v.usdIban || '-'}</strong>
                   </div>
                   
-                  <!-- DİJİTAL ŞİFRELER (BASKIDA GİZLİ) -->
-                  <div class="col-12 mt-4 d-print-none">
+                  <!-- DİJİTAL ŞİFRELER (BASKIDA VE EKRANDA VARSAYILAN OLARAK GİZLİ) -->
+                  <div id="sifreler-alani" class="col-12 mt-4 d-none d-print-none">
                       <h6 class="border-bottom pb-1 text-danger fw-bold small text-uppercase"><i class="fas fa-lock me-1"></i> Pristupne šifre i sistemi (Tajno) / Credentials</h6>
                       <div class="bg-light p-3 border rounded text-monospace" style="white-space: pre-wrap; font-size: 13px;">${v.sifreler || 'Nema sačuvanih šifara.'}</div>
                   </div>
@@ -3040,6 +3048,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
           <!-- EKRAN KONTROL BUTONLARI -->
           <div class="mt-4 d-print-none text-center">
               <button class="btn btn-warning shadow-sm me-2 fw-bold px-3" onclick="kaseToggle()"><i class="fas fa-stamp me-1"></i> Kaşe Ekle / Kaldır</button>
+              <button class="btn btn-outline-danger shadow-sm me-2 fw-bold px-3" onclick="sifrelerToggle()"><i class="fas fa-key me-1"></i> Şifreleri Göster / Gizle</button>
               <button class="btn btn-secondary shadow-sm px-4 me-2 fw-bold" onclick="window.print()"><i class="fas fa-print me-1"></i> Yazdır / PDF Kaydet</button>
               <button class="btn btn-primary shadow-sm px-4 fw-bold" onclick="kunyeDuzenleAc()"><i class="fas fa-edit me-1"></i> Bilgileri Düzenle</button>
           </div>
