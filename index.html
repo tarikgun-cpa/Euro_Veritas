@@ -55,7 +55,7 @@
         @media print {
             @page {
                 size: A4 portrait;
-                margin: 8mm 10mm;
+                margin: 6mm 8mm;
             }
             html, body {
                 background: #ffffff !important;
@@ -64,26 +64,8 @@
                 width: 100% !important;
             }
             body * { visibility: hidden; }
-            
-            /* Sol menü genişlik kısıtlamasını (190px) yazdırma esnasında tamamen sıfırlıyoruz */
-            .container-fluid, .d-flex, .content-area, #main-content, #kunyeKarti, .card, .card-body {
-                position: static !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                flex: none !important;
-                box-shadow: none !important;
-                border: none !important;
-                background: transparent !important;
-            }
-
-            .sidebar, .btn, .modal-footer, .nav, .d-print-none, .ticker-wrap, #login-container {
-                display: none !important;
-            }
-            
+            .sidebar, .btn, .modal-footer, .nav, .d-print-none, .ticker-wrap { display: none !important; }
             #yazdirilacak-alan, #yazdirilacak-alan * { visibility: visible; }
-            
             #yazdirilacak-alan {
                 position: absolute !important;
                 left: 0 !important;
@@ -2948,7 +2930,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       }
   };
 
-  // ---------------- ŞİRKET KÜNYESİ İŞLEMLERİ (A4 KAĞIDINI TAM DOLDURAN FERAH DÜZEN) ----------------
+  // ---------------- ŞİRKET KÜNYESİ İŞLEMLERİ (YATAY GENİŞ VE ERGONOMİK A4 DÜZENİ) ----------------
   window.kunyeCiz = function() {
       const alan = document.getElementById('kunyeKarti');
       if (!alan) return;
@@ -2959,7 +2941,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       let telefonlar = [tel1, tel2].filter(Boolean).join(' / ') || '+382 542 323 7477';
 
       alan.innerHTML = `
-          <div id="yazdirilacak-alan" class="p-3 p-md-4 bg-white shadow-sm rounded-3 border mx-auto" style="max-width: 100%; width: 100%; color: #0f172a; font-family: 'Inter', Arial, sans-serif;">
+          <div id="yazdirilacak-alan" class="p-3 p-md-4 bg-white shadow-sm rounded-3 border mx-auto" style="max-width: 1050px; width: 100%; color: #0f172a; font-family: 'Inter', Arial, sans-serif;">
               
               <!-- RESMİ ANTET BAŞLIĞI VE LOGO -->
               <div class="row mb-3 align-items-center pb-2 border-bottom border-2 border-dark g-2">
