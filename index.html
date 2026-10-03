@@ -65,6 +65,18 @@
             }
             body * { visibility: hidden; }
             .sidebar, .btn, .modal-footer, .nav, .d-print-none, .ticker-wrap { display: none !important; }
+            
+            /* Kapsayıcı kart ve alanların genişlik kısıtlamalarını baskıda sıfırlıyoruz */
+            #app-container, .container-fluid, .d-flex, .content-area, #main-content, .card, .card-body, #kunyeKarti {
+                position: static !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+            }
+
             #yazdirilacak-alan, #yazdirilacak-alan * { visibility: visible; }
             #yazdirilacak-alan {
                 position: absolute !important;
