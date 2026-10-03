@@ -312,6 +312,20 @@
               if (document.getElementById('ai_cevap_ekrani')) { window.aiGecmisCiz(); }
           });
 
+          // KAYAR ŞERİT NOTLARINI (TICKER) DİNLE
+          onSnapshot(doc(db, "ayarlar", "tickerNotlari"), (docSnap) => {
+              if (docSnap.exists()) { 
+                  // Veritabanından gelen notları localStorage'a yazarak mevcut yapıyı bozmadan senkronize ediyoruz.
+                  let dbNotlar = docSnap.data().notlar || [];
+                  localStorage.setItem('ev_dashboard_notlar', JSON.stringify(dbNotlar));
+              } else {
+                  // Döküman yoksa boş olarak oluştur.
+                  localStorage.setItem('ev_dashboard_notlar', JSON.stringify([]));
+              }
+              if(document.getElementById('notlar_listesi')) window.notListesiniCiz();
+              if(document.getElementById('dash_ticker_text')) window.tickerGuncelle();
+          });
+
         // ---------------- RESMİ YAZIŞMALAR (DOPIS) İŞLEMLERİ ----------------
 
   // Banka ve Cari Seçeneklerini Dolduran Yardımcı Fonksiyon
@@ -871,25 +885,33 @@ ${y.metin}
       if(notlar.length === 0) liste.innerHTML = '<li class="list-group-item px-0 text-muted small border-0">Aktif notunuz bulunmuyor.</li>';
   };
 
-  window.yeniNotKaydet = function() {
+  window.yeniNotKaydet = async function() {
       let input = document.getElementById('yeni_not_input');
       let yeniNot = input.value.trim();
       if(yeniNot !== "") {
           let notlar = JSON.parse(localStorage.getItem('ev_dashboard_notlar') || '[]');
           notlar.push(yeniNot);
-          localStorage.setItem('ev_dashboard_notlar', JSON.stringify(notlar));
-          input.value = '';
-          window.notListesiniCiz();
-          window.tickerGuncelle();
+          
+          try {
+              // Firebase'e buluta yazıyoruz.
+              await setDoc(doc(db, "ayarlar", "tickerNotlari"), { notlar: notlar }, { merge: true });
+              input.value = '';
+          } catch(e) {
+              alert("Not kaydedilemedi: " + e.message);
+          }
       }
   };
 
-  window.notSil = function(index) {
+  window.notSil = async function(index) {
       let notlar = JSON.parse(localStorage.getItem('ev_dashboard_notlar') || '[]');
       notlar.splice(index, 1);
-      localStorage.setItem('ev_dashboard_notlar', JSON.stringify(notlar));
-      window.notListesiniCiz();
-      window.tickerGuncelle();
+      
+      try {
+          // Firebase'deki listeyi güncelliyoruz (siliyoruz).
+          await setDoc(doc(db, "ayarlar", "tickerNotlari"), { notlar: notlar }, { merge: true });
+      } catch(e) {
+          alert("Not silinemedi: " + e.message);
+      }
   };
 
   window.tickerGuncelle = function() {
