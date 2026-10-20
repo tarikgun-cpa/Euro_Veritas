@@ -144,7 +144,7 @@
             <a href="#" onclick="sayfaYukle('faturalar')"><i class="fas fa-file-invoice-dollar"></i> Faturalar</a>
             <a href="#" onclick="sayfaYukle('cariler')"><i class="fas fa-users"></i> Cari Hesaplar</a>
             <a href="#" onclick="sayfaYukle('bankalar')"><i class="fas fa-university"></i> Banka Hesapları</a>
-            <a href="#" onclick="sayfaYukle('operasyon')"><i class="fas fa-truck"></i> Operasyon</a>
+            <a href="#" onclick="sayfaYukle('operasyon')" style="color: #f97316 !important; font-weight: 700;"><i class="fas fa-truck"></i> Operasyon</a>
             <a href="#" onclick="sayfaYukle('vergiler')"><i class="fas fa-landmark"></i> Vergi Ödemeleri</a>
             <a href="#" onclick="sayfaYukle('gorevler')"><i class="fas fa-tasks"></i> Görevler</a>
             <a href="#" onclick="sayfaYukle('raporlar')"><i class="fas fa-file-invoice"></i> Finansal Raporlar</a>
@@ -2349,8 +2349,50 @@ ${y.metin}
       } catch(e) { alert("Hata: " + e.message); }
   };
 
+  // Faturalar İçin Canlı USD/EUR Paritesi Çekme
+  window.faturaPariteGetir = async function(bildirim = false) {
+      let pariteInput = document.getElementById('f_usd_parite');
+      if(!pariteInput) return;
+      try {
+          let res = await fetch('https://open.er-api.com/v6/latest/USD');
+          let data = await res.json();
+          if(data && data.rates && data.rates.EUR) {
+              pariteInput.value = data.rates.EUR.toFixed(4);
+              if(bildirim) alert("Güncel USD/EUR Paritesi Alındı: 1$ = " + data.rates.EUR.toFixed(4) + " €");
+          }
+      } catch(e) {
+          let cached = document.getElementById('dash_usd_kur') ? document.getElementById('dash_usd_kur').value : '0.9200';
+          pariteInput.value = cached;
+      }
+  };
+
+  // USD Tutarı Parite ile Çarpıp EUR Matrahına Aktarma
+  window.faturaUsdCevirUygula = function() {
+      let usdTutar = parseFloat(document.getElementById('f_usd_tutar')?.value) || 0;
+      let parite = parseFloat(document.getElementById('f_usd_parite')?.value) || 0.92;
+      if(usdTutar <= 0) {
+          alert("Lütfen çevrilecek geçerli bir USD tutarı girin.");
+          return;
+      }
+      let eurTutar = usdTutar * parite;
+      document.getElementById('f_tutar').value = eurTutar.toFixed(2);
+      document.getElementById('f_paraBirimi').value = 'EUR';
+      
+      // Fatura Açıklamasına otomatik kur dipnotu ekleme
+      let aciklamaInput = document.getElementById('f_aciklama');
+      if(aciklamaInput) {
+          let kurNotu = `[${usdTutar.toLocaleString('en-US', {minimumFractionDigits: 2})} USD @ Parite: ${parite.toFixed(4)}]`;
+          if(!aciklamaInput.value.includes(kurNotu)) {
+              aciklamaInput.value = (aciklamaInput.value.trim() ? aciklamaInput.value.trim() + ' ' : '') + kurNotu;
+          }
+      }
+      window.hesaplaKdv();
+  };
+
   window.faturaModalAc = function() {
       document.getElementById('yeniFaturaForm').reset(); document.getElementById('f_id').value = '';
+      if(document.getElementById('f_usd_tutar')) document.getElementById('f_usd_tutar').value = '';
+      
       const cariSelect = document.getElementById('f_cariId');
       cariSelect.innerHTML = '<option value="">-- Cari Seçiniz --</option>';
       cariListesi.forEach(cari => { cariSelect.innerHTML += `<option value="${cari.id}">${cari.unvan} (${cari.grup === 'Alici' ? 'Müşteri' : 'Tedarikçi'})</option>`; });
@@ -2361,8 +2403,11 @@ ${y.metin}
           document.getElementById('f_tur').value = aktifSekme.getAttribute('data-tur');
       }
 
-      window.kategorileriDoldur(); // Modal ilk açıldığında listeyi oluştur
-      document.getElementById('f_kategori').value = ''; // Inputu temizle
+      window.kategorileriDoldur(); 
+      document.getElementById('f_kategori').value = ''; 
+      
+      // Canlı pariteyi otomatik yükle
+      window.faturaPariteGetir(false);
       
       document.querySelector("#yeniFaturaModal .modal-title").innerHTML = "Yeni Fatura İşle";
       new bootstrap.Modal(document.getElementById('yeniFaturaModal')).show();
@@ -3410,15 +3455,19 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
           let musteri = op.firma || 'Bilinmeyen Müşteri';
           let musteriKey = musteri + " (" + sembol + ")";
-          if(!ithalatciStats[musteriKey]) ithalatciStats[musteriKey] = { nalunDoviz: 0, komisyonDoviz: 0, sembol: sembol };
+          if(!ithalatciStats[musteriKey]) ithalatciStats[musteriKey] = { nalunDoviz: 0, komisyonDoviz: 0, nalunEUR: 0, komisyonEUR: 0, sembol: sembol };
           ithalatciStats[musteriKey].nalunDoviz += (parseFloat(op.nalunTutar) || 0);
           ithalatciStats[musteriKey].komisyonDoviz += komisyonDoviz;
+          ithalatciStats[musteriKey].nalunEUR += nalunEUR;
+          ithalatciStats[musteriKey].komisyonEUR += komisyonEUR;
 
           let nakliyeci = op.nakliyeFirma || 'Bilinmeyen Nakliyeci';
           let nakliyeciKey = nakliyeci + " (" + sembol + ")";
-          if(!nakliyeciStats[nakliyeciKey]) nakliyeciStats[nakliyeciKey] = { isim: nakliyeci, odenenDoviz: 0, kazanilanDoviz: 0, sembol: sembol };
+          if(!nakliyeciStats[nakliyeciKey]) nakliyeciStats[nakliyeciKey] = { isim: nakliyeci, odenenDoviz: 0, kazanilanDoviz: 0, odenenEUR: 0, kazanilanEUR: 0, sembol: sembol };
           nakliyeciStats[nakliyeciKey].odenenDoviz += (parseFloat(op.nalunTutar) || 0);
           nakliyeciStats[nakliyeciKey].kazanilanDoviz += komisyonDoviz;
+          nakliyeciStats[nakliyeciKey].odenenEUR += nalunEUR;
+          nakliyeciStats[nakliyeciKey].kazanilanEUR += komisyonEUR;
 
           let opTarih = op.evTarih || op.cpaTarih || op.sevkTarihi || '-';
           if(opTarih !== '-') {
@@ -3436,11 +3485,12 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
           let faturaNoVal = op.evFaturaNo || op.cpaFaturaNo || '';
           if(!op.tahsilEdildi) {
               if (!faturaNoVal || faturaNoVal.trim() === '' || faturaNoVal.trim() === '-') {
+                  let eurEk = op.paraBirimi === 'USD' ? `<br><small class="text-primary fw-bold">(${komisyonEUR.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})} €)</small>` : '';
                   faturaBekleyenHtml += `
                       <tr>
                           <td class="text-truncate fw-bold" style="max-width:120px;">${op.firma}</td>
                           <td>${op.sevkTarihi ? op.sevkTarihi.split('-').reverse().join('.') : '-'}</td>
-                          <td class="text-end fw-bold text-success">${komisyonDoviz.toLocaleString('en-US',{minimumFractionDigits:2})} ${sembol}</td>
+                          <td class="text-end fw-bold text-success">${komisyonDoviz.toLocaleString('en-US',{minimumFractionDigits:2})} ${sembol}${eurEk}</td>
                           <td class="text-end"><button class="btn btn-sm btn-primary py-0" style="font-size:10px;" onclick="operasyonFaturaKes('${op.id}')"><i class="fas fa-file-invoice"></i> İhracat Ft. Kes</button></td>
                       </tr>`;
               } else {
@@ -3456,9 +3506,10 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                       eurTutar: komisyonEUR
                   });
                   
-                  if(!firmaBorcStats[nakliyeciKey]) firmaBorcStats[nakliyeciKey] = { isim: nakliyeci, dosyaSayisi: 0, tutar: 0, sembol: sembol };
+                  if(!firmaBorcStats[nakliyeciKey]) firmaBorcStats[nakliyeciKey] = { isim: nakliyeci, dosyaSayisi: 0, tutar: 0, eurTutar: 0, sembol: sembol };
                   firmaBorcStats[nakliyeciKey].dosyaSayisi += 1;
                   firmaBorcStats[nakliyeciKey].tutar += komisyonDoviz; 
+                  firmaBorcStats[nakliyeciKey].eurTutar += komisyonEUR;
               }
           }
 
@@ -3514,7 +3565,8 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
       let bekleyenHtml = '';
       bekleyenTahsilatListesi.sort((a,b) => b.eurTutar - a.eurTutar).forEach(b => {
-          bekleyenHtml += `<tr><td class="text-truncate" style="max-width:100px;">${b.nakliyeci}</td><td class="text-truncate fw-bold" style="max-width:120px;">${b.musteri}</td><td class="text-end fw-bold text-danger">${b.tutar.toLocaleString('en-US',{minimumFractionDigits:2})} ${b.birim}</td></tr>`;
+          let eurEk = b.birim === '$' ? `<br><small class="text-primary fw-bold">(${b.eurTutar.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})} €)</small>` : '';
+          bekleyenHtml += `<tr><td class="text-truncate" style="max-width:100px;">${b.nakliyeci}</td><td class="text-truncate fw-bold" style="max-width:120px;">${b.musteri}</td><td class="text-end fw-bold text-danger">${b.tutar.toLocaleString('en-US',{minimumFractionDigits:2})} ${b.birim}${eurEk}</td></tr>`;
       });
       if(document.getElementById('lt_bekleyen_detay')) document.getElementById('lt_bekleyen_detay').innerHTML = bekleyenHtml || '<tr><td colspan="3" class="text-center text-muted">Tahsilat riski yok.</td></tr>';
 
@@ -3522,6 +3574,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
       let maxBorc = Math.max(...Object.values(firmaBorcStats).map(x => x.tutar), 1);
       Object.values(firmaBorcStats).sort((a,b) => b.tutar - a.tutar).forEach(v => {
           let yuzde = (v.tutar / maxBorc) * 100;
+          let eurEk = v.sembol === '$' ? `<br><small class="text-primary fw-bold">(${v.eurTutar.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})} €)</small>` : '';
           borcHtml += `
               <tr>
                   <td class="fw-bold text-dark border-0 pb-2" style="width: 45%;">
@@ -3531,21 +3584,25 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                       </div>
                   </td>
                   <td class="text-muted fw-bold border-0 pb-2" style="width: 25%; font-size:11px;">${v.dosyaSayisi} Dosya</td>
-                  <td class="text-end text-danger fw-bold border-0 pb-2" style="width: 30%; font-size:0.85rem;">${v.tutar.toLocaleString('en-US',{minimumFractionDigits:2})} ${v.sembol}</td>
+                  <td class="text-end text-danger fw-bold border-0 pb-2" style="width: 30%; font-size:0.85rem;">${v.tutar.toLocaleString('en-US',{minimumFractionDigits:2})} ${v.sembol}${eurEk}</td>
               </tr>
           `;
       });
       if(document.getElementById('lt_firma_borc_durumu')) document.getElementById('lt_firma_borc_durumu').innerHTML = borcHtml || '<tr><td colspan="3" class="text-center text-muted py-3">Aktif borç kaydı bulunmuyor.</td></tr>';
 
       let musteriHtml = '';
-      Object.entries(ithalatciStats).sort((a,b) => b[1].komisyonDoviz - a[1].komisyonDoviz).forEach(([isim, veri]) => {
-          musteriHtml += `<tr><td class="fw-bold">${isim.split(' (')[0]}</td><td class="text-end">${veri.nalunDoviz.toLocaleString('en-US',{minimumFractionDigits:2})} ${veri.sembol}</td><td class="text-end text-success fw-bold">${veri.komisyonDoviz.toLocaleString('en-US',{minimumFractionDigits:2})} ${veri.sembol}</td></tr>`;
+      Object.entries(ithalatciStats).sort((a,b) => b[1].komisyonEUR - a[1].komisyonEUR).forEach(([isim, veri]) => {
+          let nalunEurEk = veri.sembol === '$' ? `<br><small class="text-muted">(${veri.nalunEUR.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})} €)</small>` : '';
+          let komEurEk = veri.sembol === '$' ? `<br><small class="text-primary fw-bold">(${veri.komisyonEUR.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})} €)</small>` : '';
+          musteriHtml += `<tr><td class="fw-bold">${isim.split(' (')[0]}</td><td class="text-end">${veri.nalunDoviz.toLocaleString('en-US',{minimumFractionDigits:2})} ${veri.sembol}${nalunEurEk}</td><td class="text-end text-success fw-bold">${veri.komisyonDoviz.toLocaleString('en-US',{minimumFractionDigits:2})} ${veri.sembol}${komEurEk}</td></tr>`;
       });
       if(document.getElementById('lt_ithalatci_ozet')) document.getElementById('lt_ithalatci_ozet').innerHTML = musteriHtml || '<tr><td colspan="3">Veri yok.</td></tr>';
 
       let nakliyeciHtml = '';
-      Object.values(nakliyeciStats).sort((a,b) => b.kazanilanDoviz - a.kazanilanDoviz).forEach(veri => {
-          nakliyeciHtml += `<tr><td class="fw-bold">${veri.isim}</td><td class="text-end">${veri.odenenDoviz.toLocaleString('en-US',{minimumFractionDigits:2})} ${veri.sembol}</td><td class="text-end text-success fw-bold">${veri.kazanilanDoviz.toLocaleString('en-US',{minimumFractionDigits:2})} ${veri.sembol}</td></tr>`;
+      Object.values(nakliyeciStats).sort((a,b) => b.kazanilanEUR - a.kazanilanEUR).forEach(veri => {
+          let odenenEurEk = veri.sembol === '$' ? `<br><small class="text-muted">(${veri.odenenEUR.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})} €)</small>` : '';
+          let kazEurEk = veri.sembol === '$' ? `<br><small class="text-primary fw-bold">(${veri.kazanilanEUR.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})} €)</small>` : '';
+          nakliyeciHtml += `<tr><td class="fw-bold">${veri.isim}</td><td class="text-end">${veri.odenenDoviz.toLocaleString('en-US',{minimumFractionDigits:2})} ${veri.sembol}${odenenEurEk}</td><td class="text-end text-success fw-bold">${veri.kazanilanDoviz.toLocaleString('en-US',{minimumFractionDigits:2})} ${veri.sembol}${kazEurEk}</td></tr>`;
       });
       if(document.getElementById('lt_nakliyeci_ozet')) document.getElementById('lt_nakliyeci_ozet').innerHTML = nakliyeciHtml || '<tr><td colspan="3">Veri yok.</td></tr>';
 
@@ -4424,7 +4481,32 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                             <datalist id="f_kategori_list"></datalist>
                                         </div>
                                     </div>
-                                    <h6 class="mt-4 border-bottom pb-2">Tutar ve Vergi Bilgileri</h6>
+                                    <h6 class="mt-4 border-bottom pb-2 text-primary fw-bold"><i class="fas fa-coins me-1"></i> Tutar ve Vergi Bilgileri</h6>
+
+                                    <!-- USD / EUR CANLI PARİTE ÇEVİRİCİ ARACI (HİZMET İHRACATI İÇİN) -->
+                                    <div class="p-2 mb-3 rounded bg-light border border-warning">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="small fw-bold text-dark"><i class="fas fa-sync-alt text-warning me-1"></i>USD Anlaşmalı Hizmetler İçin Canlı Parite Çevirici</span>
+                                            <span class="badge bg-warning text-dark" style="font-size:10px;">Otomatik Parite</span>
+                                        </div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-4">
+                                                <label class="small text-muted" style="font-size:11px;">Anlaşılan USD Tutar ($)</label>
+                                                <input type="number" class="form-control form-control-sm" id="f_usd_tutar" step="0.01" placeholder="Örn: 1250.00">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="small text-muted" style="font-size:11px;">USD / EUR Parite (1$ = ? €)</label>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" class="form-control form-control-sm" id="f_usd_parite" step="0.0001" value="0.9200">
+                                                    <button type="button" class="btn btn-outline-primary" onclick="faturaPariteGetir(true)" title="Canlı Kuru Çek"><i class="fas fa-sync-alt"></i></button>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <button type="button" class="btn btn-sm btn-primary w-100 fw-bold" onclick="faturaUsdCevirUygula()"><i class="fas fa-arrow-down me-1"></i>EUR Matraha Aktar</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div class="row mb-3">
                                         <div class="col-md-3"><label class="form-label">Para Birimi *</label><select class="form-select" id="f_paraBirimi"><option value="EUR">Euro (€)</option><option value="USD">Dolar ($)</option></select></div>
                                         <div class="col-md-3"><label class="form-label">Tutar (KDV Hariç) *</label><input type="number" class="form-control" id="f_tutar" onkeyup="hesaplaKdv()" onchange="hesaplaKdv()" step="0.01"></div>
