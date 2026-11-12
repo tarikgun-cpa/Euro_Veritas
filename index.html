@@ -338,7 +338,7 @@
 
         // ---------------- RESMİ YAZIŞMALAR (DOPIS) İŞLEMLERİ ----------------
 
-  // Banka ve Cari Seçeneklerini Dolduran Yardımcı Fonksiyon
+  // Banka, Cari ve Fatura Seçeneklerini Dolduran Yardımcı Fonksiyon
   window.yazismaSelectDoldur = function() {
       const bSelect = document.getElementById('y_bankaId');
       if (bSelect) {
@@ -352,10 +352,22 @@
 
       const cSelect = document.getElementById('y_cariId');
       if (cSelect) {
-          cSelect.innerHTML = '<option value="">-- Alıcı Cari Hesabı Seçin --</option>';
+          cSelect.innerHTML = '<option value="">-- İlgili Cari Hesabı Seçin --</option>';
           cariListesi.forEach(c => {
               let bnkInfo = c.bankaAdi ? ` - ${c.bankaAdi}` : '';
               cSelect.innerHTML += `<option value="${c.id}">${c.unvan}${bnkInfo}</option>`;
+          });
+      }
+
+      const fSelect = document.getElementById('y_faturaId');
+      if (fSelect) {
+          fSelect.innerHTML = '<option value="">-- Kesilmiş Faturalardan Seçin --</option>';
+          faturaListesi.forEach(f => {
+              if (f.tur === 'Ihracat' || f.tur === 'Satis' || f.tur === 'YerelSatis') {
+                  let birim = f.paraBirimi || 'EUR';
+                  let tutarStr = (f.toplamTutar || f.tutar || 0).toLocaleString('de-DE', {minimumFractionDigits: 2});
+                  fSelect.innerHTML += `<option value="${f.id}">Fatura #${f.faturaNo} | ${f.cariUnvan} | ${tutarStr} ${birim} (${f.tarih})</option>`;
+              }
           });
       }
   };
@@ -370,8 +382,38 @@
 
       window.yazismaSelectDoldur();
       window.yazismaMaasToggle();
+      window.yazismaFaturaToggle();
 
       new bootstrap.Modal(document.getElementById('yeniYazismaModal')).show();
+  };
+
+  // Loro Doznaka (Gelen Döviz) Şablonu Seçildiğinde Fatura Seçim Alanını Göster/Gizle
+  window.yazismaFaturaToggle = function() {
+      const sablon = document.getElementById('y_sablon').value;
+      const faturaAlani = document.getElementById('y_fatura_alani');
+      if (faturaAlani) {
+          faturaAlani.style.display = (sablon === 'LoroDoznaka') ? 'flex' : 'none';
+      }
+  };
+
+  // Ödemesi Gelen Fatura Seçildiğinde Cari, Tutar ve Banka Hesabını Otomatik Doldur
+  window.yazismaFaturaSecildi = function() {
+      const faturaId = document.getElementById('y_faturaId')?.value;
+      if (!faturaId) return;
+
+      const f = faturaListesi.find(x => x.id === faturaId);
+      if (!f) return;
+
+      if (f.cariId) document.getElementById('y_cariId').value = f.cariId;
+      document.getElementById('y_tutar').value = f.toplamTutar || f.tutar || 0;
+
+      // Eğer henüz banka hesabı seçilmemişse faturanın para birimine uygun ilk banka hesabımızı seç
+      const bSelect = document.getElementById('y_bankaId');
+      if (bSelect && !bSelect.value) {
+          const hedefBirim = f.paraBirimi || 'EUR';
+          const uygunBanka = bankaListesi.find(b => b.tur !== 'Kasa' && (b.paraBirimi || 'EUR') === hedefBirim) || bankaListesi.find(b => b.tur !== 'Kasa');
+          if (uygunBanka) bSelect.value = uygunBanka.id;
+      }
   };
 
   // Maaş Ödemesi Seçeneğine Göre Görünürlüğü Ayarlama
@@ -408,21 +450,24 @@
       const sablon = document.getElementById('y_sablon').value;
       const bankaId = document.getElementById('y_bankaId').value;
       const cariId = document.getElementById('y_cariId').value;
+      const faturaId = document.getElementById('y_faturaId')?.value || '';
       const tutarVal = parseFloat(document.getElementById('y_tutar').value) || 0;
       const tutarStr = tutarVal > 0 ? tutarVal.toLocaleString('en-US', {minimumFractionDigits: 2}) : '[TUTAR]';
+      const tutarStrDe = tutarVal > 0 ? tutarVal.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '[TUTAR]';
 
       const isMaas = document.getElementById('y_isMaas').checked;
       const maasDonemVal = document.getElementById('y_maasDonem').value;
 
       const v = kunyeVerisi;
       const banka = bankaListesi.find(b => b.id === bankaId);
-      const cari = cariListesi.find(c => c.id === cariId) || { unvan: '[ALICI FİRMA/İSİM]', bankaAdi: '[ALICI BANKA]', iban: '[ALICI IBAN]', vergiNo: '[ALICI PIB]' };
+      const cari = cariListesi.find(c => c.id === cariId) || { unvan: '[ALICI FİRMA/İSİM]', bankaAdi: '[ALICI BANKA]', iban: '[ALICI IBAN]', vergiNo: '[ALICI PIB]', ulke: '' };
+      const fatura = faturaListesi.find(f => f.id === faturaId);
 
       let bankaKurumAdi = 'HIPOTEKARNA BANKA AD PODGORICA';
-      let gonderenIban = '[ŽIRO RAČUN]';
+      let gonderenIban = v.yerelHesap || '520-57627-48';
 
       if (banka) {
-          gonderenIban = banka.yerelHesap || banka.iban || '[ŽIRO RAČUN]';
+          gonderenIban = banka.yerelHesap || banka.iban || v.yerelHesap || '520-57627-48';
           if (banka.bankaAdi && banka.hesapAdi) {
               bankaKurumAdi = `${banka.bankaAdi.toUpperCase()} - ${banka.hesapAdi.toUpperCase()}`;
           } else if (banka.bankaAdi) {
@@ -441,7 +486,27 @@
       let konu = '';
       let metin = '';
 
-      if (sablon === 'EFT') {
+      if (sablon === 'LoroDoznaka') {
+          let faturaNo = fatura ? fatura.faturaNo : '[FATURA NO]';
+          let paraBirimi = (fatura && fatura.paraBirimi) ? fatura.paraBirimi : (banka ? banka.paraBirimi : 'EUR');
+          let gonderenFirma = fatura ? fatura.cariUnvan : (cariId ? aliciUnvan : '[GÖNDEREN FİRMA]');
+          
+          let ulkeStr = 'Turske';
+          if (cari && cari.ulke) {
+              const u = cari.ulke.trim().toLowerCase();
+              if (u === 'turkey' || u === 'türkiye' || u === 'turkiye' || u === 'turska') ulkeStr = 'Turske';
+              else ulkeStr = cari.ulke;
+          }
+
+          let direktorTemiz = (v.direktor || 'TARIK GUN').split('(')[0].trim().toUpperCase();
+          let sirketUnvan = (v.tamUnvan || 'EURO VERITAS COLSUNTING D.O.O.').toUpperCase();
+          let pibNo = v.pib || '03791971';
+
+          kurum = banka && banka.bankaAdi ? `${banka.bankaAdi.toUpperCase()} - Međunarodni platni promet` : 'HIPOTEKARNA BANKA AD PODGORICA - Međunarodni platni promet';
+          konu = `Obavještenje o deviznom prilivu / Loro doznaka (Faktura br. #${faturaNo})`;
+          metin = `Poštovani,\n\nU prilogu Vam dostavljamo fiskalizovanu fakturu br. #${faturaNo} (iznos: ${tutarStrDe} ${paraBirimi}) za prispjeli priliv od komitenta ${gonderenFirma} iz ${ulkeStr}.\n\n- Osnov priliva: Provizija za posredovanje u međunarodnom transportu / Ostale poslovne i transportne usluge (Šifra osnova: 215 ili 310).\n- Molimo Vas da sredstva rasporedite na naš račun u ${paraBirimi} (${gonderenIban}).\n\nSrdačan pozdrav,\n${direktorTemiz}\n${sirketUnvan}\nPIB: ${pibNo}`;
+      }
+      else if (sablon === 'EFT') {
           kurum = bankaKurumAdi;
           konu = isMaas ? 'Nalog za prenos novčanih sredstava - Isplata zarade' : 'Nalog za prenos novčanih sredstava (EFT / Doznaka)';
 
@@ -465,7 +530,7 @@
       else if (sablon === 'ParaCekme') {
           kurum = bankaKurumAdi;
           konu = 'Zahtjev za isplatu gotovine sa računa';
-          metin = `Poštovani,\n\nOvim nalogom ovlašćujemo izvršnog direktora kompanije, ${v.direktor || '[DİREKTÖR İSMİ]'}, da podigne gotovinu sa našeg žiro računa broj: ${gonderenIban}.\n\nIznos za podizanje: ${tutarStr} EUR\nSvrha podizanja gotovine: Materijalni troškovi / službeni put.\n\nMolimo da pripremite navedeni iznos.`;
+          metin = `Poštovani,\n\nOvim nalogom ovlašćujemo izvršnog direktora kompanije, ${(v.direktor || '[DİREKTÖR İSMİ]').split('(')[0].trim()}, da podigne gotovinu sa našeg žiro računa broj: ${gonderenIban}.\n\nIznos za podizanje: ${tutarStr} EUR\nSvrha podizanja gotovine: Materijalni troškovi / službeni put.\n\nMolimo da pripremite navedeni iznos.`;
       } 
       else if (sablon === 'BankaDopis') {
           kurum = bankaKurumAdi;
@@ -493,6 +558,7 @@
 
       const bankaId = document.getElementById('y_bankaId').value || '';
       const cariId = document.getElementById('y_cariId').value || '';
+      const faturaId = document.getElementById('y_faturaId')?.value || '';
       const tutar = parseFloat(document.getElementById('y_tutar').value) || 0;
       const isMaas = document.getElementById('y_isMaas').checked || false;
       const maasDonem = document.getElementById('y_maasDonem').value || '';
@@ -510,6 +576,7 @@
           sablon: sablon,
           bankaId: bankaId,
           cariId: cariId,
+          faturaId: faturaId,
           tutar: tutar,
           isMaas: isMaas,
           maasDonem: maasDonem,
@@ -567,6 +634,7 @@
       document.getElementById('y_sablon').value = y.sablon || 'Serbest';
       document.getElementById('y_bankaId').value = y.bankaId || '';
       document.getElementById('y_cariId').value = y.cariId || '';
+      if (document.getElementById('y_faturaId')) document.getElementById('y_faturaId').value = y.faturaId || '';
       document.getElementById('y_tutar').value = y.tutar || '';
       document.getElementById('y_isMaas').checked = y.isMaas || false;
 
@@ -574,6 +642,7 @@
       document.getElementById('y_maasDonem').value = y.maasDonem || `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, '0')}`;
 
       window.yazismaMaasToggle();
+      window.yazismaFaturaToggle();
 
       document.getElementById('y_kurum').value = y.kurum || '';
       document.getElementById('y_konu').value = y.konu || '';
@@ -5045,8 +5114,9 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                     <div class="row mb-3">
                                         <div class="col-md-6">
                                             <label class="form-label text-muted small fw-bold">Hazır Matbu Şablon Seçin</label>
-                                            <select class="form-select border-primary fw-medium" id="y_sablon" onchange="yazismaMaasToggle(); yazismaSablonSec();">
+                                            <select class="form-select border-primary fw-medium" id="y_sablon" onchange="yazismaMaasToggle(); yazismaFaturaToggle(); yazismaSablonSec();">
                                                 <option value="Serbest">-- Özel / Serbest Metin --</option>
+                                                <option value="LoroDoznaka">Obavještenje o prilivu / Loro doznaka (Gelen Döviz Beyanı)</option>
                                                 <option value="EFT">Nalog za prenos (Banka Havale/EFT Talimatı)</option>
                                                 <option value="Vergi">Porezi i Doprinosi (Vergi / SGK Ödeme Talimatı)</option>
                                                 <option value="ParaCekme">Isplaćivanje gotovine (Nakit Para Çekme Talimatı)</option>
@@ -5062,18 +5132,29 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
                                     <!-- DİNAMİK SEÇİM ALANLARI -->
                                     <div class="p-3 bg-light rounded border border-secondary border-opacity-25 mb-3">
-                                        <h6 class="text-primary fw-bold mb-2 small"><i class="fas fa-sliders-h me-1"></i> Otomatik Doldurma Parametreleri (Banka & Cari)</h6>
+                                        <h6 class="text-primary fw-bold mb-2 small"><i class="fas fa-sliders-h me-1"></i> Otomatik Doldurma Parametreleri (Banka, Cari & Fatura)</h6>
+                                        
+                                        <!-- GELEN DÖVİZ / LORO DOZNAKA FATURA SEÇİMİ -->
+                                        <div class="row g-2 mb-2 pb-2 border-bottom align-items-center" id="y_fatura_alani" style="display: none;">
+                                            <div class="col-md-12">
+                                                <label class="form-label text-success fw-bold small mb-1"><i class="fas fa-file-invoice-dollar me-1"></i> Ödemesi Gelen Faturayı Seçin (Müşteri, Tutar ve Hesabı Otomatik Doldurur)</label>
+                                                <select class="form-select form-select-sm border-success fw-medium" id="y_faturaId" onchange="yazismaFaturaSecildi(); yazismaSablonSec();">
+                                                    <option value="">-- Kesilmiş Faturalardan Seçin --</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
                                         <div class="row g-2">
                                             <div class="col-md-5">
-                                                <label class="form-label text-muted small mb-1">Gönderen Banka Hesabımız</label>
+                                                <label class="form-label text-muted small mb-1">Banka Hesabımız</label>
                                                 <select class="form-select form-select-sm" id="y_bankaId" onchange="yazismaSablonSec()"></select>
                                             </div>
                                             <div class="col-md-4">
-                                                <label class="form-label text-muted small mb-1">Alıcı Cari Hesap (Kime)</label>
+                                                <label class="form-label text-muted small mb-1">İlgili Cari (Alıcı / Gönderen)</label>
                                                 <select class="form-select form-select-sm" id="y_cariId" onchange="yazismaMaasTutarOtomatikDoldur(); yazismaSablonSec()"></select>
                                             </div>
                                             <div class="col-md-3">
-                                                <label class="form-label text-muted small mb-1">İşlem Tutarı (€)</label>
+                                                <label class="form-label text-muted small mb-1">İşlem Tutarı (€/$)</label>
                                                 <input type="number" class="form-control form-control-sm" id="y_tutar" step="0.01" placeholder="1000.00" onkeyup="yazismaSablonSec()" onchange="yazismaSablonSec()">
                                             </div>
                                         </div>
