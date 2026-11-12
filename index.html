@@ -378,25 +378,73 @@
       document.getElementById('y_tarih').value = new Date().toISOString().split('T')[0];
 
       const bugun = new Date();
-      document.getElementById('y_maasDonem').value = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, '0')}`;
+      const buAyStr = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, '0')}`;
+      // Karadağ'da SGK/Bağ-Kur (Doprinosi) bir önceki ay için ayın 15'ine kadar ödenir
+      const gecenAyDate = new Date(bugun.getFullYear(), bugun.getMonth() - 1, 1);
+      const gecenAyStr = `${gecenAyDate.getFullYear()}-${String(gecenAyDate.getMonth() + 1).padStart(2, '0')}`;
+
+      document.getElementById('y_maasDonem').value = buAyStr;
+      if (document.getElementById('y_sgkDonem')) document.getElementById('y_sgkDonem').value = gecenAyStr;
+      if (document.getElementById('y_vergiDonem')) document.getElementById('y_vergiDonem').value = gecenAyStr;
+
+      // Direktör / Ortak bilgilerini SGK alanına otomatik ön-doldur
+      const v = kunyeVerisi;
+      const ortakCari = cariListesi.find(c => c.grup === 'Ortak' || c.grup === 'Calisan');
+      if (document.getElementById('y_sgkKisi')) {
+          document.getElementById('y_sgkKisi').value = (v.direktor || ortakCari?.unvan || 'TARIK GUN').split('(')[0].trim().toUpperCase();
+      }
+      if (document.getElementById('y_sgkJmbg')) {
+          document.getElementById('y_sgkJmbg').value = localStorage.getItem('ev_sgk_jmbg') || ortakCari?.vergiNo || '';
+      }
+      if (document.getElementById('y_sgkHesapNo')) {
+          document.getElementById('y_sgkHesapNo').value = localStorage.getItem('ev_sgk_hesap') || '';
+      }
+      if (document.getElementById('y_vergiHesapNo')) {
+          document.getElementById('y_vergiHesapNo').value = localStorage.getItem('ev_vergi_hesap') || '';
+      }
 
       window.yazismaSelectDoldur();
-      window.yazismaMaasToggle();
-      window.yazismaFaturaToggle();
+      window.yazismaAlanlariGuncelle();
 
       new bootstrap.Modal(document.getElementById('yeniYazismaModal')).show();
   };
 
-  // Loro Doznaka (Gelen Döviz) Şablonu Seçildiğinde Fatura Seçim Alanını Göster/Gizle
-  window.yazismaFaturaToggle = function() {
+  // Seçilen Şablona Göre Dinamik Parametre Kutularını Göster / Gizle
+  window.yazismaAlanlariGuncelle = function() {
       const sablon = document.getElementById('y_sablon').value;
+      const isMaasCheck = document.getElementById('y_isMaas')?.checked || false;
+
       const faturaAlani = document.getElementById('y_fatura_alani');
-      if (faturaAlani) {
-          faturaAlani.style.display = (sablon === 'LoroDoznaka') ? 'flex' : 'none';
+      const sgkAlani = document.getElementById('y_sgk_alani');
+      const vergiAlani = document.getElementById('y_vergi_alani');
+      const maasAlani = document.getElementById('y_maas_alani');
+      const maasDonemDiv = document.getElementById('y_maas_donem_div');
+      const cariDiv = document.getElementById('y_cari_div');
+
+      if (faturaAlani) faturaAlani.style.display = (sablon === 'LoroDoznaka') ? 'flex' : 'none';
+      if (sgkAlani) sgkAlani.style.display = (sablon === 'SGK_Doprinosi') ? 'flex' : 'none';
+      if (vergiAlani) vergiAlani.style.display = (sablon === 'Vergi') ? 'flex' : 'none';
+      if (maasAlani) maasAlani.style.display = (sablon === 'EFT') ? 'flex' : 'none';
+      if (maasDonemDiv) maasDonemDiv.style.display = (sablon === 'EFT' && isMaasCheck) ? 'block' : 'none';
+      if (cariDiv) cariDiv.style.display = (sablon === 'SGK_Doprinosi' || sablon === 'Vergi') ? 'none' : 'block';
+
+      // SGK veya Vergi şablonu seçildiğinde varsayılan EUR banka hesabımızı ve tutarı otomatik öner
+      const bSelect = document.getElementById('y_bankaId');
+      if (bSelect && !bSelect.value) {
+          const eurBanka = bankaListesi.find(b => b.tur !== 'Kasa' && (b.paraBirimi || 'EUR') === 'EUR') || bankaListesi.find(b => b.tur !== 'Kasa');
+          if (eurBanka) bSelect.value = eurBanka.id;
+      }
+
+      if (sablon === 'SGK_Doprinosi') {
+          const tutarInput = document.getElementById('y_tutar');
+          if (tutarInput && (!tutarInput.value || parseFloat(tutarInput.value) === 0)) {
+              const ortakCari = cariListesi.find(c => (c.grup === 'Ortak' || c.grup === 'Calisan') && c.doprinosi > 0);
+              if (ortakCari) tutarInput.value = ortakCari.doprinosi;
+          }
       }
   };
 
-  // Ödemesi Gelen Fatura Seçildiğinde Cari, Tutar ve Banka Hesabını Otomatik Doldur
+  // Ödemesi Gelen Fatura Seçildiğinde Cari, Tutar, Banka ve Hizmet Türünü Otomatik Doldur
   window.yazismaFaturaSecildi = function() {
       const faturaId = document.getElementById('y_faturaId')?.value;
       if (!faturaId) return;
@@ -407,29 +455,26 @@
       if (f.cariId) document.getElementById('y_cariId').value = f.cariId;
       document.getElementById('y_tutar').value = f.toplamTutar || f.tutar || 0;
 
-      // Eğer henüz banka hesabı seçilmemişse faturanın para birimine uygun ilk banka hesabımızı seç
+      // Fatura açıklaması veya kategorisinden hizmet türünü otomatik algıla
+      const hizmetSelect = document.getElementById('y_hizmetTuru');
+      if (hizmetSelect) {
+          const metinKontrol = `${f.aciklama || ''} ${f.kategori || ''}`.toLowerCase();
+          if (metinKontrol.includes('muhasebe') || metinKontrol.includes('finans') || metinKontrol.includes('vergi') || metinKontrol.includes('accounting') || metinKontrol.includes('tax') || metinKontrol.includes('finance') || metinKontrol.includes('savjetovanje')) {
+              hizmetSelect.value = 'FinansMuhasebe';
+          } else if (metinKontrol.includes('yazılım') || metinKontrol.includes('yazilim') || metinKontrol.includes('software') || metinKontrol.includes('it')) {
+              hizmetSelect.value = 'YazilimIT';
+          } else if (metinKontrol.includes('danışmanlık') || metinKontrol.includes('danismanlik') || metinKontrol.includes('consult')) {
+              hizmetSelect.value = 'GenelDanismanlik';
+          } else {
+              hizmetSelect.value = 'Transport';
+          }
+      }
+
       const bSelect = document.getElementById('y_bankaId');
       if (bSelect && !bSelect.value) {
           const hedefBirim = f.paraBirimi || 'EUR';
           const uygunBanka = bankaListesi.find(b => b.tur !== 'Kasa' && (b.paraBirimi || 'EUR') === hedefBirim) || bankaListesi.find(b => b.tur !== 'Kasa');
           if (uygunBanka) bSelect.value = uygunBanka.id;
-      }
-  };
-
-  // Maaş Ödemesi Seçeneğine Göre Görünürlüğü Ayarlama
-  window.yazismaMaasToggle = function() {
-      const sablon = document.getElementById('y_sablon').value;
-      const isMaasCheck = document.getElementById('y_isMaas').checked;
-
-      const maasAlani = document.getElementById('y_maas_alani');
-      const maasDonemDiv = document.getElementById('y_maas_donem_div');
-
-      if (sablon === 'EFT') {
-          if (maasAlani) maasAlani.style.display = 'flex';
-          if (maasDonemDiv) maasDonemDiv.style.display = isMaasCheck ? 'block' : 'none';
-      } else {
-          if (maasAlani) maasAlani.style.display = 'none';
-          if (maasDonemDiv) maasDonemDiv.style.display = 'none';
       }
   };
 
@@ -464,10 +509,12 @@
       const fatura = faturaListesi.find(f => f.id === faturaId);
 
       let bankaKurumAdi = 'HIPOTEKARNA BANKA AD PODGORICA';
-      let gonderenIban = v.yerelHesap || '520-57627-48';
+      let gonderenYerelHesap = v.yerelHesap || '520-57627-48';
+      let gonderenIban = v.iban || 'ME25520042000002301240';
 
       if (banka) {
-          gonderenIban = banka.yerelHesap || banka.iban || v.yerelHesap || '520-57627-48';
+          gonderenYerelHesap = banka.yerelHesap || v.yerelHesap || '520-57627-48';
+          gonderenIban = banka.iban || v.iban || 'ME25520042000002301240';
           if (banka.bankaAdi && banka.hesapAdi) {
               bankaKurumAdi = `${banka.bankaAdi.toUpperCase()} - ${banka.hesapAdi.toUpperCase()}`;
           } else if (banka.bankaAdi) {
@@ -482,6 +529,10 @@
       let aliciIban = cari.iban || '[ALICI IBAN/ACCOUNT]';
       let aliciPib = cari.vergiNo || '[ALICI PIB]';
 
+      let direktorTemiz = (v.direktor || 'TARIK GUN').split('(')[0].trim().toUpperCase();
+      let sirketUnvan = (v.tamUnvan || 'EURO VERITAS COLSUNTING D.O.O.').toUpperCase();
+      let pibNo = v.pib || '03791971';
+
       let kurum = '';
       let konu = '';
       let metin = '';
@@ -490,6 +541,7 @@
           let faturaNo = fatura ? fatura.faturaNo : '[FATURA NO]';
           let paraBirimi = (fatura && fatura.paraBirimi) ? fatura.paraBirimi : (banka ? banka.paraBirimi : 'EUR');
           let gonderenFirma = fatura ? fatura.cariUnvan : (cariId ? aliciUnvan : '[GÖNDEREN FİRMA]');
+          let hizmetTuru = document.getElementById('y_hizmetTuru')?.value || 'Transport';
           
           let ulkeStr = 'Turske';
           if (cari && cari.ulke) {
@@ -498,13 +550,48 @@
               else ulkeStr = cari.ulke;
           }
 
-          let direktorTemiz = (v.direktor || 'TARIK GUN').split('(')[0].trim().toUpperCase();
-          let sirketUnvan = (v.tamUnvan || 'EURO VERITAS COLSUNTING D.O.O.').toUpperCase();
-          let pibNo = v.pib || '03791971';
+          let osnovPrilivaMetni = '- Osnov priliva: Provizija za posredovanje u međunarodnom transportu / Ostale poslovne i transportne usluge (Šifra osnova: 215 ili 310).';
+          if (hizmetTuru === 'FinansMuhasebe') {
+              osnovPrilivaMetni = '- Osnov priliva: Usluge finansijskog, računovodstvenog i poreskog savjetovanja (Šifra osnova: 305).';
+          } else if (hizmetTuru === 'GenelDanismanlik') {
+              osnovPrilivaMetni = '- Osnov priliva: Usluge poslovnog i menadžment savjetovanja / Ostale poslovne usluge (Šifra osnova: 310).';
+          } else if (hizmetTuru === 'YazilimIT') {
+              osnovPrilivaMetni = '- Osnov priliva: Računarske, softverske i informacione usluge (Šifra osnova: 282).';
+          }
 
           kurum = banka && banka.bankaAdi ? `${banka.bankaAdi.toUpperCase()} - Međunarodni platni promet` : 'HIPOTEKARNA BANKA AD PODGORICA - Međunarodni platni promet';
           konu = `Obavještenje o deviznom prilivu / Loro doznaka (Faktura br. #${faturaNo})`;
-          metin = `Poštovani,\n\nU prilogu Vam dostavljamo fiskalizovanu fakturu br. #${faturaNo} (iznos: ${tutarStrDe} ${paraBirimi}) za prispjeli priliv od komitenta ${gonderenFirma} iz ${ulkeStr}.\n\n- Osnov priliva: Provizija za posredovanje u međunarodnom transportu / Ostale poslovne i transportne usluge (Šifra osnova: 215 ili 310).\n- Molimo Vas da sredstva rasporedite na naš račun u ${paraBirimi} (${gonderenIban}).\n\nSrdačan pozdrav,\n${direktorTemiz}\n${sirketUnvan}\nPIB: ${pibNo}`;
+          metin = `Poštovani,\n\nU prilogu Vam dostavljamo fiskalizovanu fakturu br. #${faturaNo} (iznos: ${tutarStrDe} ${paraBirimi}) za prispjeli priliv od komitenta ${gonderenFirma} iz ${ulkeStr}.\n\n${osnovPrilivaMetni}\n- Molimo Vas da sredstva rasporedite na naš račun u ${paraBirimi}: ${gonderenYerelHesap} (IBAN: ${gonderenIban}).\n\nSrdačan pozdrav,\n${direktorTemiz}\n${sirketUnvan}\nPIB: ${pibNo}`;
+      }
+      else if (sablon === 'SGK_Doprinosi') {
+          const sgkDonemVal = document.getElementById('y_sgkDonem')?.value || '';
+          let donemFormatted = '[AA/YYYY]';
+          if (sgkDonemVal) {
+              const [sYil, sAy] = sgkDonemVal.split('-');
+              donemFormatted = `${sAy}/${sYil}`;
+          }
+          const sgkKisi = document.getElementById('y_sgkKisi')?.value || direktorTemiz;
+          const sgkJmbg = document.getElementById('y_sgkJmbg')?.value || '[JMBG / KİMLİK NO]';
+          const sgkHesapNo = document.getElementById('y_sgkHesapNo')?.value || '[RAČUN ZA UPLATU DOPRINOSA]';
+
+          kurum = bankaKurumAdi;
+          konu = `Nalog za prenos - Doprinosi za obavezno socijalno osiguranje (${donemFormatted})`;
+          metin = `Poštovani,\n\nMolimo Vas da sa našeg žiro računa broj: ${gonderenYerelHesap} izvršite prenos novčanih sredstava na ime obaveznih doprinosa za socijalno osiguranje (PIO, zdravstveno i osiguranje od nezaposlenosti) za osnivača / izvršnog direktora kompanije:\n\nPrimalac: Uprava prihoda Crne Gore (Jedinstveni račun poreza i doprinosa)\nBroj računa za uplatu: ${sgkHesapNo}\nIznos za uplatu: ${tutarStrDe} EUR\nObračunski period: ${donemFormatted}. godine\nOsiguranik (Direktor / Osnivač): ${sgkKisi}\nJMBG / Evidencioni broj osiguranika: ${sgkJmbg}\nPoziv na broj (PIB firme): ${pibNo}\nŠifra plaćanja: 253 (Uplata doprinosa za obavezno socijalno osiguranje)\nSvrha uplate: Doprinosi za socijalno osiguranje za ${donemFormatted}. god. - PIB ${pibNo}\n\nMolimo Vas da nam nakon realizacije dostavite potvrdu o izvršenom plaćanju.\n\nSrdačan pozdrav,\n${direktorTemiz}\n${sirketUnvan}\nPIB: ${pibNo}`;
+      }
+      else if (sablon === 'Vergi') {
+          const vergiTuru = document.getElementById('y_vergiTuru')?.value || 'PDV (Porez na dodatu vrijednost)';
+          const vergiTuruKisa = vergiTuru.split('(')[0].trim();
+          const vergiDonemVal = document.getElementById('y_vergiDonem')?.value || '';
+          let donemFormatted = '[AA/YYYY]';
+          if (vergiDonemVal) {
+              const [vYil, vAy] = vergiDonemVal.split('-');
+              donemFormatted = `${vAy}/${vYil}`;
+          }
+          const vergiHesapNo = document.getElementById('y_vergiHesapNo')?.value || '[RAČUN ZA UPLATU POREZA]';
+
+          kurum = bankaKurumAdi;
+          konu = `Nalog za prenos - Uplata poreza: ${vergiTuruKisa} (${donemFormatted})`;
+          metin = `Poštovani,\n\nMolimo Vas da sa našeg žiro računa broj: ${gonderenYerelHesap} izvršite prenos novčanih sredstava za uplatu poreskih obaveza kompanije:\n\nPrimalac: Uprava prihoda Crne Gore\nVrsta poreza: ${vergiTuru}\nBroj računa za uplatu: ${vergiHesapNo}\nIznos za uplatu: ${tutarStrDe} EUR\nObračunski period: ${donemFormatted}. godine\nPoziv na broj (PIB firme): ${pibNo}\nŠifra plaćanja: 253 (Uplata javnih prihoda / poreza)\nSvrha uplate: Uplata ${vergiTuruKisa} za ${donemFormatted}. god. - PIB ${pibNo}\n\nMolimo Vas da nam nakon realizacije dostavite potvrdu o izvršenom plaćanju.\n\nSrdačan pozdrav,\n${direktorTemiz}\n${sirketUnvan}\nPIB: ${pibNo}`;
       }
       else if (sablon === 'EFT') {
           kurum = bankaKurumAdi;
@@ -520,27 +607,22 @@
               }
           }
 
-          metin = `Poštovani,\n\nMolimo vas da sa našeg žiro računa broj: ${gonderenIban}\nizvršite prenos novčanih sredstava u iznosu od ${tutarStr} EUR na žiro račun primaoca:\n\nPrimalac: ${aliciUnvan}\nBanka primaoca: ${aliciBanka}\nŽiro račun primaoca: ${aliciIban}\nPIB primaoca: ${aliciPib}\nSvrha doznake: ${svrhaDoznake}\n\nUnaprijed zahvalni na saradnji.`;
-      } 
-      else if (sablon === 'Vergi') {
-          kurum = 'Uprava prihoda i carina Crne Gore';
-          konu = 'Prenos sredstava za obaveze po osnovu poreza i doprinosa';
-          metin = `Poštovani,\n\nOvim putem dajemo nalog za prenos sredstava sa našeg žiro računa: ${gonderenIban} za uplatu poreza i doprinosa na zarade zaposlenih za obračunski period [DÖNEM: Npr. 02/2026].\n\nUkupan iznos poreza i doprinosa: ${tutarStr} EUR\nBroj računa za uplatu: [VERGİ DAİRESİ HESAP NO]\nPoziv na broj: ${v.pib || '[PIB / MATIČNI BROJ]'}\n\nMolimo da potvrdite obradu naloga.`;
+          metin = `Poštovani,\n\nMolimo vas da sa našeg žiro računa broj: ${gonderenYerelHesap}\nizvršite prenos novčanih sredstava u iznosu od ${tutarStr} EUR na žiro račun primaoca:\n\nPrimalac: ${aliciUnvan}\nBanka primaoca: ${aliciBanka}\nŽiro račun primaoca: ${aliciIban}\nPIB primaoca: ${aliciPib}\nSvrha doznake: ${svrhaDoznake}\n\nUnaprijed zahvalni na saradnji.`;
       } 
       else if (sablon === 'ParaCekme') {
           kurum = bankaKurumAdi;
           konu = 'Zahtjev za isplatu gotovine sa računa';
-          metin = `Poštovani,\n\nOvim nalogom ovlašćujemo izvršnog direktora kompanije, ${(v.direktor || '[DİREKTÖR İSMİ]').split('(')[0].trim()}, da podigne gotovinu sa našeg žiro računa broj: ${gonderenIban}.\n\nIznos za podizanje: ${tutarStr} EUR\nSvrha podizanja gotovine: Materijalni troškovi / službeni put.\n\nMolimo da pripremite navedeni iznos.`;
+          metin = `Poštovani,\n\nOvim nalogom ovlašćujemo izvršnog direktora kompanije, ${(v.direktor || '[DİREKTÖR İSMİ]').split('(')[0].trim()}, da podigne gotovinu sa našeg žiro računa broj: ${gonderenYerelHesap}.\n\nIznos za podizanje: ${tutarStr} EUR\nSvrha podizanja gotovine: Materijalni troškovi / službeni put.\n\nMolimo da pripremite navedeni iznos.`;
       } 
       else if (sablon === 'BankaDopis') {
           kurum = bankaKurumAdi;
           konu = 'Zahtjev za izdavanje bankarske potvrde / izvoda';
-          metin = `Poštovani,\n\nMolimo vas da nam za potrebe poslovanja naše kompanije izdate zvaničnu bankarsku potvrdu o stanju i prometu na našem žiro računu broj: ${gonderenIban} za period od [BAŞLANGIÇ] do [BİTİŞ].\n\nPotvrdu možete dostaviti putem e-maila ili preuzeti lično u vašoj filijali.`;
+          metin = `Poštovani,\n\nMolimo vas da nam za potrebe poslovanja naše kompanije izdate zvaničnu bankarsku potvrdu o stanju i prometu na našem žiro računu broj: ${gonderenYerelHesap} za period od [BAŞLANGIÇ] do [BİTİŞ].\n\nPotvrdu možete dostaviti putem e-maila ili preuzeti lično u vašoj filijali.`;
       } 
       else if (sablon === 'DevletDopis') {
           kurum = 'Uprava prihoda i carina / Centralni registar privrednih subjekata (CRPS)';
           konu = 'Zahtjev za izdavanje potvrde o izmirenim poreskim obavezama';
-          metin = `Poštovani,\n\nObraćamo vam se sa zahtjevom za izdavanje Potvrde o izmirenim poreskim obavezama za našu kompaniju "${v.tamUnvan || 'Euro Veritas Doo'}", PIB: ${v.pib || '-'}.\n\nNavedena potvrda nam je potrebna radi [KULLANIM AMACI: Npr. produženja dozvole za boravak i rad / učešća na tenderu].\n\nPriložili dokaz o uplati administrativne takse.`;
+          metin = `Poštovani,\n\nObraćamo vam se sa zahtjevom za izdavanje Potvrde o izmirenim poreskim obavezama za našu kompaniju "${v.tamUnvan || 'Euro Veritas Doo'}", PIB: ${pibNo}.\n\nNavedena potvrda nam je potrebna radi [KULLANIM AMACI: Npr. produženja dozvole za boravak i rad / učešća na tenderu].\n\nPriložili dokaz o uplati administrativne takse.`;
       }
 
       if (kurum) document.getElementById('y_kurum').value = kurum;
@@ -559,14 +641,29 @@
       const bankaId = document.getElementById('y_bankaId').value || '';
       const cariId = document.getElementById('y_cariId').value || '';
       const faturaId = document.getElementById('y_faturaId')?.value || '';
+      const hizmetTuru = document.getElementById('y_hizmetTuru')?.value || 'Transport';
       const tutar = parseFloat(document.getElementById('y_tutar').value) || 0;
       const isMaas = document.getElementById('y_isMaas').checked || false;
       const maasDonem = document.getElementById('y_maasDonem').value || '';
+
+      const sgkDonem = document.getElementById('y_sgkDonem')?.value || '';
+      const sgkKisi = document.getElementById('y_sgkKisi')?.value || '';
+      const sgkJmbg = document.getElementById('y_sgkJmbg')?.value || '';
+      const sgkHesapNo = document.getElementById('y_sgkHesapNo')?.value || '';
+
+      const vergiTuru = document.getElementById('y_vergiTuru')?.value || '';
+      const vergiDonem = document.getElementById('y_vergiDonem')?.value || '';
+      const vergiHesapNo = document.getElementById('y_vergiHesapNo')?.value || '';
 
       if (!tarih || !kurum || !konu || !metin) {
           alert("Lütfen tüm zorunlu alanları doldurun.");
           return;
       }
+
+      // Sonraki aylarda tekrar yazmamak için JMBG ve Vergi Dairesi hesap numaralarını hafızada tut
+      if (sgkJmbg) localStorage.setItem('ev_sgk_jmbg', sgkJmbg);
+      if (sgkHesapNo) localStorage.setItem('ev_sgk_hesap', sgkHesapNo);
+      if (vergiHesapNo) localStorage.setItem('ev_vergi_hesap', vergiHesapNo);
 
       const data = {
           tarih: tarih,
@@ -577,9 +674,17 @@
           bankaId: bankaId,
           cariId: cariId,
           faturaId: faturaId,
+          hizmetTuru: hizmetTuru,
           tutar: tutar,
           isMaas: isMaas,
           maasDonem: maasDonem,
+          sgkDonem: sgkDonem,
+          sgkKisi: sgkKisi,
+          sgkJmbg: sgkJmbg,
+          sgkHesapNo: sgkHesapNo,
+          vergiTuru: vergiTuru,
+          vergiDonem: vergiDonem,
+          vergiHesapNo: vergiHesapNo,
           olusturmaTarihi: serverTimestamp()
       };
 
@@ -635,14 +740,24 @@
       document.getElementById('y_bankaId').value = y.bankaId || '';
       document.getElementById('y_cariId').value = y.cariId || '';
       if (document.getElementById('y_faturaId')) document.getElementById('y_faturaId').value = y.faturaId || '';
+      if (document.getElementById('y_hizmetTuru')) document.getElementById('y_hizmetTuru').value = y.hizmetTuru || 'Transport';
       document.getElementById('y_tutar').value = y.tutar || '';
       document.getElementById('y_isMaas').checked = y.isMaas || false;
 
       const bugun = new Date();
-      document.getElementById('y_maasDonem').value = y.maasDonem || `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, '0')}`;
+      const buAyStr = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, '0')}`;
+      document.getElementById('y_maasDonem').value = y.maasDonem || buAyStr;
 
-      window.yazismaMaasToggle();
-      window.yazismaFaturaToggle();
+      if (document.getElementById('y_sgkDonem')) document.getElementById('y_sgkDonem').value = y.sgkDonem || buAyStr;
+      if (document.getElementById('y_sgkKisi')) document.getElementById('y_sgkKisi').value = y.sgkKisi || '';
+      if (document.getElementById('y_sgkJmbg')) document.getElementById('y_sgkJmbg').value = y.sgkJmbg || '';
+      if (document.getElementById('y_sgkHesapNo')) document.getElementById('y_sgkHesapNo').value = y.sgkHesapNo || '';
+
+      if (document.getElementById('y_vergiTuru')) document.getElementById('y_vergiTuru').value = y.vergiTuru || 'PDV (Porez na dodatu vrijednost)';
+      if (document.getElementById('y_vergiDonem')) document.getElementById('y_vergiDonem').value = y.vergiDonem || buAyStr;
+      if (document.getElementById('y_vergiHesapNo')) document.getElementById('y_vergiHesapNo').value = y.vergiHesapNo || '';
+
+      window.yazismaAlanlariGuncelle();
 
       document.getElementById('y_kurum').value = y.kurum || '';
       document.getElementById('y_konu').value = y.konu || '';
@@ -5114,11 +5229,12 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                     <div class="row mb-3">
                                         <div class="col-md-6">
                                             <label class="form-label text-muted small fw-bold">Hazır Matbu Şablon Seçin</label>
-                                            <select class="form-select border-primary fw-medium" id="y_sablon" onchange="yazismaMaasToggle(); yazismaFaturaToggle(); yazismaSablonSec();">
+                                            <select class="form-select border-primary fw-medium" id="y_sablon" onchange="yazismaAlanlariGuncelle(); yazismaSablonSec();">
                                                 <option value="Serbest">-- Özel / Serbest Metin --</option>
                                                 <option value="LoroDoznaka">Obavještenje o prilivu / Loro doznaka (Gelen Döviz Beyanı)</option>
+                                                <option value="SGK_Doprinosi">Doprinosi / SGK - Bağ-Kur Ödeme Talimatı (Tek Ortak / Direktör)</option>
+                                                <option value="Vergi">Porezi / Vergi Ödeme Talimatı (PDV, Kurumlar, Stopaj)</option>
                                                 <option value="EFT">Nalog za prenos (Banka Havale/EFT Talimatı)</option>
-                                                <option value="Vergi">Porezi i Doprinosi (Vergi / SGK Ödeme Talimatı)</option>
                                                 <option value="ParaCekme">Isplaćivanje gotovine (Nakit Para Çekme Talimatı)</option>
                                                 <option value="BankaDopis">Opšti dopis banki (Bankaya Genel Dilekçe)</option>
                                                 <option value="DevletDopis">Zahtjev državnim organima (Devlet Dairesine Başvuru)</option>
@@ -5132,24 +5248,76 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
 
                                     <!-- DİNAMİK SEÇİM ALANLARI -->
                                     <div class="p-3 bg-light rounded border border-secondary border-opacity-25 mb-3">
-                                        <h6 class="text-primary fw-bold mb-2 small"><i class="fas fa-sliders-h me-1"></i> Otomatik Doldurma Parametreleri (Banka, Cari & Fatura)</h6>
+                                        <h6 class="text-primary fw-bold mb-2 small"><i class="fas fa-sliders-h me-1"></i> Otomatik Doldurma Parametreleri</h6>
                                         
-                                        <!-- GELEN DÖVİZ / LORO DOZNAKA FATURA SEÇİMİ -->
+                                        <!-- 1. GELEN DÖVİZ / LORO DOZNAKA FATURA & HİZMET KODU SEÇİMİ -->
                                         <div class="row g-2 mb-2 pb-2 border-bottom align-items-center" id="y_fatura_alani" style="display: none;">
-                                            <div class="col-md-12">
-                                                <label class="form-label text-success fw-bold small mb-1"><i class="fas fa-file-invoice-dollar me-1"></i> Ödemesi Gelen Faturayı Seçin (Müşteri, Tutar ve Hesabı Otomatik Doldurur)</label>
+                                            <div class="col-md-7">
+                                                <label class="form-label text-success fw-bold small mb-1"><i class="fas fa-file-invoice-dollar me-1"></i> Ödemesi Gelen Faturayı Seçin *</label>
                                                 <select class="form-select form-select-sm border-success fw-medium" id="y_faturaId" onchange="yazismaFaturaSecildi(); yazismaSablonSec();">
                                                     <option value="">-- Kesilmiş Faturalardan Seçin --</option>
                                                 </select>
                                             </div>
+                                            <div class="col-md-5">
+                                                <label class="form-label text-primary fw-bold small mb-1"><i class="fas fa-tag me-1"></i> Hizmet Türü / CBCG Kodu (Šifra)</label>
+                                                <select class="form-select form-select-sm border-primary fw-medium" id="y_hizmetTuru" onchange="yazismaSablonSec()">
+                                                    <option value="Transport">Nakliye & Taşımacılık Komisyonu (215 / 310)</option>
+                                                    <option value="FinansMuhasebe">Finans, Muhasebe & Vergi Danışmanlığı (305)</option>
+                                                    <option value="GenelDanismanlik">Genel İşletme & Yönetim Danışmanlığı (310)</option>
+                                                    <option value="YazilimIT">Yazılım ve BT Hizmetleri (282)</option>
+                                                </select>
+                                            </div>
                                         </div>
 
+                                        <!-- 2. SGK / BAĞ-KUR (DOPRINOSI) PARAMETRELERİ -->
+                                        <div class="row g-2 mb-2 pb-2 border-bottom align-items-center" id="y_sgk_alani" style="display: none;">
+                                            <div class="col-md-3">
+                                                <label class="form-label text-danger fw-bold small mb-1">Prim Dönemi (Ay/Yıl)</label>
+                                                <input type="month" class="form-control form-control-sm border-danger" id="y_sgkDonem" onchange="yazismaSablonSec()">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label text-muted fw-bold small mb-1">Sigortalı (Direktör)</label>
+                                                <input type="text" class="form-control form-control-sm" id="y_sgkKisi" placeholder="TARIK GUN" onkeyup="yazismaSablonSec()" onchange="yazismaSablonSec()">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label text-muted fw-bold small mb-1">JMBG / Kimlik No</label>
+                                                <input type="text" class="form-control form-control-sm font-monospace" id="y_sgkJmbg" placeholder="JMBG / Evid. br." onkeyup="yazismaSablonSec()" onchange="yazismaSablonSec()">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label text-muted fw-bold small mb-1">SGK Hesap No (Hazine)</label>
+                                                <input type="text" class="form-control form-control-sm font-monospace" id="y_sgkHesapNo" placeholder="820-30000-74" onkeyup="yazismaSablonSec()" onchange="yazismaSablonSec()">
+                                            </div>
+                                        </div>
+
+                                        <!-- 3. VERGİ ÖDEMESİ (POREZI) PARAMETRELERİ -->
+                                        <div class="row g-2 mb-2 pb-2 border-bottom align-items-center" id="y_vergi_alani" style="display: none;">
+                                            <div class="col-md-5">
+                                                <label class="form-label text-warning text-dark fw-bold small mb-1">Vergi Türü (Vrsta poreza)</label>
+                                                <select class="form-select form-select-sm border-warning" id="y_vergiTuru" onchange="yazismaSablonSec()">
+                                                    <option value="PDV (Porez na dodatu vrijednost)">PDV (KDV Ödemesi)</option>
+                                                    <option value="Porez na dobit pravnih lica">Porez na dobit (Kurumlar Vergisi)</option>
+                                                    <option value="Porez po odbitku (Dividenda / Zakup)">Porez po odbitku (Stopaj Vergisi)</option>
+                                                    <option value="Porez na dohodak fizičkih lica">Porez na dohodak (Gelir Vergisi)</option>
+                                                    <option value="Administrativna taksa">Administrativna taksa (Resmi Harç)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label text-muted fw-bold small mb-1">Vergi Dönemi</label>
+                                                <input type="month" class="form-control form-control-sm" id="y_vergiDonem" onchange="yazismaSablonSec()">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label text-muted fw-bold small mb-1">Vergi Dairesi Hesap No</label>
+                                                <input type="text" class="form-control form-control-sm font-monospace" id="y_vergiHesapNo" placeholder="820-..." onkeyup="yazismaSablonSec()" onchange="yazismaSablonSec()">
+                                            </div>
+                                        </div>
+
+                                        <!-- ORTAK BANKA / CARİ / TUTAR SATIRI -->
                                         <div class="row g-2">
                                             <div class="col-md-5">
                                                 <label class="form-label text-muted small mb-1">Banka Hesabımız</label>
                                                 <select class="form-select form-select-sm" id="y_bankaId" onchange="yazismaSablonSec()"></select>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-4" id="y_cari_div">
                                                 <label class="form-label text-muted small mb-1">İlgili Cari (Alıcı / Gönderen)</label>
                                                 <select class="form-select form-select-sm" id="y_cariId" onchange="yazismaMaasTutarOtomatikDoldur(); yazismaSablonSec()"></select>
                                             </div>
@@ -5163,7 +5331,7 @@ window.bankaEkstreAc = async function(bankaId, reRender = false) {
                                         <div class="row g-2 mt-2 pt-2 border-top align-items-center" id="y_maas_alani" style="display: none;">
                                             <div class="col-md-5">
                                                 <div class="form-check form-switch pt-1">
-                                                    <input class="form-check-input" type="checkbox" id="y_isMaas" onchange="yazismaMaasToggle(); yazismaMaasTutarOtomatikDoldur(); yazismaSablonSec();">
+                                                    <input class="form-check-input" type="checkbox" id="y_isMaas" onchange="yazismaAlanlariGuncelle(); yazismaMaasTutarOtomatikDoldur(); yazismaSablonSec();">
                                                     <label class="form-check-label small fw-bold text-dark" for="y_isMaas"><i class="fas fa-money-check-alt text-success me-1"></i> Maaş Ödemesi Talimatı</label>
                                                 </div>
                                             </div>
